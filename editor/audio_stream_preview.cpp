@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  audio_stream_preview.cpp                                              */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  audio_stream_preview.cpp                                             */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "audio_stream_preview.h"
 
@@ -35,17 +35,12 @@
 float AudioStreamPreview::get_length() const {
 	return length;
 }
-
 float AudioStreamPreview::get_max(float p_time, float p_time_next) const {
 	if (length == 0) {
 		return 0;
 	}
 
 	int max = preview.size() / 2;
-	if (max == 0) {
-		return 0;
-	}
-
 	int time_from = p_time / length * max;
 	int time_to = p_time_next / length * max;
 	time_from = CLAMP(time_from, 0, max - 1);
@@ -66,17 +61,12 @@ float AudioStreamPreview::get_max(float p_time, float p_time_next) const {
 
 	return (vmax / 255.0) * 2.0 - 1.0;
 }
-
 float AudioStreamPreview::get_min(float p_time, float p_time_next) const {
 	if (length == 0) {
 		return 0;
 	}
 
 	int max = preview.size() / 2;
-	if (max == 0) {
-		return 0;
-	}
-
 	int time_from = p_time / length * max;
 	int time_to = p_time_next / length * max;
 	time_from = CLAMP(time_from, 0, max - 1);
@@ -105,11 +95,11 @@ AudioStreamPreview::AudioStreamPreview() {
 ////
 
 void AudioStreamPreviewGenerator::_update_emit(ObjectID p_id) {
-	emit_signal(SNAME("preview_updated"), p_id);
+	emit_signal("preview_updated", p_id);
 }
 
 void AudioStreamPreviewGenerator::_preview_thread(void *p_preview) {
-	Preview *preview = static_cast<Preview *>(p_preview);
+	Preview *preview = (Preview *)p_preview;
 
 	float muxbuff_chunk_s = 0.25;
 
@@ -158,10 +148,8 @@ void AudioStreamPreviewGenerator::_preview_thread(void *p_preview) {
 		}
 
 		frames_todo -= to_read;
-		singleton->call_deferred(SNAME("_update_emit"), preview->id);
+		singleton->call_deferred("_update_emit", preview->id);
 	}
-
-	preview->preview->version++;
 
 	preview->playback->stop();
 
@@ -181,7 +169,7 @@ Ref<AudioStreamPreview> AudioStreamPreviewGenerator::generate_preview(const Ref<
 
 	Preview *preview = &previews[p_stream->get_instance_id()];
 	preview->base_stream = p_stream;
-	preview->playback = preview->base_stream->instantiate_playback();
+	preview->playback = preview->base_stream->instance_playback();
 	preview->generating.set();
 	preview->id = p_stream->get_instance_id();
 
@@ -202,13 +190,12 @@ Ref<AudioStreamPreview> AudioStreamPreviewGenerator::generate_preview(const Ref<
 		}
 	}
 
-	preview->preview.instantiate();
+	preview->preview.instance();
 	preview->preview->preview = maxmin;
 	preview->preview->length = len_s;
 
 	if (preview->playback.is_valid()) {
 		preview->thread = memnew(Thread);
-		preview->thread->set_name("AudioStreamPreviewGenerator");
 		preview->thread->start(_preview_thread, preview);
 	}
 
@@ -225,27 +212,25 @@ void AudioStreamPreviewGenerator::_bind_methods() {
 AudioStreamPreviewGenerator *AudioStreamPreviewGenerator::singleton = nullptr;
 
 void AudioStreamPreviewGenerator::_notification(int p_what) {
-	switch (p_what) {
-		case NOTIFICATION_PROCESS: {
-			List<ObjectID> to_erase;
-			for (KeyValue<ObjectID, Preview> &E : previews) {
-				if (!E.value.generating.is_set()) {
-					if (E.value.thread) {
-						E.value.thread->wait_to_finish();
-						memdelete(E.value.thread);
-						E.value.thread = nullptr;
-					}
-					if (!ObjectDB::get_instance(E.key)) { //no longer in use, get rid of preview
-						to_erase.push_back(E.key);
-					}
+	if (p_what == NOTIFICATION_PROCESS) {
+		List<ObjectID> to_erase;
+		for (Map<ObjectID, Preview>::Element *E = previews.front(); E; E = E->next()) {
+			if (!E->get().generating.is_set()) {
+				if (E->get().thread) {
+					E->get().thread->wait_to_finish();
+					memdelete(E->get().thread);
+					E->get().thread = nullptr;
+				}
+				if (!ObjectDB::get_instance(E->key())) { //no longer in use, get rid of preview
+					to_erase.push_back(E->key());
 				}
 			}
+		}
 
-			while (to_erase.front()) {
-				previews.erase(to_erase.front()->get());
-				to_erase.pop_front();
-			}
-		} break;
+		while (to_erase.front()) {
+			previews.erase(to_erase.front()->get());
+			to_erase.pop_front();
+		}
 	}
 }
 

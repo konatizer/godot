@@ -242,17 +242,13 @@ namespace embree
     T cosTheta = dot(q0, q1_);
     QuaternionT<T> q1 = select(cosTheta < 0.f, -q1_, q1_);
     cosTheta          = select(cosTheta < 0.f, -cosTheta, cosTheta);
-
-    // spherical linear interpolation
+    if (unlikely(all(cosTheta > 0.9995f))) {
+      return normalize(lerp(q0, q1, t));
+    }
     const T phi = t * fastapprox::acos(cosTheta);
     T sinPhi, cosPhi;
     fastapprox::sincos(phi, sinPhi, cosPhi);
     QuaternionT<T> qperp = sinPhi * normalize(msub(cosTheta, q0, q1));
-    QuaternionT<T> qslerp = msub(cosPhi, q0, qperp);
-
-    // regular linear interpolation as fallback
-    QuaternionT<T> qlerp = normalize(lerp(q0, q1, t));
-
-    return select(cosTheta > 0.9995f, qlerp, qslerp);
+    return msub(cosPhi, q0, qperp);
   }
 }

@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  joypad_windows.h                                                      */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  joypad_windows.h                                                     */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef JOYPAD_WINDOWS_H
 #define JOYPAD_WINDOWS_H
@@ -35,13 +35,13 @@
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
-#include <xinput.h>
+#include <xinput.h> // on unix the file is called "xinput.h", on windows I'm sure it won't mind
 
 #ifndef SAFE_RELEASE // when Windows Media Device M? is not present
 #define SAFE_RELEASE(x) \
-	if (x != nullptr) { \
+	if (x != NULL) {    \
 		x->Release();   \
-		x = nullptr;    \
+		x = NULL;       \
 	}
 #endif
 
@@ -52,7 +52,7 @@
 class JoypadWindows {
 public:
 	JoypadWindows();
-	JoypadWindows(HWND *hwnd);
+	JoypadWindows(InputDefault *_input, HWND *hwnd);
 	~JoypadWindows();
 
 	void probe_joypads();
@@ -85,32 +85,37 @@ private:
 			last_pad = -1;
 			attached = false;
 			confirmed = false;
-			di_joy = nullptr;
-			guid = {};
 
-			for (int i = 0; i < MAX_JOY_BUTTONS; i++) {
+			for (int i = 0; i < MAX_JOY_BUTTONS; i++)
 				last_buttons[i] = false;
-			}
 		}
 	};
 
 	struct xinput_gamepad {
-		int id = 0;
-		bool attached = false;
-		bool vibrating = false;
-		DWORD last_packet = 0;
+		int id;
+		bool attached;
+		bool vibrating;
+		DWORD last_packet;
 		XINPUT_STATE state;
-		uint64_t ff_timestamp = 0;
-		uint64_t ff_end_timestamp = 0;
+		uint64_t ff_timestamp;
+		uint64_t ff_end_timestamp;
+
+		xinput_gamepad() {
+			attached = false;
+			vibrating = false;
+			ff_timestamp = 0;
+			ff_end_timestamp = 0;
+			last_packet = 0;
+		}
 	};
 
 	typedef DWORD(WINAPI *XInputGetState_t)(DWORD dwUserIndex, XINPUT_STATE *pState);
 	typedef DWORD(WINAPI *XInputSetState_t)(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration);
 
-	HWND *hWnd = nullptr;
+	HWND *hWnd;
 	HANDLE xinput_dll;
 	LPDIRECTINPUT8 dinput;
-	Input *input = nullptr;
+	InputDefault *input;
 
 	int id_to_change;
 	int slider_count;

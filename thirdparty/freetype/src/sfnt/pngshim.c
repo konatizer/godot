@@ -4,7 +4,7 @@
  *
  *   PNG Bitmap glyph support.
  *
- * Copyright (C) 2013-2023 by
+ * Copyright (C) 2013-2022 by
  * Google, Inc.
  * Written by Stuart Gill and Behdad Esfahbod.
  *
@@ -239,7 +239,7 @@
       *e = FT_THROW( Invalid_Stream_Read );
       png_error( png, NULL );
 
-      /* return; (never reached) */
+      return;
     }
 
     ft_memcpy( data, stream->cursor, length );
@@ -406,7 +406,9 @@
 
     switch ( color_type )
     {
-    default:  /* Shouldn't happen, but ... */
+    default:
+      /* Shouldn't happen, but fall through. */
+
     case PNG_COLOR_TYPE_RGB_ALPHA:
       png_set_read_user_transform_fn( png, premultiply_data );
       break;
@@ -454,7 +456,7 @@
 #else /* !(TT_CONFIG_OPTION_EMBEDDED_BITMAPS && FT_CONFIG_OPTION_USE_PNG) */
 
   /* ANSI C doesn't like empty source files */
-  typedef int  pngshim_dummy_;
+  typedef int  _pngshim_dummy;
 
 #endif /* !(TT_CONFIG_OPTION_EMBEDDED_BITMAPS && FT_CONFIG_OPTION_USE_PNG) */
 

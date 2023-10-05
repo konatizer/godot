@@ -1,9 +1,10 @@
 ---
-Checks: 'clang-diagnostic-*,clang-analyzer-*,-*,cppcoreguidelines-pro-type-member-init,modernize-redundant-void-arg,modernize-use-bool-literals,modernize-use-default-member-init,modernize-use-nullptr,readability-braces-around-statements,readability-redundant-member-init'
+Checks:          'clang-diagnostic-*,clang-analyzer-*,-*,modernize-redundant-void-arg,modernize-use-bool-literals,modernize-use-nullptr,readability-braces-around-statements'
 WarningsAsErrors: ''
-HeaderFilterRegex: ''
+HeaderFilterRegex: '.*'
 AnalyzeTemporaryDtors: false
-FormatStyle: none
+FormatStyle:     none
+CheckOptions:
 CheckOptions:
   - key:             cert-dcl16-c.NewSuffixes
     value:           'L;LL;LU;LLU'
@@ -12,10 +13,6 @@ CheckOptions:
   - key:             cppcoreguidelines-explicit-virtual-functions.IgnoreDestructors
     value:           '1'
   - key:             cppcoreguidelines-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
-    value:           '1'
-  - key:             cppcoreguidelines-pro-type-member-init.IgnoreArrays
-    value:           '1'
-  - key:             cppcoreguidelines-pro-type-member-init.UseAssignment
     value:           '1'
   - key:             google-readability-function-size.StatementThreshold
     value:           '800'

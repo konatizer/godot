@@ -1,89 +1,87 @@
-/**************************************************************************/
-/*  file_access_encrypted.cpp                                             */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  file_access_encrypted.cpp                                            */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "file_access_encrypted.h"
 
 #include "core/crypto/crypto_core.h"
-#include "core/string/print_string.h"
-#include "core/variant/variant.h"
+#include "core/print_string.h"
+#include "core/variant.h"
 
 #include <stdio.h>
 
-Error FileAccessEncrypted::open_and_parse(Ref<FileAccess> p_base, const Vector<uint8_t> &p_key, Mode p_mode, bool p_with_magic) {
+#define COMP_MAGIC 0x43454447
+
+Error FileAccessEncrypted::open_and_parse(FileAccess *p_base, const Vector<uint8_t> &p_key, Mode p_mode) {
 	ERR_FAIL_COND_V_MSG(file != nullptr, ERR_ALREADY_IN_USE, "Can't open file while another file from path '" + file->get_path_absolute() + "' is open.");
 	ERR_FAIL_COND_V(p_key.size() != 32, ERR_INVALID_PARAMETER);
 
 	pos = 0;
 	eofed = false;
-	use_magic = p_with_magic;
 
 	if (p_mode == MODE_WRITE_AES256) {
 		data.clear();
 		writing = true;
 		file = p_base;
+		mode = p_mode;
 		key = p_key;
 
 	} else if (p_mode == MODE_READ) {
 		writing = false;
 		key = p_key;
+		uint32_t magic = p_base->get_32();
+		ERR_FAIL_COND_V(magic != COMP_MAGIC, ERR_FILE_UNRECOGNIZED);
 
-		if (use_magic) {
-			uint32_t magic = p_base->get_32();
-			ERR_FAIL_COND_V(magic != ENCRYPTED_HEADER_MAGIC, ERR_FILE_UNRECOGNIZED);
-		}
+		mode = Mode(p_base->get_32());
+		ERR_FAIL_INDEX_V(mode, MODE_MAX, ERR_FILE_CORRUPT);
+		ERR_FAIL_COND_V(mode == 0, ERR_FILE_CORRUPT);
 
 		unsigned char md5d[16];
 		p_base->get_buffer(md5d, 16);
 		length = p_base->get_64();
-
-		unsigned char iv[16];
-		for (int i = 0; i < 16; i++) {
-			iv[i] = p_base->get_8();
-		}
-
 		base = p_base->get_position();
-		ERR_FAIL_COND_V(p_base->get_length() < base + length, ERR_FILE_CORRUPT);
+		ERR_FAIL_COND_V(p_base->get_len() < base + length, ERR_FILE_CORRUPT);
 		uint64_t ds = length;
 		if (ds % 16) {
 			ds += 16 - (ds % 16);
 		}
+
 		data.resize(ds);
 
 		uint64_t blen = p_base->get_buffer(data.ptrw(), ds);
 		ERR_FAIL_COND_V(blen != ds, ERR_FILE_CORRUPT);
 
-		{
-			CryptoCore::AESContext ctx;
+		CryptoCore::AESContext ctx;
+		ctx.set_decode_key(key.ptrw(), 256);
 
-			ctx.set_encode_key(key.ptrw(), 256); // Due to the nature of CFB, same key schedule is used for both encryption and decryption!
-			ctx.decrypt_cfb(ds, iv, data.ptrw(), data.ptrw());
+		for (uint64_t i = 0; i < ds; i += 16) {
+			ctx.decrypt_ecb(&data.write[i], &data.write[i]);
 		}
 
 		data.resize(length);
@@ -99,24 +97,23 @@ Error FileAccessEncrypted::open_and_parse(Ref<FileAccess> p_base, const Vector<u
 	return OK;
 }
 
-Error FileAccessEncrypted::open_and_parse_password(Ref<FileAccess> p_base, const String &p_key, Mode p_mode) {
+Error FileAccessEncrypted::open_and_parse_password(FileAccess *p_base, const String &p_key, Mode p_mode) {
 	String cs = p_key.md5_text();
 	ERR_FAIL_COND_V(cs.length() != 32, ERR_INVALID_PARAMETER);
-	Vector<uint8_t> key_md5;
-	key_md5.resize(32);
+	Vector<uint8_t> key;
+	key.resize(32);
 	for (int i = 0; i < 32; i++) {
-		key_md5.write[i] = cs[i];
+		key.write[i] = cs[i];
 	}
 
-	return open_and_parse(p_base, key_md5, p_mode);
+	return open_and_parse(p_base, key, p_mode);
 }
 
-Error FileAccessEncrypted::open_internal(const String &p_path, int p_mode_flags) {
+Error FileAccessEncrypted::_open(const String &p_path, int p_mode_flags) {
 	return OK;
 }
-
-void FileAccessEncrypted::_close() {
-	if (file.is_null()) {
+void FileAccessEncrypted::close() {
+	if (!file) {
 		return;
 	}
 
@@ -139,26 +136,28 @@ void FileAccessEncrypted::_close() {
 		CryptoCore::AESContext ctx;
 		ctx.set_encode_key(key.ptrw(), 256);
 
-		if (use_magic) {
-			file->store_32(ENCRYPTED_HEADER_MAGIC);
+		for (uint64_t i = 0; i < len; i += 16) {
+			ctx.encrypt_ecb(&compressed.write[i], &compressed.write[i]);
 		}
+
+		file->store_32(COMP_MAGIC);
+		file->store_32(mode);
 
 		file->store_buffer(hash, 16);
 		file->store_64(data.size());
 
-		unsigned char iv[16];
-		for (int i = 0; i < 16; i++) {
-			iv[i] = Math::rand() % 256;
-			file->store_8(iv[i]);
-		}
-
-		ctx.encrypt_cfb(len, iv, compressed.ptrw(), compressed.ptrw());
-
 		file->store_buffer(compressed.ptr(), compressed.size());
+		file->close();
+		memdelete(file);
+		file = nullptr;
 		data.clear();
-	}
 
-	file.unref();
+	} else {
+		file->close();
+		memdelete(file);
+		data.clear();
+		file = nullptr;
+	}
 }
 
 bool FileAccessEncrypted::is_open() const {
@@ -166,7 +165,7 @@ bool FileAccessEncrypted::is_open() const {
 }
 
 String FileAccessEncrypted::get_path() const {
-	if (file.is_valid()) {
+	if (file) {
 		return file->get_path();
 	} else {
 		return "";
@@ -174,7 +173,7 @@ String FileAccessEncrypted::get_path() const {
 }
 
 String FileAccessEncrypted::get_path_absolute() const {
-	if (file.is_valid()) {
+	if (file) {
 		return file->get_path_absolute();
 	} else {
 		return "";
@@ -182,8 +181,8 @@ String FileAccessEncrypted::get_path_absolute() const {
 }
 
 void FileAccessEncrypted::seek(uint64_t p_position) {
-	if (p_position > get_length()) {
-		p_position = get_length();
+	if (p_position > get_len()) {
+		p_position = get_len();
 	}
 
 	pos = p_position;
@@ -191,14 +190,14 @@ void FileAccessEncrypted::seek(uint64_t p_position) {
 }
 
 void FileAccessEncrypted::seek_end(int64_t p_position) {
-	seek(get_length() + p_position);
+	seek(get_len() + p_position);
 }
 
 uint64_t FileAccessEncrypted::get_position() const {
 	return pos;
 }
 
-uint64_t FileAccessEncrypted::get_length() const {
+uint64_t FileAccessEncrypted::get_len() const {
 	return data.size();
 }
 
@@ -208,7 +207,7 @@ bool FileAccessEncrypted::eof_reached() const {
 
 uint8_t FileAccessEncrypted::get_8() const {
 	ERR_FAIL_COND_V_MSG(writing, 0, "File has not been opened in read mode.");
-	if (pos >= get_length()) {
+	if (pos >= get_len()) {
 		eofed = true;
 		return 0;
 	}
@@ -222,7 +221,7 @@ uint64_t FileAccessEncrypted::get_buffer(uint8_t *p_dst, uint64_t p_length) cons
 	ERR_FAIL_COND_V(!p_dst && p_length > 0, -1);
 	ERR_FAIL_COND_V_MSG(writing, -1, "File has not been opened in read mode.");
 
-	uint64_t to_copy = MIN(p_length, get_length() - pos);
+	uint64_t to_copy = MIN(p_length, get_len() - pos);
 	for (uint64_t i = 0; i < to_copy; i++) {
 		p_dst[i] = data[pos++];
 	}
@@ -242,11 +241,11 @@ void FileAccessEncrypted::store_buffer(const uint8_t *p_src, uint64_t p_length) 
 	ERR_FAIL_COND_MSG(!writing, "File has not been opened in write mode.");
 	ERR_FAIL_COND(!p_src && p_length > 0);
 
-	if (pos < get_length()) {
+	if (pos < get_len()) {
 		for (uint64_t i = 0; i < p_length; i++) {
 			store_8(p_src[i]);
 		}
-	} else if (pos == get_length()) {
+	} else if (pos == get_len()) {
 		data.resize(pos + p_length);
 		for (uint64_t i = 0; i < p_length; i++) {
 			data.write[pos + i] = p_src[i];
@@ -264,20 +263,21 @@ void FileAccessEncrypted::flush() {
 void FileAccessEncrypted::store_8(uint8_t p_dest) {
 	ERR_FAIL_COND_MSG(!writing, "File has not been opened in write mode.");
 
-	if (pos < get_length()) {
+	if (pos < get_len()) {
 		data.write[pos] = p_dest;
 		pos++;
-	} else if (pos == get_length()) {
+	} else if (pos == get_len()) {
 		data.push_back(p_dest);
 		pos++;
 	}
 }
 
 bool FileAccessEncrypted::file_exists(const String &p_name) {
-	Ref<FileAccess> fa = FileAccess::open(p_name, FileAccess::READ);
-	if (fa.is_null()) {
+	FileAccess *fa = FileAccess::open(p_name, FileAccess::READ);
+	if (!fa) {
 		return false;
 	}
+	memdelete(fa);
 	return true;
 }
 
@@ -285,52 +285,25 @@ uint64_t FileAccessEncrypted::_get_modified_time(const String &p_file) {
 	return 0;
 }
 
-BitField<FileAccess::UnixPermissionFlags> FileAccessEncrypted::_get_unix_permissions(const String &p_file) {
-	if (file.is_valid()) {
-		return file->_get_unix_permissions(p_file);
-	}
+uint32_t FileAccessEncrypted::_get_unix_permissions(const String &p_file) {
 	return 0;
 }
 
-Error FileAccessEncrypted::_set_unix_permissions(const String &p_file, BitField<FileAccess::UnixPermissionFlags> p_permissions) {
-	if (file.is_valid()) {
-		return file->_set_unix_permissions(p_file, p_permissions);
-	}
-	return FAILED;
+Error FileAccessEncrypted::_set_unix_permissions(const String &p_file, uint32_t p_permissions) {
+	ERR_PRINT("Setting UNIX permissions on encrypted files is not implemented yet.");
+	return ERR_UNAVAILABLE;
 }
 
-bool FileAccessEncrypted::_get_hidden_attribute(const String &p_file) {
-	if (file.is_valid()) {
-		return file->_get_hidden_attribute(p_file);
-	}
-	return false;
-}
-
-Error FileAccessEncrypted::_set_hidden_attribute(const String &p_file, bool p_hidden) {
-	if (file.is_valid()) {
-		return file->_set_hidden_attribute(p_file, p_hidden);
-	}
-	return FAILED;
-}
-
-bool FileAccessEncrypted::_get_read_only_attribute(const String &p_file) {
-	if (file.is_valid()) {
-		return file->_get_read_only_attribute(p_file);
-	}
-	return false;
-}
-
-Error FileAccessEncrypted::_set_read_only_attribute(const String &p_file, bool p_ro) {
-	if (file.is_valid()) {
-		return file->_set_read_only_attribute(p_file, p_ro);
-	}
-	return FAILED;
-}
-
-void FileAccessEncrypted::close() {
-	_close();
+FileAccessEncrypted::FileAccessEncrypted() {
+	file = nullptr;
+	pos = 0;
+	eofed = false;
+	mode = MODE_MAX;
+	writing = false;
 }
 
 FileAccessEncrypted::~FileAccessEncrypted() {
-	_close();
+	if (file) {
+		close();
+	}
 }

@@ -1,38 +1,38 @@
-/**************************************************************************/
-/*  audio_stream_player_2d.h                                              */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  audio_stream_player_2d.h                                             */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef AUDIO_STREAM_PLAYER_2D_H
 #define AUDIO_STREAM_PLAYER_2D_H
 
+#include "core/safe_refcount.h"
 #include "scene/2d/node_2d.h"
-#include "scene/scene_string_names.h"
 #include "servers/audio/audio_stream.h"
 #include "servers/audio_server.h"
 
@@ -48,47 +48,49 @@ private:
 
 	struct Output {
 		AudioFrame vol;
-		int bus_index = 0;
-		Viewport *viewport = nullptr; //pointer only used for reference to previous mix
+		int bus_index;
+		Viewport *viewport; //pointer only used for reference to previous mix
 	};
 
-	Vector<Ref<AudioStreamPlayback>> stream_playbacks;
+	Output outputs[MAX_OUTPUTS];
+	SafeNumeric<int> output_count;
+	SafeFlag output_ready;
+
+	//these are used by audio thread to have a reference of previous volumes (for ramping volume and avoiding clicks)
+	Output prev_outputs[MAX_OUTPUTS];
+	int prev_output_count;
+
+	Ref<AudioStreamPlayback> stream_playback;
 	Ref<AudioStream> stream;
+	Vector<AudioFrame> mix_buffer;
 
-	SafeFlag active{ false };
-	SafeNumeric<float> setplay{ -1.0 };
-	Ref<AudioStreamPlayback> setplayback;
+	SafeNumeric<float> setseek;
+	SafeFlag active;
+	SafeNumeric<float> setplay;
 
-	Vector<AudioFrame> volume_vector;
+	float volume_db;
+	float pitch_scale;
+	bool autoplay;
+	bool stream_paused;
+	bool stream_paused_fade_in;
+	bool stream_paused_fade_out;
+	StringName bus;
 
-	uint64_t last_mix_count = -1;
-	bool force_update_panning = false;
-
-	float volume_db = 0.0;
-	float pitch_scale = 1.0;
-	bool autoplay = false;
-	StringName default_bus = SceneStringNames::get_singleton()->Master;
-	int max_polyphony = 1;
+	void _mix_audio();
+	static void _mix_audios(void *self) { reinterpret_cast<AudioStreamPlayer2D *>(self)->_mix_audio(); }
 
 	void _set_playing(bool p_enable);
 	bool _is_active() const;
 
-	StringName _get_actual_bus();
-	void _update_panning();
 	void _bus_layout_changed();
 
-	static void _listener_changed_cb(void *self) { reinterpret_cast<AudioStreamPlayer2D *>(self)->force_update_panning = true; }
+	uint32_t area_mask;
 
-	uint32_t area_mask = 1;
-
-	float max_distance = 2000.0;
-	float attenuation = 1.0;
-
-	float panning_strength = 1.0f;
-	float cached_global_panning_strength = 0.5f;
+	float max_distance;
+	float attenuation;
 
 protected:
-	void _validate_property(PropertyInfo &p_property) const;
+	void _validate_property(PropertyInfo &property) const;
 	void _notification(int p_what);
 	static void _bind_methods();
 
@@ -126,13 +128,6 @@ public:
 	void set_stream_paused(bool p_pause);
 	bool get_stream_paused() const;
 
-	void set_max_polyphony(int p_max_polyphony);
-	int get_max_polyphony() const;
-
-	void set_panning_strength(float p_panning_strength);
-	float get_panning_strength() const;
-
-	bool has_stream_playback();
 	Ref<AudioStreamPlayback> get_stream_playback();
 
 	AudioStreamPlayer2D();

@@ -1,147 +1,38 @@
-/**************************************************************************/
-/*  plist.cpp                                                             */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  plist.cpp                                                            */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "plist.h"
 
-PList::PLNodeType PListNode::get_type() const {
-	return data_type;
-}
+#include "modules/modules_enabled.gen.h" // For regex.
 
-Variant PListNode::get_value() const {
-	switch (data_type) {
-		case PList::PL_NODE_TYPE_NIL: {
-			return Variant();
-		} break;
-		case PList::PL_NODE_TYPE_STRING: {
-			return String::utf8(data_string.get_data());
-		} break;
-		case PList::PL_NODE_TYPE_ARRAY: {
-			Array arr;
-			for (const Ref<PListNode> &E : data_array) {
-				arr.push_back(E);
-			}
-			return arr;
-		} break;
-		case PList::PL_NODE_TYPE_DICT: {
-			Dictionary dict;
-			for (const KeyValue<String, Ref<PListNode>> &E : data_dict) {
-				dict[E.key] = E.value;
-			}
-			return dict;
-		} break;
-		case PList::PL_NODE_TYPE_BOOLEAN: {
-			return data_bool;
-		} break;
-		case PList::PL_NODE_TYPE_INTEGER: {
-			return data_int;
-		} break;
-		case PList::PL_NODE_TYPE_REAL: {
-			return data_real;
-		} break;
-		case PList::PL_NODE_TYPE_DATA: {
-			int strlen = data_string.length();
-
-			size_t arr_len = 0;
-			Vector<uint8_t> buf;
-			{
-				buf.resize(strlen / 4 * 3 + 1);
-				uint8_t *w = buf.ptrw();
-
-				ERR_FAIL_COND_V(CryptoCore::b64_decode(&w[0], buf.size(), &arr_len, (unsigned char *)data_string.get_data(), strlen) != OK, Vector<uint8_t>());
-			}
-			buf.resize(arr_len);
-			return buf;
-		} break;
-		case PList::PL_NODE_TYPE_DATE: {
-			return String(data_string.get_data());
-		} break;
-	}
-	return Variant();
-}
-
-Ref<PListNode> PListNode::new_node(const Variant &p_value) {
-	Ref<PListNode> node;
-	node.instantiate();
-
-	switch (p_value.get_type()) {
-		case Variant::NIL: {
-			node->data_type = PList::PL_NODE_TYPE_NIL;
-		} break;
-		case Variant::BOOL: {
-			node->data_type = PList::PL_NODE_TYPE_BOOLEAN;
-			node->data_bool = p_value;
-		} break;
-		case Variant::INT: {
-			node->data_type = PList::PL_NODE_TYPE_INTEGER;
-			node->data_int = p_value;
-		} break;
-		case Variant::FLOAT: {
-			node->data_type = PList::PL_NODE_TYPE_REAL;
-			node->data_real = p_value;
-		} break;
-		case Variant::STRING_NAME:
-		case Variant::STRING: {
-			node->data_type = PList::PL_NODE_TYPE_STRING;
-			node->data_string = p_value.operator String().utf8();
-		} break;
-		case Variant::DICTIONARY: {
-			node->data_type = PList::PL_NODE_TYPE_DICT;
-			Dictionary dict = p_value;
-			const Variant *next = dict.next(nullptr);
-			while (next) {
-				Ref<PListNode> sub_node = dict[*next];
-				ERR_FAIL_COND_V_MSG(sub_node.is_null(), Ref<PListNode>(), "Invalid dictionary element, should be PListNode.");
-				node->data_dict[*next] = sub_node;
-				next = dict.next(next);
-			}
-		} break;
-		case Variant::ARRAY: {
-			node->data_type = PList::PL_NODE_TYPE_ARRAY;
-			Array ar = p_value;
-			for (int i = 0; i < ar.size(); i++) {
-				Ref<PListNode> sub_node = ar[i];
-				ERR_FAIL_COND_V_MSG(sub_node.is_null(), Ref<PListNode>(), "Invalid array element, should be PListNode.");
-				node->data_array.push_back(sub_node);
-			}
-		} break;
-		case Variant::PACKED_BYTE_ARRAY: {
-			node->data_type = PList::PL_NODE_TYPE_DATA;
-			PackedByteArray buf = p_value;
-			node->data_string = CryptoCore::b64_encode_str(buf.ptr(), buf.size()).utf8();
-		} break;
-		default: {
-			ERR_FAIL_V_MSG(Ref<PListNode>(), "Unsupported data type.");
-		} break;
-	}
-	return node;
-}
+#ifdef MODULE_REGEX_ENABLED
 
 Ref<PListNode> PListNode::new_array() {
 	Ref<PListNode> node = memnew(PListNode());
@@ -178,7 +69,6 @@ Ref<PListNode> PListNode::new_date(const String &p_string) {
 	ERR_FAIL_COND_V(node.is_null(), Ref<PListNode>());
 	node->data_type = PList::PLNodeType::PL_NODE_TYPE_DATE;
 	node->data_string = p_string.utf8();
-	node->data_real = (double)Time::get_singleton()->get_unix_time_from_datetime_string(p_string) - 978307200.0;
 	return node;
 }
 
@@ -190,7 +80,7 @@ Ref<PListNode> PListNode::new_bool(bool p_bool) {
 	return node;
 }
 
-Ref<PListNode> PListNode::new_int(int64_t p_int) {
+Ref<PListNode> PListNode::new_int(int32_t p_int) {
 	Ref<PListNode> node = memnew(PListNode());
 	ERR_FAIL_COND_V(node.is_null(), Ref<PListNode>());
 	node->data_type = PList::PLNodeType::PL_NODE_TYPE_INTEGER;
@@ -198,7 +88,7 @@ Ref<PListNode> PListNode::new_int(int64_t p_int) {
 	return node;
 }
 
-Ref<PListNode> PListNode::new_real(double p_real) {
+Ref<PListNode> PListNode::new_real(float p_real) {
 	Ref<PListNode> node = memnew(PListNode());
 	ERR_FAIL_COND_V(node.is_null(), Ref<PListNode>());
 	node->data_type = PList::PLNodeType::PL_NODE_TYPE_REAL;
@@ -209,7 +99,7 @@ Ref<PListNode> PListNode::new_real(double p_real) {
 bool PListNode::push_subnode(const Ref<PListNode> &p_node, const String &p_key) {
 	ERR_FAIL_COND_V(p_node.is_null(), false);
 	if (data_type == PList::PLNodeType::PL_NODE_TYPE_DICT) {
-		ERR_FAIL_COND_V(p_key.is_empty(), false);
+		ERR_FAIL_COND_V(p_key.empty(), false);
 		ERR_FAIL_COND_V(data_dict.has(p_key), false);
 		data_dict[p_key] = p_node;
 		return true;
@@ -250,11 +140,10 @@ size_t PListNode::get_asn1_size(uint8_t p_len_octets) const {
 		} break;
 		case PList::PLNodeType::PL_NODE_TYPE_DICT: {
 			size_t size = 0;
-
-			for (const KeyValue<String, Ref<PListNode>> &E : data_dict) {
+			for (const Map<String, Ref<PListNode>>::Element *it = data_dict.front(); it; it = it->next()) {
 				size += 1 + _asn1_size_len(p_len_octets); // Sequence.
-				size += 1 + _asn1_size_len(p_len_octets) + E.key.utf8().length(); //Key.
-				size += 1 + _asn1_size_len(p_len_octets) + E.value->get_asn1_size(p_len_octets); // Value.
+				size += 1 + _asn1_size_len(p_len_octets) + it->key().utf8().length(); //Key.
+				size += 1 + _asn1_size_len(p_len_octets) + it->value()->get_asn1_size(p_len_octets); // Value.
 			}
 			return size;
 		} break;
@@ -272,7 +161,7 @@ int PListNode::_asn1_size_len(uint8_t p_len_octets) {
 	}
 }
 
-void PListNode::store_asn1_size(PackedByteArray &p_stream, uint8_t p_len_octets) const {
+void PListNode::store_asn1_size(PoolByteArray &p_stream, uint8_t p_len_octets) const {
 	uint32_t size = get_asn1_size(p_len_octets);
 	if (p_len_octets > 1) {
 		p_stream.push_back(0x80 + p_len_octets);
@@ -283,7 +172,7 @@ void PListNode::store_asn1_size(PackedByteArray &p_stream, uint8_t p_len_octets)
 	}
 }
 
-bool PListNode::store_asn1(PackedByteArray &p_stream, uint8_t p_len_octets) const {
+bool PListNode::store_asn1(PoolByteArray &p_stream, uint8_t p_len_octets) const {
 	// Convert to binary ASN1 stream.
 	bool valid = true;
 	switch (data_type) {
@@ -336,13 +225,13 @@ bool PListNode::store_asn1(PackedByteArray &p_stream, uint8_t p_len_octets) cons
 		case PList::PLNodeType::PL_NODE_TYPE_DICT: {
 			p_stream.push_back(0x31); // Set.
 			store_asn1_size(p_stream, p_len_octets);
-			for (const KeyValue<String, Ref<PListNode>> &E : data_dict) {
-				CharString cs = E.key.utf8();
+			for (const Map<String, Ref<PListNode>>::Element *it = data_dict.front(); it; it = it->next()) {
+				CharString cs = it->key().utf8();
 				uint32_t size = cs.length();
 
 				// Sequence.
 				p_stream.push_back(0x30);
-				uint32_t seq_size = 2 * (1 + _asn1_size_len(p_len_octets)) + size + E.value->get_asn1_size(p_len_octets);
+				uint32_t seq_size = 2 * (1 + _asn1_size_len(p_len_octets)) + size + it->value()->get_asn1_size(p_len_octets);
 				if (p_len_octets > 1) {
 					p_stream.push_back(0x80 + p_len_octets);
 				}
@@ -363,7 +252,7 @@ bool PListNode::store_asn1(PackedByteArray &p_stream, uint8_t p_len_octets) cons
 					p_stream.push_back(cs[i]);
 				}
 				// Value.
-				valid = valid && E.value->store_asn1(p_stream, p_len_octets);
+				valid = valid && it->value()->store_asn1(p_stream, p_len_octets);
 			}
 		} break;
 	}
@@ -428,12 +317,12 @@ void PListNode::store_text(String &p_stream, uint8_t p_indent) const {
 		case PList::PLNodeType::PL_NODE_TYPE_DICT: {
 			p_stream += String("\t").repeat(p_indent);
 			p_stream += "<dict>\n";
-			for (const KeyValue<String, Ref<PListNode>> &E : data_dict) {
+			for (const Map<String, Ref<PListNode>>::Element *it = data_dict.front(); it; it = it->next()) {
 				p_stream += String("\t").repeat(p_indent + 1);
 				p_stream += "<key>";
-				p_stream += E.key;
+				p_stream += it->key();
 				p_stream += "</key>\n";
-				E.value->store_text(p_stream, p_indent + 1);
+				it->value()->store_text(p_stream, p_indent + 1);
 			}
 			p_stream += String("\t").repeat(p_indent);
 			p_stream += "</dict>\n";
@@ -451,193 +340,23 @@ PList::PList(const String &p_string) {
 	load_string(p_string);
 }
 
-uint64_t PList::read_bplist_var_size_int(Ref<FileAccess> p_file, uint8_t p_size) {
-	uint64_t pos = p_file->get_position();
-	uint64_t ret = 0;
-	switch (p_size) {
-		case 1: {
-			ret = p_file->get_8();
-		} break;
-		case 2: {
-			ret = BSWAP16(p_file->get_16());
-		} break;
-		case 3: {
-			ret = BSWAP32(p_file->get_32() & 0x00FFFFFF);
-		} break;
-		case 4: {
-			ret = BSWAP32(p_file->get_32());
-		} break;
-		case 5: {
-			ret = BSWAP64(p_file->get_64() & 0x000000FFFFFFFFFF);
-		} break;
-		case 6: {
-			ret = BSWAP64(p_file->get_64() & 0x0000FFFFFFFFFFFF);
-		} break;
-		case 7: {
-			ret = BSWAP64(p_file->get_64() & 0x00FFFFFFFFFFFFFF);
-		} break;
-		case 8: {
-			ret = BSWAP64(p_file->get_64());
-		} break;
-		default: {
-			ret = 0;
-		}
-	}
-	p_file->seek(pos + p_size);
-
-	return ret;
-}
-
-Ref<PListNode> PList::read_bplist_obj(Ref<FileAccess> p_file, uint64_t p_offset_idx) {
-	Ref<PListNode> node;
-	node.instantiate();
-
-	uint64_t ot_off = trailer.offset_table_start + p_offset_idx * trailer.offset_size;
-	p_file->seek(ot_off);
-	uint64_t marker_off = read_bplist_var_size_int(p_file, trailer.offset_size);
-	ERR_FAIL_COND_V_MSG(marker_off == 0, Ref<PListNode>(), "Invalid marker size.");
-
-	p_file->seek(marker_off);
-	uint8_t marker = p_file->get_8();
-	uint8_t marker_type = marker & 0xF0;
-	uint64_t marker_size = marker & 0x0F;
-
-	switch (marker_type) {
-		case 0x00: {
-			if (marker_size == 0x00) {
-				node->data_type = PL_NODE_TYPE_NIL;
-			} else if (marker_size == 0x08) {
-				node->data_type = PL_NODE_TYPE_BOOLEAN;
-				node->data_bool = false;
-			} else if (marker_size == 0x09) {
-				node->data_type = PL_NODE_TYPE_BOOLEAN;
-				node->data_bool = true;
-			} else {
-				ERR_FAIL_V_MSG(Ref<PListNode>(), "Invalid nil/bool marker value.");
-			}
-		} break;
-		case 0x10: {
-			node->data_type = PL_NODE_TYPE_INTEGER;
-			node->data_int = static_cast<int64_t>(read_bplist_var_size_int(p_file, pow(2, marker_size)));
-		} break;
-		case 0x20: {
-			node->data_type = PL_NODE_TYPE_REAL;
-			node->data_int = static_cast<int64_t>(read_bplist_var_size_int(p_file, pow(2, marker_size)));
-		} break;
-		case 0x30: {
-			node->data_type = PL_NODE_TYPE_DATE;
-			node->data_int = BSWAP64(p_file->get_64());
-			node->data_string = Time::get_singleton()->get_datetime_string_from_unix_time(node->data_real + 978307200.0).utf8();
-		} break;
-		case 0x40: {
-			if (marker_size == 0x0F) {
-				uint8_t ext = p_file->get_8() & 0xF;
-				marker_size = read_bplist_var_size_int(p_file, pow(2, ext));
-			}
-			node->data_type = PL_NODE_TYPE_DATA;
-			PackedByteArray buf;
-			buf.resize(marker_size + 1);
-			p_file->get_buffer(reinterpret_cast<uint8_t *>(buf.ptrw()), marker_size);
-			node->data_string = CryptoCore::b64_encode_str(buf.ptr(), buf.size()).utf8();
-		} break;
-		case 0x50: {
-			if (marker_size == 0x0F) {
-				uint8_t ext = p_file->get_8() & 0xF;
-				marker_size = read_bplist_var_size_int(p_file, pow(2, ext));
-			}
-			node->data_type = PL_NODE_TYPE_STRING;
-			node->data_string.resize(marker_size + 1);
-			p_file->get_buffer(reinterpret_cast<uint8_t *>(node->data_string.ptrw()), marker_size);
-		} break;
-		case 0x60: {
-			if (marker_size == 0x0F) {
-				uint8_t ext = p_file->get_8() & 0xF;
-				marker_size = read_bplist_var_size_int(p_file, pow(2, ext));
-			}
-			Char16String cs16;
-			cs16.resize(marker_size + 1);
-			for (uint64_t i = 0; i < marker_size; i++) {
-				cs16[i] = BSWAP16(p_file->get_16());
-			}
-			node->data_type = PL_NODE_TYPE_STRING;
-			node->data_string = String::utf16(cs16.ptr(), cs16.length()).utf8();
-		} break;
-		case 0x80: {
-			node->data_type = PL_NODE_TYPE_INTEGER;
-			node->data_int = static_cast<int64_t>(read_bplist_var_size_int(p_file, marker_size + 1));
-		} break;
-		case 0xA0:
-		case 0xC0: {
-			if (marker_size == 0x0F) {
-				uint8_t ext = p_file->get_8() & 0xF;
-				marker_size = read_bplist_var_size_int(p_file, pow(2, ext));
-			}
-			uint64_t pos = p_file->get_position();
-
-			node->data_type = PL_NODE_TYPE_ARRAY;
-			for (uint64_t i = 0; i < marker_size; i++) {
-				p_file->seek(pos + trailer.ref_size * i);
-				uint64_t ref = read_bplist_var_size_int(p_file, trailer.ref_size);
-
-				Ref<PListNode> element = read_bplist_obj(p_file, ref);
-				ERR_FAIL_COND_V(element.is_null(), Ref<PListNode>());
-				node->data_array.push_back(element);
-			}
-		} break;
-		case 0xD0: {
-			if (marker_size == 0x0F) {
-				uint8_t ext = p_file->get_8() & 0xF;
-				marker_size = read_bplist_var_size_int(p_file, pow(2, ext));
-			}
-			uint64_t pos = p_file->get_position();
-
-			node->data_type = PL_NODE_TYPE_DICT;
-			for (uint64_t i = 0; i < marker_size; i++) {
-				p_file->seek(pos + trailer.ref_size * i);
-				uint64_t key_ref = read_bplist_var_size_int(p_file, trailer.ref_size);
-
-				p_file->seek(pos + trailer.ref_size * (i + marker_size));
-				uint64_t obj_ref = read_bplist_var_size_int(p_file, trailer.ref_size);
-
-				Ref<PListNode> element_key = read_bplist_obj(p_file, key_ref);
-				ERR_FAIL_COND_V(element_key.is_null() || element_key->data_type != PL_NODE_TYPE_STRING, Ref<PListNode>());
-				Ref<PListNode> element = read_bplist_obj(p_file, obj_ref);
-				ERR_FAIL_COND_V(element.is_null(), Ref<PListNode>());
-				node->data_dict[String::utf8(element_key->data_string.ptr(), element_key->data_string.length())] = element;
-			}
-		} break;
-		default: {
-			ERR_FAIL_V_MSG(Ref<PListNode>(), "Invalid marker type.");
-		}
-	}
-	return node;
-}
-
 bool PList::load_file(const String &p_filename) {
 	root = Ref<PListNode>();
 
-	Ref<FileAccess> fb = FileAccess::open(p_filename, FileAccess::READ);
-	if (fb.is_null()) {
+	FileAccessRef fb = FileAccess::open(p_filename, FileAccess::READ);
+	if (!fb) {
 		return false;
 	}
 
 	unsigned char magic[8];
 	fb->get_buffer(magic, 8);
 
-	if (String((const char *)magic, 8) == "bplist00") {
-		fb->seek_end(-26);
-		trailer.offset_size = fb->get_8();
-		trailer.ref_size = fb->get_8();
-		trailer.object_num = BSWAP64(fb->get_64());
-		trailer.root_offset_idx = BSWAP64(fb->get_64());
-		trailer.offset_table_start = BSWAP64(fb->get_64());
-		root = read_bplist_obj(fb, trailer.root_offset_idx);
-
-		return root.is_valid();
+	if (String::utf8((const char *)magic, 8) == "bplist00") {
+		ERR_FAIL_V_MSG(false, "PList: Binary property lists are not supported.");
 	} else {
 		// Load text plist.
 		Error err;
-		Vector<uint8_t> array = FileAccess::get_file_as_bytes(p_filename, &err);
+		Vector<uint8_t> array = FileAccess::get_file_as_array(p_filename, &err);
 		ERR_FAIL_COND_V(err != OK, false);
 
 		String ret;
@@ -663,7 +382,7 @@ bool PList::load_string(const String &p_string) {
 		pos = open_token_e;
 
 		String token = p_string.substr(open_token_s + 1, open_token_e - open_token_s - 1);
-		if (token.is_empty()) {
+		if (token.empty()) {
 			ERR_FAIL_V_MSG(false, "PList: Invalid token name.");
 		}
 		String value;
@@ -679,6 +398,7 @@ bool PList::load_string(const String &p_string) {
 		}
 
 		if (token == "/plist") {
+			in_plist = false;
 			done_plist = true;
 			break;
 		}
@@ -688,7 +408,7 @@ bool PList::load_string(const String &p_string) {
 		}
 
 		if (token == "dict") {
-			if (!stack.is_empty()) {
+			if (!stack.empty()) {
 				// Add subnode end enter it.
 				Ref<PListNode> dict = PListNode::new_dict();
 				dict->data_type = PList::PLNodeType::PL_NODE_TYPE_DICT;
@@ -710,7 +430,7 @@ bool PList::load_string(const String &p_string) {
 
 		if (token == "/dict") {
 			// Exit current dict.
-			if (stack.is_empty() || stack.back()->get()->data_type != PList::PLNodeType::PL_NODE_TYPE_DICT) {
+			if (stack.empty() || stack.back()->get()->data_type != PList::PLNodeType::PL_NODE_TYPE_DICT) {
 				ERR_FAIL_V_MSG(false, "PList: Mismatched </dict> tag.");
 			}
 			stack.pop_back();
@@ -718,7 +438,7 @@ bool PList::load_string(const String &p_string) {
 		}
 
 		if (token == "array") {
-			if (!stack.is_empty()) {
+			if (!stack.empty()) {
 				// Add subnode end enter it.
 				Ref<PListNode> arr = PListNode::new_array();
 				if (!stack.back()->get()->push_subnode(arr, key)) {
@@ -739,7 +459,7 @@ bool PList::load_string(const String &p_string) {
 
 		if (token == "/array") {
 			// Exit current array.
-			if (stack.is_empty() || stack.back()->get()->data_type != PList::PLNodeType::PL_NODE_TYPE_ARRAY) {
+			if (stack.empty() || stack.back()->get()->data_type != PList::PLNodeType::PL_NODE_TYPE_ARRAY) {
 				ERR_FAIL_V_MSG(false, "PList: Mismatched </array> tag.");
 			}
 			stack.pop_back();
@@ -757,7 +477,7 @@ bool PList::load_string(const String &p_string) {
 			pos = end_token_e;
 			String end_token = p_string.substr(end_token_s + 2, end_token_e - end_token_s - 2);
 			if (end_token != token) {
-				ERR_FAIL_V_MSG(false, vformat("PList: Mismatched <%s> and <%s> token pair.", token, end_token));
+				ERR_FAIL_V_MSG(false, vformat("PList: Mismatched <%s> and <%s> tag pair.", token, end_token));
 			}
 			value = p_string.substr(open_token_e + 1, end_token_s - open_token_e - 1);
 		}
@@ -782,20 +502,20 @@ bool PList::load_string(const String &p_string) {
 			} else {
 				ERR_FAIL_V_MSG(false, "PList: Invalid value type.");
 			}
-			if (stack.is_empty() || !stack.back()->get()->push_subnode(var, key)) {
+			if (stack.empty() || !stack.back()->get()->push_subnode(var, key)) {
 				ERR_FAIL_V_MSG(false, "PList: Can't push subnode, invalid parent type.");
 			}
 		}
 	}
-	if (!stack.is_empty() || !done_plist) {
+	if (!stack.empty() || !done_plist) {
 		ERR_FAIL_V_MSG(false, "PList: Unexpected end of data. Root node is not closed.");
 	}
 	return true;
 }
 
-PackedByteArray PList::save_asn1() const {
+PoolByteArray PList::save_asn1() const {
 	if (root == nullptr) {
-		ERR_FAIL_V_MSG(PackedByteArray(), "PList: Invalid PList, no root node.");
+		ERR_FAIL_V_MSG(PoolByteArray(), "PList: Invalid PList, no root node.");
 	}
 	size_t size = root->get_asn1_size(1);
 	uint8_t len_octets = 0;
@@ -814,15 +534,15 @@ PackedByteArray PList::save_asn1() const {
 				if (size < 0xFFFFFFFF) {
 					len_octets = 4;
 				} else {
-					ERR_FAIL_V_MSG(PackedByteArray(), "PList: Data is too big for ASN.1 serializer, should be < 4 GiB.");
+					ERR_FAIL_V_MSG(PoolByteArray(), "PList: Data is too big for ASN.1 serializer, should be < 4 GiB.");
 				}
 			}
 		}
 	}
 
-	PackedByteArray ret;
+	PoolByteArray ret;
 	if (!root->store_asn1(ret, len_octets)) {
-		ERR_FAIL_V_MSG(PackedByteArray(), "PList: ASN.1 serializer error.");
+		ERR_FAIL_V_MSG(PoolByteArray(), "PList: ASN.1 serializer error.");
 	}
 	return ret;
 }
@@ -846,3 +566,5 @@ String PList::save_text() const {
 Ref<PListNode> PList::get_root() {
 	return root;
 }
+
+#endif // MODULE_REGEX_ENABLED

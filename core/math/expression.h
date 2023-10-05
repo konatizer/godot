@@ -1,57 +1,140 @@
-/**************************************************************************/
-/*  expression.h                                                          */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  expression.h                                                         */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef EXPRESSION_H
 #define EXPRESSION_H
 
-#include "core/object/ref_counted.h"
+#include "core/reference.h"
 
-class Expression : public RefCounted {
-	GDCLASS(Expression, RefCounted);
+class Expression : public Reference {
+	GDCLASS(Expression, Reference);
+
+public:
+	enum BuiltinFunc {
+		MATH_SIN,
+		MATH_COS,
+		MATH_TAN,
+		MATH_SINH,
+		MATH_COSH,
+		MATH_TANH,
+		MATH_ASIN,
+		MATH_ACOS,
+		MATH_ATAN,
+		MATH_ATAN2,
+		MATH_SQRT,
+		MATH_FMOD,
+		MATH_FPOSMOD,
+		MATH_POSMOD,
+		MATH_FLOOR,
+		MATH_CEIL,
+		MATH_ROUND,
+		MATH_ABS,
+		MATH_SIGN,
+		MATH_POW,
+		MATH_LOG,
+		MATH_EXP,
+		MATH_ISNAN,
+		MATH_ISINF,
+		MATH_EASE,
+		MATH_DECIMALS,
+		MATH_STEP_DECIMALS,
+		MATH_STEPIFY,
+		MATH_LERP,
+		MATH_LERP_ANGLE,
+		MATH_INVERSE_LERP,
+		MATH_RANGE_LERP,
+		MATH_SMOOTHSTEP,
+		MATH_MOVE_TOWARD,
+		MATH_DECTIME,
+		MATH_RANDOMIZE,
+		MATH_RAND,
+		MATH_RANDF,
+		MATH_RANDOM,
+		MATH_SEED,
+		MATH_RANDSEED,
+		MATH_DEG2RAD,
+		MATH_RAD2DEG,
+		MATH_LINEAR2DB,
+		MATH_DB2LINEAR,
+		MATH_POLAR2CARTESIAN,
+		MATH_CARTESIAN2POLAR,
+		MATH_WRAP,
+		MATH_WRAPF,
+		LOGIC_MAX,
+		LOGIC_MIN,
+		LOGIC_CLAMP,
+		LOGIC_NEAREST_PO2,
+		OBJ_WEAKREF,
+		FUNC_FUNCREF,
+		TYPE_CONVERT,
+		TYPE_OF,
+		TYPE_EXISTS,
+		TEXT_CHAR,
+		TEXT_ORD,
+		TEXT_STR,
+		TEXT_PRINT,
+		TEXT_PRINTERR,
+		TEXT_PRINTRAW,
+		VAR_TO_STR,
+		STR_TO_VAR,
+		VAR_TO_BYTES,
+		BYTES_TO_VAR,
+		COLORN,
+		FUNC_MAX
+	};
+
+	static int get_func_argument_count(BuiltinFunc p_func);
+	static String get_func_name(BuiltinFunc p_func);
+	static void exec_func(BuiltinFunc p_func, const Variant **p_inputs, Variant *r_return, Variant::CallError &r_error, String &r_error_str);
+	static BuiltinFunc find_function(const String &p_string);
 
 private:
+	static const char *func_name[FUNC_MAX];
+
 	struct Input {
-		Variant::Type type = Variant::NIL;
+		Variant::Type type;
 		String name;
 
-		Input() {}
+		Input() :
+				type(Variant::NIL) {
+		}
 	};
 
 	Vector<Input> inputs;
-	Variant::Type output_type = Variant::NIL;
+	Variant::Type output_type;
 
 	String expression;
 
-	bool sequenced = false;
-	int str_ofs = 0;
-	bool expression_dirty = false;
+	bool sequenced;
+	int str_ofs;
+	bool expression_dirty;
 
 	bool _compile_expression();
 
@@ -85,7 +168,6 @@ private:
 		TK_OP_MUL,
 		TK_OP_DIV,
 		TK_OP_MOD,
-		TK_OP_POW,
 		TK_OP_SHIFT_LEFT,
 		TK_OP_SHIFT_RIGHT,
 		TK_OP_BIT_AND,
@@ -115,7 +197,7 @@ private:
 	Error _get_token(Token &r_token);
 
 	String error_str;
-	bool error_set = true;
+	bool error_set;
 
 	struct ENode {
 		enum Type {
@@ -132,11 +214,11 @@ private:
 			TYPE_CALL
 		};
 
-		ENode *next = nullptr;
+		ENode *next;
 
-		Type type = TYPE_INPUT;
+		Type type;
 
-		ENode() {}
+		ENode() { next = nullptr; }
 		virtual ~ENode() {
 			if (next) {
 				memdelete(next);
@@ -145,33 +227,33 @@ private:
 	};
 
 	struct ExpressionNode {
-		bool is_op = false;
+		bool is_op;
 		union {
 			Variant::Operator op;
-			ENode *node = nullptr;
+			ENode *node;
 		};
 	};
 
 	ENode *_parse_expression();
 
 	struct InputNode : public ENode {
-		int index = 0;
+		int index;
 		InputNode() {
 			type = TYPE_INPUT;
 		}
 	};
 
 	struct ConstantNode : public ENode {
-		Variant value = Variant::NIL;
+		Variant value;
 		ConstantNode() {
 			type = TYPE_CONSTANT;
 		}
 	};
 
 	struct OperatorNode : public ENode {
-		Variant::Operator op = Variant::Operator::OP_ADD;
+		Variant::Operator op;
 
-		ENode *nodes[2] = { nullptr, nullptr };
+		ENode *nodes[2];
 
 		OperatorNode() {
 			type = TYPE_OPERATOR;
@@ -185,8 +267,8 @@ private:
 	};
 
 	struct IndexNode : public ENode {
-		ENode *base = nullptr;
-		ENode *index = nullptr;
+		ENode *base;
+		ENode *index;
 
 		IndexNode() {
 			type = TYPE_INDEX;
@@ -194,7 +276,7 @@ private:
 	};
 
 	struct NamedIndexNode : public ENode {
-		ENode *base = nullptr;
+		ENode *base;
 		StringName name;
 
 		NamedIndexNode() {
@@ -203,7 +285,7 @@ private:
 	};
 
 	struct ConstructorNode : public ENode {
-		Variant::Type data_type = Variant::Type::NIL;
+		Variant::Type data_type;
 		Vector<ENode *> arguments;
 
 		ConstructorNode() {
@@ -212,7 +294,7 @@ private:
 	};
 
 	struct CallNode : public ENode {
-		ENode *base = nullptr;
+		ENode *base;
 		StringName method;
 		Vector<ENode *> arguments;
 
@@ -236,7 +318,7 @@ private:
 	};
 
 	struct BuiltinFuncNode : public ENode {
-		StringName func;
+		BuiltinFunc func;
 		Vector<ENode *> arguments;
 		BuiltinFuncNode() {
 			type = TYPE_BUILTIN_FUNC;
@@ -251,24 +333,24 @@ private:
 		return node;
 	}
 
-	ENode *root = nullptr;
-	ENode *nodes = nullptr;
+	ENode *root;
+	ENode *nodes;
 
 	Vector<String> input_names;
 
-	bool execution_error = false;
-	bool _execute(const Array &p_inputs, Object *p_instance, Expression::ENode *p_node, Variant &r_ret, bool p_const_calls_only, String &r_error_str);
+	bool execution_error;
+	bool _execute(const Array &p_inputs, Object *p_instance, Expression::ENode *p_node, Variant &r_ret, String &r_error_str);
 
 protected:
 	static void _bind_methods();
 
 public:
 	Error parse(const String &p_expression, const Vector<String> &p_input_names = Vector<String>());
-	Variant execute(Array p_inputs = Array(), Object *p_base = nullptr, bool p_show_error = true, bool p_const_calls_only = false);
+	Variant execute(Array p_inputs, Object *p_base = nullptr, bool p_show_error = true);
 	bool has_execute_failed() const;
 	String get_error_text() const;
 
-	Expression() {}
+	Expression();
 	~Expression();
 };
 

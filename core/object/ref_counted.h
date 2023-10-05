@@ -1,41 +1,44 @@
-/**************************************************************************/
-/*  ref_counted.h                                                         */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  reference.h                                                          */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
-#ifndef REF_COUNTED_H
-#define REF_COUNTED_H
+#ifndef REFERENCE_H
+#define REFERENCE_H
 
-#include "core/object/class_db.h"
-#include "core/templates/safe_refcount.h"
+#include "core/class_db.h"
+#include "core/object.h"
+#include "core/ref_ptr.h"
+#include "core/safe_refcount.h"
 
-class RefCounted : public Object {
-	GDCLASS(RefCounted, Object);
+class Reference : public Object {
+	GDCLASS(Reference, Object);
+	friend class RefBase;
 	SafeRefCount refcount;
 	SafeRefCount refcount_init;
 
@@ -47,15 +50,15 @@ public:
 	bool init_ref();
 	bool reference(); // returns false if refcount is at zero and didn't get increased
 	bool unreference();
-	int get_reference_count() const;
+	int reference_get_count() const;
 
-	RefCounted();
-	~RefCounted() {}
+	Reference();
+	~Reference();
 };
 
 template <class T>
 class Ref {
-	T *reference = nullptr;
+	T *reference;
 
 	void ref(const Ref &p_from) {
 		if (p_from.reference == reference) {
@@ -78,7 +81,7 @@ class Ref {
 		}
 	}
 
-	//virtual RefCounted * get_reference() const { return reference; }
+	//virtual Reference * get_reference() const { return reference; }
 public:
 	_FORCE_INLINE_ bool operator==(const T *p_ptr) const {
 		return reference == p_ptr;
@@ -97,20 +100,38 @@ public:
 		return reference != p_r.reference;
 	}
 
-	_FORCE_INLINE_ T *operator*() const {
+	_FORCE_INLINE_ T *operator->() {
 		return reference;
 	}
 
-	_FORCE_INLINE_ T *operator->() const {
+	_FORCE_INLINE_ T *operator*() {
 		return reference;
 	}
 
-	_FORCE_INLINE_ T *ptr() const {
+	_FORCE_INLINE_ const T *operator->() const {
 		return reference;
 	}
+
+	_FORCE_INLINE_ const T *ptr() const {
+		return reference;
+	}
+	_FORCE_INLINE_ T *ptr() {
+		return reference;
+	}
+
+	_FORCE_INLINE_ const T *operator*() const {
+		return reference;
+	}
+
+	RefPtr get_ref_ptr() const {
+		RefPtr refptr;
+		Ref<Reference> *irr = reinterpret_cast<Ref<Reference> *>(refptr.get_data());
+		*irr = *this;
+		return refptr;
+	};
 
 	operator Variant() const {
-		return Variant(reference);
+		return Variant(get_ref_ptr());
 	}
 
 	void operator=(const Ref &p_from) {
@@ -119,7 +140,20 @@ public:
 
 	template <class T_Other>
 	void operator=(const Ref<T_Other> &p_from) {
-		RefCounted *refb = const_cast<RefCounted *>(static_cast<const RefCounted *>(p_from.ptr()));
+		Reference *refb = const_cast<Reference *>(static_cast<const Reference *>(p_from.ptr()));
+		if (!refb) {
+			unref();
+			return;
+		}
+		Ref r;
+		r.reference = Object::cast_to<T>(refb);
+		ref(r);
+		r.reference = nullptr;
+	}
+
+	void operator=(const RefPtr &p_refptr) {
+		Ref<Reference> *irr = reinterpret_cast<Ref<Reference> *>(p_refptr.get_data());
+		Reference *refb = irr->ptr();
 		if (!refb) {
 			unref();
 			return;
@@ -131,22 +165,17 @@ public:
 	}
 
 	void operator=(const Variant &p_variant) {
-		Object *object = p_variant.get_validated_object();
-
-		if (object == reference) {
+		RefPtr refptr = p_variant;
+		Ref<Reference> *irr = reinterpret_cast<Ref<Reference> *>(refptr.get_data());
+		Reference *refb = irr->ptr();
+		if (!refb) {
+			unref();
 			return;
 		}
-
-		unref();
-
-		if (!object) {
-			return;
-		}
-
-		T *r = Object::cast_to<T>(object);
-		if (r && r->reference()) {
-			reference = r;
-		}
+		Ref r;
+		r.reference = Object::cast_to<T>(refb);
+		ref(r);
+		r.reference = nullptr;
 	}
 
 	template <class T_Other>
@@ -163,12 +192,14 @@ public:
 	}
 
 	Ref(const Ref &p_from) {
+		reference = nullptr;
 		ref(p_from);
 	}
 
 	template <class T_Other>
 	Ref(const Ref<T_Other> &p_from) {
-		RefCounted *refb = const_cast<RefCounted *>(static_cast<const RefCounted *>(p_from.ptr()));
+		reference = nullptr;
+		Reference *refb = const_cast<Reference *>(static_cast<const Reference *>(p_from.ptr()));
 		if (!refb) {
 			unref();
 			return;
@@ -180,29 +211,46 @@ public:
 	}
 
 	Ref(T *p_reference) {
+		reference = nullptr;
 		if (p_reference) {
 			ref_pointer(p_reference);
 		}
 	}
 
 	Ref(const Variant &p_variant) {
-		Object *object = p_variant.get_validated_object();
-
-		if (!object) {
+		RefPtr refptr = p_variant;
+		Ref<Reference> *irr = reinterpret_cast<Ref<Reference> *>(refptr.get_data());
+		reference = nullptr;
+		Reference *refb = irr->ptr();
+		if (!refb) {
+			unref();
 			return;
 		}
+		Ref r;
+		r.reference = Object::cast_to<T>(refb);
+		ref(r);
+		r.reference = nullptr;
+	}
 
-		T *r = Object::cast_to<T>(object);
-		if (r && r->reference()) {
-			reference = r;
+	Ref(const RefPtr &p_refptr) {
+		Ref<Reference> *irr = reinterpret_cast<Ref<Reference> *>(p_refptr.get_data());
+		reference = nullptr;
+		Reference *refb = irr->ptr();
+		if (!refb) {
+			unref();
+			return;
 		}
+		Ref r;
+		r.reference = Object::cast_to<T>(refb);
+		ref(r);
+		r.reference = nullptr;
 	}
 
 	inline bool is_valid() const { return reference != nullptr; }
 	inline bool is_null() const { return reference == nullptr; }
 
 	void unref() {
-		// TODO: this should be moved to mutexes, since this engine does not really
+		//TODO this should be moved to mutexes, since this engine does not really
 		// do a lot of referencing on references and stuff
 		// mutexes will avoid more crashes?
 
@@ -212,19 +260,23 @@ public:
 		reference = nullptr;
 	}
 
-	void instantiate() {
+	void instance() {
 		ref(memnew(T));
 	}
 
-	Ref() {}
+	Ref() {
+		reference = nullptr;
+	}
 
 	~Ref() {
 		unref();
 	}
 };
 
-class WeakRef : public RefCounted {
-	GDCLASS(WeakRef, RefCounted);
+typedef Ref<Reference> REF;
+
+class WeakRef : public Reference {
+	GDCLASS(WeakRef, Reference);
 
 	ObjectID ref;
 
@@ -234,41 +286,53 @@ protected:
 public:
 	Variant get_ref() const;
 	void set_obj(Object *p_object);
-	void set_ref(const Ref<RefCounted> &p_ref);
+	void set_ref(const REF &p_ref);
 
-	WeakRef() {}
+	WeakRef();
 };
+
+#ifdef PTRCALL_ENABLED
 
 template <class T>
 struct PtrToArg<Ref<T>> {
 	_FORCE_INLINE_ static Ref<T> convert(const void *p_ptr) {
-		if (p_ptr == nullptr) {
-			return Ref<T>();
-		}
-		// p_ptr points to a RefCounted object
-		return Ref<T>(const_cast<T *>(*reinterpret_cast<T *const *>(p_ptr)));
+		return Ref<T>(const_cast<T *>(reinterpret_cast<const T *>(p_ptr)));
 	}
 
-	typedef Ref<T> EncodeT;
-
 	_FORCE_INLINE_ static void encode(Ref<T> p_val, const void *p_ptr) {
-		// p_ptr points to an EncodeT object which is a Ref<T> object.
-		*(const_cast<Ref<RefCounted> *>(reinterpret_cast<const Ref<RefCounted> *>(p_ptr))) = p_val;
+		*(Ref<Reference> *)p_ptr = p_val;
 	}
 };
 
 template <class T>
 struct PtrToArg<const Ref<T> &> {
-	typedef Ref<T> EncodeT;
-
 	_FORCE_INLINE_ static Ref<T> convert(const void *p_ptr) {
-		if (p_ptr == nullptr) {
-			return Ref<T>();
-		}
-		// p_ptr points to a RefCounted object
-		return Ref<T>(*((T *const *)p_ptr));
+		return Ref<T>((T *)p_ptr);
 	}
 };
+
+//this is for RefPtr
+
+template <>
+struct PtrToArg<RefPtr> {
+	_FORCE_INLINE_ static RefPtr convert(const void *p_ptr) {
+		return Ref<Reference>(const_cast<Reference *>(reinterpret_cast<const Reference *>(p_ptr))).get_ref_ptr();
+	}
+
+	_FORCE_INLINE_ static void encode(RefPtr p_val, const void *p_ptr) {
+		Ref<Reference> r = p_val;
+		*(Ref<Reference> *)p_ptr = r;
+	}
+};
+
+template <>
+struct PtrToArg<const RefPtr &> {
+	_FORCE_INLINE_ static RefPtr convert(const void *p_ptr) {
+		return Ref<Reference>(const_cast<Reference *>(reinterpret_cast<const Reference *>(p_ptr))).get_ref_ptr();
+	}
+};
+
+#endif // PTRCALL_ENABLED
 
 template <class T>
 struct GetTypeInfo<Ref<T>> {
@@ -290,16 +354,4 @@ struct GetTypeInfo<const Ref<T> &> {
 	}
 };
 
-template <class T>
-struct VariantInternalAccessor<Ref<T>> {
-	static _FORCE_INLINE_ Ref<T> get(const Variant *v) { return Ref<T>(*VariantInternal::get_object(v)); }
-	static _FORCE_INLINE_ void set(Variant *v, const Ref<T> &p_ref) { VariantInternal::refcounted_object_assign(v, p_ref.ptr()); }
-};
-
-template <class T>
-struct VariantInternalAccessor<const Ref<T> &> {
-	static _FORCE_INLINE_ Ref<T> get(const Variant *v) { return Ref<T>(*VariantInternal::get_object(v)); }
-	static _FORCE_INLINE_ void set(Variant *v, const Ref<T> &p_ref) { VariantInternal::refcounted_object_assign(v, p_ref.ptr()); }
-};
-
-#endif // REF_COUNTED_H
+#endif // REFERENCE_H

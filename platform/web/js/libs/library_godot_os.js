@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  library_godot_os.js                                                   */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  library_godot_os.js                                                  */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 const IDHandler = {
 	$IDHandler: {
@@ -106,14 +106,12 @@ autoAddDeps(GodotConfig, '$GodotConfig');
 mergeInto(LibraryManager.library, GodotConfig);
 
 const GodotFS = {
-	$GodotFS__deps: ['$FS', '$IDBFS', '$GodotRuntime'],
+	$GodotFS__deps: ['$ERRNO_CODES', '$FS', '$IDBFS', '$GodotRuntime'],
 	$GodotFS__postset: [
 		'Module["initFS"] = GodotFS.init;',
 		'Module["copyToFS"] = GodotFS.copy_to_fs;',
 	].join(''),
 	$GodotFS: {
-		// ERRNO_CODES works every odd version of emscripten, but this will break too eventually.
-		ENOENT: 44,
 		_idbfs: false,
 		_syncing: false,
 		_mount_points: [],
@@ -140,9 +138,8 @@ const GodotFS = {
 				try {
 					FS.stat(dir);
 				} catch (e) {
-					if (e.errno !== GodotFS.ENOENT) {
-						// Let mkdirTree throw in case, we cannot trust the above check.
-						GodotRuntime.error(e);
+					if (e.errno !== ERRNO_CODES.ENOENT) {
+						throw e;
 					}
 					FS.mkdirTree(dir);
 				}
@@ -211,9 +208,8 @@ const GodotFS = {
 			try {
 				FS.stat(dir);
 			} catch (e) {
-				if (e.errno !== GodotFS.ENOENT) {
-					// Let mkdirTree throw in case, we cannot trust the above check.
-					GodotRuntime.error(e);
+				if (e.errno !== ERRNO_CODES.ENOENT) {
+					throw e;
 				}
 				FS.mkdirTree(dir);
 			}
@@ -291,28 +287,6 @@ const GodotOS = {
 		});
 	},
 
-	godot_js_os_has_feature__sig: 'ii',
-	godot_js_os_has_feature: function (p_ftr) {
-		const ftr = GodotRuntime.parseString(p_ftr);
-		const ua = navigator.userAgent;
-		if (ftr === 'web_macos') {
-			return (ua.indexOf('Mac') !== -1) ? 1 : 0;
-		}
-		if (ftr === 'web_windows') {
-			return (ua.indexOf('Windows') !== -1) ? 1 : 0;
-		}
-		if (ftr === 'web_android') {
-			return (ua.indexOf('Android') !== -1) ? 1 : 0;
-		}
-		if (ftr === 'web_ios') {
-			return ((ua.indexOf('iPhone') !== -1) || (ua.indexOf('iPad') !== -1) || (ua.indexOf('iPod') !== -1)) ? 1 : 0;
-		}
-		if (ftr === 'web_linuxbsd') {
-			return ((ua.indexOf('CrOS') !== -1) || (ua.indexOf('BSD') !== -1) || (ua.indexOf('Linux') !== -1) || (ua.indexOf('X11') !== -1)) ? 1 : 0;
-		}
-		return 0;
-	},
-
 	godot_js_os_execute__sig: 'ii',
 	godot_js_os_execute: function (p_json) {
 		const json_args = GodotRuntime.parseString(p_json);
@@ -331,9 +305,7 @@ const GodotOS = {
 
 	godot_js_os_hw_concurrency_get__sig: 'i',
 	godot_js_os_hw_concurrency_get: function () {
-		// TODO Godot core needs fixing to avoid spawning too many threads (> 24).
-		const concurrency = navigator.hardwareConcurrency || 1;
-		return concurrency < 2 ? concurrency : 2;
+		return navigator.hardwareConcurrency || 1;
 	},
 
 	godot_js_os_download_buffer__sig: 'viiii',

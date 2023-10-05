@@ -32,7 +32,7 @@ namespace embree
           return;
 #endif
 
-        accel->intersect(ray,prim.geomID(),prim.primID(),context);
+        accel->intersect(ray,prim.geomID(),prim.primID(),context,reportIntersection1);
       }
       
       static __forceinline bool occluded(const Precalculations& pre, Ray& ray, IntersectContext* context, const Primitive& prim)
@@ -44,7 +44,7 @@ namespace embree
           return false;
 #endif
 
-        accel->occluded(ray,prim.geomID(),prim.primID(),context);
+        accel->occluded(ray,prim.geomID(),prim.primID(),context,&reportOcclusion1);
         return ray.tfar < 0.0f;
       }
       
@@ -89,7 +89,7 @@ namespace embree
         valid &= (ray.mask & accel->mask) != 0;
         if (none(valid)) return;
 #endif
-        accel->intersect(valid,ray,prim.geomID(),prim.primID(),context);
+        accel->intersect(valid,ray,prim.geomID(),prim.primID(),context,&reportIntersection1);
       }
 
       static __forceinline vbool<K> occluded(const vbool<K>& valid_i, const Precalculations& pre, RayK<K>& ray, IntersectContext* context, const Primitive& prim)
@@ -102,7 +102,7 @@ namespace embree
         valid &= (ray.mask & accel->mask) != 0;
         if (none(valid)) return false;
 #endif
-        accel->occluded(valid,ray,prim.geomID(),prim.primID(),context);
+        accel->occluded(valid,ray,prim.geomID(),prim.primID(),context,&reportOcclusion1);
         return ray.tfar < 0.0f;
       }
       

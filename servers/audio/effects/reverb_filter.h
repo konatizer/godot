@@ -1,32 +1,34 @@
-/**************************************************************************/
-/*  reverb_filter.h                                                       */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  reverb_filter.h                                                      */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
+
+// Author: Juan Linietsky <reduzio@gmail.com>, (C) 2006
 
 #ifndef REVERB_FILTER_H
 #define REVERB_FILTER_H
@@ -44,6 +46,7 @@ public:
 
 private:
 	enum {
+
 		MAX_COMBS = 8,
 		MAX_ALLPASS = 4,
 		MAX_ECHO_MS = 500
@@ -54,34 +57,43 @@ private:
 	static const float allpass_tunings[MAX_ALLPASS];
 
 	struct Comb {
-		int size = 0;
-		float *buffer = nullptr;
-		float feedback = 0;
-		float damp = 0; //lowpass
-		float damp_h = 0; //history
-		int pos = 0;
-		int extra_spread_frames = 0;
+		int size;
+		float *buffer;
+		float feedback;
+		float damp; //lowpass
+		float damp_h; //history
+		int pos;
+		int extra_spread_frames;
 
-		Comb() {}
+		Comb() {
+			size = 0;
+			buffer = nullptr;
+			feedback = 0;
+			damp_h = 0;
+			pos = 0;
+		}
 	};
 
 	struct AllPass {
-		int size = 0;
-		float *buffer = nullptr;
-		int pos = 0;
-		int extra_spread_frames = 0;
-		AllPass() {}
+		int size;
+		float *buffer;
+		int pos;
+		int extra_spread_frames;
+		AllPass() {
+			size = 0;
+			buffer = nullptr;
+			pos = 0;
+		}
 	};
 
 	Comb comb[MAX_COMBS];
 	AllPass allpass[MAX_ALLPASS];
-	float *input_buffer = nullptr;
-	float *echo_buffer = nullptr;
-	int echo_buffer_size = 0;
-	int echo_buffer_pos = 0;
+	float *input_buffer;
+	float *echo_buffer;
+	int echo_buffer_size;
+	int echo_buffer_pos;
 
-	float hpf_h1 = 0.0f;
-	float hpf_h2 = 0.0f;
+	float hpf_h1, hpf_h2;
 
 	struct Parameters {
 		float room_size;

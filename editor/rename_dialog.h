@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  rename_dialog.h                                                       */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  rename_dialog.h                                                      */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef RENAME_DIALOG_H
 #define RENAME_DIALOG_H
@@ -34,23 +34,23 @@
 #include "modules/modules_enabled.gen.h" // For regex.
 #ifdef MODULE_REGEX_ENABLED
 
-#include "editor/gui/scene_tree_editor.h"
+#include "scene/gui/check_box.h"
 #include "scene/gui/dialogs.h"
-#include "scene/gui/line_edit.h"
+#include "scene/gui/option_button.h"
+#include "scene/gui/spin_box.h"
 
-class Button;
-class CheckBox;
-class CheckButton;
-class Label;
-class OptionButton;
-class SpinBox;
-class TabContainer;
+#include "core/undo_redo.h"
+#include "editor/scene_tree_editor.h"
+
+/**
+@author Blazej Floch
+*/
 
 class RenameDialog : public ConfirmationDialog {
 	GDCLASS(RenameDialog, ConfirmationDialog);
 
-	virtual void ok_pressed() override { rename(); };
-	void _cancel_pressed() {}
+	virtual void ok_pressed() { rename(); };
+	void _cancel_pressed(){};
 	void _features_toggled(bool pressed);
 	void _insert_text(String text);
 	void _update_substitute();
@@ -63,55 +63,58 @@ class RenameDialog : public ConfirmationDialog {
 	String _postprocess(const String &subject);
 	void _update_preview(String new_text = "");
 	void _update_preview_int(int new_value = 0);
-	static void _error_handler(void *p_self, const char *p_func, const char *p_file, int p_line, const char *p_error, const char *p_errorexp, bool p_editor_notify, ErrorHandlerType p_type);
+	static void _error_handler(void *p_self, const char *p_func, const char *p_file, int p_line, const char *p_error, const char *p_errorexp, ErrorHandlerType p_type);
 
-	SceneTreeEditor *scene_tree_editor = nullptr;
-	int global_count = 0;
+	SceneTreeEditor *scene_tree_editor;
+	UndoRedo *undo_redo;
+	int global_count;
 
-	LineEdit *lne_search = nullptr;
-	LineEdit *lne_replace = nullptr;
-	LineEdit *lne_prefix = nullptr;
-	LineEdit *lne_suffix = nullptr;
+	LineEdit *lne_search;
+	LineEdit *lne_replace;
+	LineEdit *lne_prefix;
+	LineEdit *lne_suffix;
 
-	TabContainer *tabc_features = nullptr;
+	TabContainer *tabc_features;
 
-	CheckBox *cbut_substitute = nullptr;
-	CheckButton *cbut_regex = nullptr;
-	CheckBox *cbut_process = nullptr;
-	CheckBox *chk_per_level_counter = nullptr;
+	CheckBox *cbut_substitute;
+	CheckButton *cbut_regex;
+	CheckBox *cbut_process;
+	CheckBox *chk_per_level_counter;
 
-	Button *but_insert_name = nullptr;
-	Button *but_insert_parent = nullptr;
-	Button *but_insert_type = nullptr;
-	Button *but_insert_scene = nullptr;
-	Button *but_insert_root = nullptr;
-	Button *but_insert_count = nullptr;
+	Button *but_insert_name;
+	Button *but_insert_parent;
+	Button *but_insert_type;
+	Button *but_insert_scene;
+	Button *but_insert_root;
+	Button *but_insert_count;
 
-	SpinBox *spn_count_start = nullptr;
-	SpinBox *spn_count_step = nullptr;
-	SpinBox *spn_count_padding = nullptr;
+	SpinBox *spn_count_start;
+	SpinBox *spn_count_step;
+	SpinBox *spn_count_padding;
 
-	OptionButton *opt_style = nullptr;
-	OptionButton *opt_case = nullptr;
+	OptionButton *opt_style;
+	OptionButton *opt_case;
 
-	Label *lbl_preview_title = nullptr;
-	Label *lbl_preview = nullptr;
+	Label *lbl_preview_title;
+	Label *lbl_preview;
 
 	List<Pair<NodePath, String>> to_rename;
-	Node *preview_node = nullptr;
-	bool lock_preview_update = false;
+	Node *preview_node;
+	bool lock_preview_update;
 	ErrorHandlerList eh;
-	bool has_errors = false;
+	bool has_errors;
 
 protected:
+	void _notification(int p_what){};
 	static void _bind_methods();
-	virtual void _post_popup() override;
+	virtual void _post_popup();
 
 public:
 	void reset();
 	void rename();
 
-	RenameDialog(SceneTreeEditor *p_scene_tree_editor);
+	RenameDialog(SceneTreeEditor *p_scene_tree_editor, UndoRedo *p_undo_redo = nullptr);
+	~RenameDialog(){};
 };
 
 #endif // MODULE_REGEX_ENABLED

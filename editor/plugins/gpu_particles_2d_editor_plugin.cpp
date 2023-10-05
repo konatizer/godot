@@ -1,56 +1,50 @@
-/**************************************************************************/
-/*  gpu_particles_2d_editor_plugin.cpp                                    */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  particles_2d_editor_plugin.cpp                                       */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
-#include "gpu_particles_2d_editor_plugin.h"
+#include "particles_2d_editor_plugin.h"
 
 #include "canvas_item_editor_plugin.h"
 #include "core/io/image_loader.h"
-#include "editor/editor_node.h"
-#include "editor/editor_undo_redo_manager.h"
-#include "editor/gui/editor_file_dialog.h"
-#include "editor/scene_tree_dock.h"
 #include "scene/2d/cpu_particles_2d.h"
-#include "scene/gui/menu_button.h"
 #include "scene/gui/separator.h"
-#include "scene/resources/image_texture.h"
-#include "scene/resources/particle_process_material.h"
+#include "scene/resources/particles_material.h"
 
-void GPUParticles2DEditorPlugin::edit(Object *p_object) {
-	particles = Object::cast_to<GPUParticles2D>(p_object);
+void Particles2DEditorPlugin::edit(Object *p_object) {
+	particles = Object::cast_to<Particles2D>(p_object);
 }
 
-bool GPUParticles2DEditorPlugin::handles(Object *p_object) const {
-	return p_object->is_class("GPUParticles2D");
+bool Particles2DEditorPlugin::handles(Object *p_object) const {
+	return p_object->is_class("Particles2D");
 }
 
-void GPUParticles2DEditorPlugin::make_visible(bool p_visible) {
+void Particles2DEditorPlugin::make_visible(bool p_visible) {
 	if (p_visible) {
 		toolbar->show();
 	} else {
@@ -58,25 +52,26 @@ void GPUParticles2DEditorPlugin::make_visible(bool p_visible) {
 	}
 }
 
-void GPUParticles2DEditorPlugin::_file_selected(const String &p_file) {
+void Particles2DEditorPlugin::_file_selected(const String &p_file) {
 	source_emission_file = p_file;
-	emission_mask->popup_centered();
+	emission_mask->popup_centered_minsize();
 }
 
-void GPUParticles2DEditorPlugin::_selection_changed() {
-	List<Node *> selected_nodes = EditorNode::get_singleton()->get_editor_selection()->get_selected_node_list();
+void Particles2DEditorPlugin::_selection_changed() {
+	List<Node *> selected_nodes = editor->get_editor_selection()->get_selected_node_list();
 
-	if (selected_particles.is_empty() && selected_nodes.is_empty()) {
+	if (selected_particles.empty() && selected_nodes.empty()) {
 		return;
 	}
 
-	for (GPUParticles2D *SP : selected_particles) {
-		SP->set_show_visibility_rect(false);
+	for (int i = 0; i < selected_particles.size(); i++) {
+		selected_particles[i]->set_show_visibility_rect(false);
 	}
+
 	selected_particles.clear();
 
-	for (Node *P : selected_nodes) {
-		GPUParticles2D *selected_particle = Object::cast_to<GPUParticles2D>(P);
+	for (int i = 0; i < selected_nodes.size(); i++) {
+		Particles2D *selected_particle = Object::cast_to<Particles2D>(selected_nodes[i]);
 		if (selected_particle != nullptr) {
 			selected_particle->set_show_visibility_rect(true);
 			selected_particles.push_back(selected_particle);
@@ -84,26 +79,23 @@ void GPUParticles2DEditorPlugin::_selection_changed() {
 	}
 }
 
-void GPUParticles2DEditorPlugin::_menu_callback(int p_idx) {
+void Particles2DEditorPlugin::_menu_callback(int p_idx) {
 	switch (p_idx) {
 		case MENU_GENERATE_VISIBILITY_RECT: {
-			// Add one second to the default generation lifetime, since the progress is updated every second.
-			generate_seconds->set_value(MAX(1.0, trunc(particles->get_lifetime()) + 1.0));
-
-			if (generate_seconds->get_value() >= 11.0 + CMP_EPSILON) {
-				// Only pop up the time dialog if the particle's lifetime is long enough to warrant shortening it.
-				generate_visibility_rect->popup_centered();
+			float gen_time = particles->get_lifetime();
+			if (gen_time < 1.0) {
+				generate_seconds->set_value(1.0);
 			} else {
-				// Generate the visibility rect immediately.
-				_generate_visibility_rect();
+				generate_seconds->set_value(trunc(gen_time) + 1.0);
 			}
+			generate_visibility_rect->popup_centered_minsize();
 		} break;
 		case MENU_LOAD_EMISSION_MASK: {
-			file->popup_file_dialog();
+			file->popup_centered_ratio();
 
 		} break;
 		case MENU_CLEAR_EMISSION_MASK: {
-			emission_mask->popup_centered();
+			emission_mask->popup_centered_minsize();
 		} break;
 		case MENU_OPTION_CONVERT_TO_CPU_PARTICLES: {
 			CPUParticles2D *cpu_particles = memnew(CPUParticles2D);
@@ -111,13 +103,16 @@ void GPUParticles2DEditorPlugin::_menu_callback(int p_idx) {
 			cpu_particles->set_name(particles->get_name());
 			cpu_particles->set_transform(particles->get_transform());
 			cpu_particles->set_visible(particles->is_visible());
-			cpu_particles->set_process_mode(particles->get_process_mode());
+			cpu_particles->set_pause_mode(particles->get_pause_mode());
 			cpu_particles->set_z_index(particles->get_z_index());
 
-			EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
-			ur->create_action(TTR("Convert to CPUParticles2D"));
-			SceneTreeDock::get_singleton()->replace_node(particles, cpu_particles);
-			ur->commit_action(false);
+			UndoRedo *ur = EditorNode::get_singleton()->get_undo_redo();
+			ur->create_action(TTR("Convert to CPUParticles"));
+			ur->add_do_method(EditorNode::get_singleton()->get_scene_tree_dock(), "replace_node", particles, cpu_particles, true, false);
+			ur->add_do_reference(cpu_particles);
+			ur->add_undo_method(EditorNode::get_singleton()->get_scene_tree_dock(), "replace_node", cpu_particles, particles, false, false);
+			ur->add_undo_reference(particles);
+			ur->commit_action();
 
 		} break;
 		case MENU_RESTART: {
@@ -126,12 +121,12 @@ void GPUParticles2DEditorPlugin::_menu_callback(int p_idx) {
 	}
 }
 
-void GPUParticles2DEditorPlugin::_generate_visibility_rect() {
-	double time = generate_seconds->get_value();
+void Particles2DEditorPlugin::_generate_visibility_rect() {
+	float time = generate_seconds->get_value();
 
 	float running = 0.0;
 
-	EditorProgress ep("gen_vrect", TTR("Generating Visibility Rect (Waiting for Particle Simulation)"), int(time));
+	EditorProgress ep("gen_vrect", TTR("Generating Visibility Rect"), int(time));
 
 	bool was_emitting = particles->is_emitting();
 	if (!was_emitting) {
@@ -159,22 +154,21 @@ void GPUParticles2DEditorPlugin::_generate_visibility_rect() {
 		particles->set_emitting(false);
 	}
 
-	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action(TTR("Generate Visibility Rect"));
 	undo_redo->add_do_method(particles, "set_visibility_rect", rect);
 	undo_redo->add_undo_method(particles, "set_visibility_rect", particles->get_visibility_rect());
 	undo_redo->commit_action();
 }
 
-void GPUParticles2DEditorPlugin::_generate_emission_mask() {
-	Ref<ParticleProcessMaterial> pm = particles->get_process_material();
+void Particles2DEditorPlugin::_generate_emission_mask() {
+	Ref<ParticlesMaterial> pm = particles->get_process_material();
 	if (!pm.is_valid()) {
-		EditorNode::get_singleton()->show_warning(TTR("Can only set point into a ParticleProcessMaterial process material"));
+		EditorNode::get_singleton()->show_warning(TTR("Can only set point into a ParticlesMaterial process material"));
 		return;
 	}
 
 	Ref<Image> img;
-	img.instantiate();
+	img.instance();
 	Error err = ImageLoader::load_image(source_emission_file, img);
 	ERR_FAIL_COND_MSG(err != OK, "Error loading image '" + source_emission_file + "'.");
 
@@ -183,7 +177,7 @@ void GPUParticles2DEditorPlugin::_generate_emission_mask() {
 	}
 	img->convert(Image::FORMAT_RGBA8);
 	ERR_FAIL_COND(img->get_format() != Image::FORMAT_RGBA8);
-	Size2i s = img->get_size();
+	Size2i s = Size2(img->get_width(), img->get_height());
 	ERR_FAIL_COND(s.width == 0 || s.height == 0);
 
 	Vector<Point2> valid_positions;
@@ -207,8 +201,8 @@ void GPUParticles2DEditorPlugin::_generate_emission_mask() {
 	int vpc = 0;
 
 	{
-		Vector<uint8_t> img_data = img->get_data();
-		const uint8_t *r = img_data.ptr();
+		PoolVector<uint8_t> data = img->get_data();
+		PoolVector<uint8_t>::Read r = data.read();
 
 		for (int i = 0; i < s.width; i++) {
 			for (int j = 0; j < s.height; j++) {
@@ -282,7 +276,7 @@ void GPUParticles2DEditorPlugin::_generate_emission_mask() {
 
 	ERR_FAIL_COND_MSG(valid_positions.size() == 0, "No pixels with transparency > 128 in image...");
 
-	Vector<uint8_t> texdata;
+	PoolVector<uint8_t> texdata;
 
 	int w = 2048;
 	int h = (vpc / 2048) + 1;
@@ -290,80 +284,91 @@ void GPUParticles2DEditorPlugin::_generate_emission_mask() {
 	texdata.resize(w * h * 2 * sizeof(float));
 
 	{
-		Vector2 offset;
-		if (emission_mask_centered->is_pressed()) {
-			offset = Vector2(-s.width * 0.5, -s.height * 0.5);
-		}
-
-		uint8_t *tw = texdata.ptrw();
-		float *twf = reinterpret_cast<float *>(tw);
+		PoolVector<uint8_t>::Write tw = texdata.write();
+		float *twf = (float *)tw.ptr();
 		for (int i = 0; i < vpc; i++) {
-			twf[i * 2 + 0] = valid_positions[i].x + offset.x;
-			twf[i * 2 + 1] = valid_positions[i].y + offset.y;
+			twf[i * 2 + 0] = valid_positions[i].x;
+			twf[i * 2 + 1] = valid_positions[i].y;
 		}
 	}
 
-	img.instantiate();
-	img->set_data(w, h, false, Image::FORMAT_RGF, texdata);
-	pm->set_emission_point_texture(ImageTexture::create_from_image(img));
+	img.instance();
+	img->create(w, h, false, Image::FORMAT_RGF, texdata);
+
+	Ref<ImageTexture> imgt;
+	imgt.instance();
+	imgt->create_from_image(img, 0);
+
+	pm->set_emission_point_texture(imgt);
 	pm->set_emission_point_count(vpc);
 
 	if (capture_colors) {
-		Vector<uint8_t> colordata;
+		PoolVector<uint8_t> colordata;
 		colordata.resize(w * h * 4); //use RG texture
 
 		{
-			uint8_t *tw = colordata.ptrw();
+			PoolVector<uint8_t>::Write tw = colordata.write();
 			for (int i = 0; i < vpc * 4; i++) {
 				tw[i] = valid_colors[i];
 			}
 		}
 
-		img.instantiate();
-		img->set_data(w, h, false, Image::FORMAT_RGBA8, colordata);
-		pm->set_emission_color_texture(ImageTexture::create_from_image(img));
+		img.instance();
+		img->create(w, h, false, Image::FORMAT_RGBA8, colordata);
+
+		imgt.instance();
+		imgt->create_from_image(img, 0);
+		pm->set_emission_color_texture(imgt);
 	}
 
 	if (valid_normals.size()) {
-		pm->set_emission_shape(ParticleProcessMaterial::EMISSION_SHAPE_DIRECTED_POINTS);
+		pm->set_emission_shape(ParticlesMaterial::EMISSION_SHAPE_DIRECTED_POINTS);
 
-		Vector<uint8_t> normdata;
+		PoolVector<uint8_t> normdata;
 		normdata.resize(w * h * 2 * sizeof(float)); //use RG texture
 
 		{
-			uint8_t *tw = normdata.ptrw();
-			float *twf = reinterpret_cast<float *>(tw);
+			PoolVector<uint8_t>::Write tw = normdata.write();
+			float *twf = (float *)tw.ptr();
 			for (int i = 0; i < vpc; i++) {
 				twf[i * 2 + 0] = valid_normals[i].x;
 				twf[i * 2 + 1] = valid_normals[i].y;
 			}
 		}
 
-		img.instantiate();
-		img->set_data(w, h, false, Image::FORMAT_RGF, normdata);
-		pm->set_emission_normal_texture(ImageTexture::create_from_image(img));
+		img.instance();
+		img->create(w, h, false, Image::FORMAT_RGF, normdata);
+
+		imgt.instance();
+		imgt->create_from_image(img, 0);
+		pm->set_emission_normal_texture(imgt);
 
 	} else {
-		pm->set_emission_shape(ParticleProcessMaterial::EMISSION_SHAPE_POINTS);
+		pm->set_emission_shape(ParticlesMaterial::EMISSION_SHAPE_POINTS);
 	}
 }
 
-void GPUParticles2DEditorPlugin::_notification(int p_what) {
-	switch (p_what) {
-		case NOTIFICATION_ENTER_TREE: {
-			menu->get_popup()->connect("id_pressed", callable_mp(this, &GPUParticles2DEditorPlugin::_menu_callback));
-			menu->set_icon(menu->get_editor_theme_icon(SNAME("GPUParticles2D")));
-			file->connect("file_selected", callable_mp(this, &GPUParticles2DEditorPlugin::_file_selected));
-			EditorNode::get_singleton()->get_editor_selection()->connect("selection_changed", callable_mp(this, &GPUParticles2DEditorPlugin::_selection_changed));
-		} break;
+void Particles2DEditorPlugin::_notification(int p_what) {
+	if (p_what == NOTIFICATION_ENTER_TREE) {
+		menu->get_popup()->connect("id_pressed", this, "_menu_callback");
+		menu->set_icon(menu->get_popup()->get_icon("Particles2D", "EditorIcons"));
+		file->connect("file_selected", this, "_file_selected");
+		EditorNode::get_singleton()->get_editor_selection()->connect("selection_changed", this, "_selection_changed");
 	}
 }
 
-void GPUParticles2DEditorPlugin::_bind_methods() {
+void Particles2DEditorPlugin::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("_menu_callback"), &Particles2DEditorPlugin::_menu_callback);
+	ClassDB::bind_method(D_METHOD("_file_selected"), &Particles2DEditorPlugin::_file_selected);
+	ClassDB::bind_method(D_METHOD("_selection_changed"), &Particles2DEditorPlugin::_selection_changed);
+	ClassDB::bind_method(D_METHOD("_generate_visibility_rect"), &Particles2DEditorPlugin::_generate_visibility_rect);
+	ClassDB::bind_method(D_METHOD("_generate_emission_mask"), &Particles2DEditorPlugin::_generate_emission_mask);
 }
 
-GPUParticles2DEditorPlugin::GPUParticles2DEditorPlugin() {
+Particles2DEditorPlugin::Particles2DEditorPlugin(EditorNode *p_node) {
 	particles = nullptr;
+	editor = p_node;
+	undo_redo = editor->get_undo_redo();
 
 	toolbar = memnew(HBoxContainer);
 	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, toolbar);
@@ -372,22 +377,25 @@ GPUParticles2DEditorPlugin::GPUParticles2DEditorPlugin() {
 	toolbar->add_child(memnew(VSeparator));
 
 	menu = memnew(MenuButton);
-	menu->get_popup()->add_item(TTR("Restart"), MENU_RESTART);
 	menu->get_popup()->add_item(TTR("Generate Visibility Rect"), MENU_GENERATE_VISIBILITY_RECT);
+	menu->get_popup()->add_separator();
 	menu->get_popup()->add_item(TTR("Load Emission Mask"), MENU_LOAD_EMISSION_MASK);
 	//	menu->get_popup()->add_item(TTR("Clear Emission Mask"), MENU_CLEAR_EMISSION_MASK);
+	menu->get_popup()->add_separator();
 	menu->get_popup()->add_item(TTR("Convert to CPUParticles2D"), MENU_OPTION_CONVERT_TO_CPU_PARTICLES);
-	menu->set_text(TTR("GPUParticles2D"));
+	menu->get_popup()->add_separator();
+	menu->get_popup()->add_item(TTR("Restart"), MENU_RESTART);
+	menu->set_text(TTR("Particles"));
 	menu->set_switch_on_hover(true);
 	toolbar->add_child(menu);
 
 	file = memnew(EditorFileDialog);
 	List<String> ext;
 	ImageLoader::get_recognized_extensions(&ext);
-	for (const String &E : ext) {
-		file->add_filter("*." + E, E.to_upper());
+	for (List<String>::Element *E = ext.front(); E; E = E->next()) {
+		file->add_filter("*." + E->get() + "; " + E->get().to_upper());
 	}
-	file->set_file_mode(EditorFileDialog::FILE_MODE_OPEN_FILE);
+	file->set_mode(EditorFileDialog::MODE_OPEN_FILE);
 	toolbar->add_child(file);
 
 	epoints = memnew(SpinBox);
@@ -409,7 +417,7 @@ GPUParticles2DEditorPlugin::GPUParticles2DEditorPlugin() {
 
 	toolbar->add_child(generate_visibility_rect);
 
-	generate_visibility_rect->connect("confirmed", callable_mp(this, &GPUParticles2DEditorPlugin::_generate_visibility_rect));
+	generate_visibility_rect->connect("confirmed", this, "_generate_visibility_rect");
 
 	emission_mask = memnew(ConfirmationDialog);
 	emission_mask->set_title(TTR("Load Emission Mask"));
@@ -420,19 +428,14 @@ GPUParticles2DEditorPlugin::GPUParticles2DEditorPlugin() {
 	emission_mask_mode->add_item(TTR("Solid Pixels"), EMISSION_MODE_SOLID);
 	emission_mask_mode->add_item(TTR("Border Pixels"), EMISSION_MODE_BORDER);
 	emission_mask_mode->add_item(TTR("Directed Border Pixels"), EMISSION_MODE_BORDER_DIRECTED);
-	VBoxContainer *optionsvb = memnew(VBoxContainer);
-	emvb->add_margin_child(TTR("Options"), optionsvb);
-	emission_mask_centered = memnew(CheckBox);
-	emission_mask_centered->set_text(TTR("Centered"));
-	optionsvb->add_child(emission_mask_centered);
 	emission_colors = memnew(CheckBox);
-	emission_colors->set_text(TTR("Capture Colors from Pixel"));
-	optionsvb->add_child(emission_colors);
+	emission_colors->set_text(TTR("Capture from Pixel"));
+	emvb->add_margin_child(TTR("Emission Colors"), emission_colors);
 
 	toolbar->add_child(emission_mask);
 
-	emission_mask->connect("confirmed", callable_mp(this, &GPUParticles2DEditorPlugin::_generate_emission_mask));
+	emission_mask->connect("confirmed", this, "_generate_emission_mask");
 }
 
-GPUParticles2DEditorPlugin::~GPUParticles2DEditorPlugin() {
+Particles2DEditorPlugin::~Particles2DEditorPlugin() {
 }

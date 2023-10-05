@@ -1,46 +1,43 @@
-/**************************************************************************/
-/*  sprite_2d_editor_plugin.h                                             */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  sprite_editor_plugin.h                                               */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
-#ifndef SPRITE_2D_EDITOR_PLUGIN_H
-#define SPRITE_2D_EDITOR_PLUGIN_H
+#ifndef SPRITE_EDITOR_PLUGIN_H
+#define SPRITE_EDITOR_PLUGIN_H
 
+#include "editor/editor_node.h"
 #include "editor/editor_plugin.h"
-#include "scene/2d/sprite_2d.h"
+#include "scene/2d/sprite.h"
 #include "scene/gui/spin_box.h"
 
-class AcceptDialog;
-class ConfirmationDialog;
-class MenuButton;
-
-class Sprite2DEditor : public Control {
-	GDCLASS(Sprite2DEditor, Control);
+class SpriteEditor : public Control {
+	GDCLASS(SpriteEditor, Control);
 
 	enum Menu {
 		MENU_OPTION_CONVERT_TO_MESH_2D,
@@ -51,16 +48,16 @@ class Sprite2DEditor : public Control {
 
 	Menu selected_menu_item;
 
-	Sprite2D *node = nullptr;
+	Sprite *node;
 
-	MenuButton *options = nullptr;
+	MenuButton *options;
 
-	ConfirmationDialog *outline_dialog = nullptr;
+	ConfirmationDialog *outline_dialog;
 
-	AcceptDialog *err_dialog = nullptr;
+	AcceptDialog *err_dialog;
 
-	ConfirmationDialog *debug_uv_dialog = nullptr;
-	Control *debug_uv = nullptr;
+	ConfirmationDialog *debug_uv_dialog;
+	Control *debug_uv;
 	Vector<Vector2> uv_lines;
 	Vector<Vector<Vector2>> outline_lines;
 	Vector<Vector<Vector2>> computed_outline_lines;
@@ -68,15 +65,15 @@ class Sprite2DEditor : public Control {
 	Vector<Vector2> computed_uv;
 	Vector<int> computed_indices;
 
-	SpinBox *simplification = nullptr;
-	SpinBox *grow_pixels = nullptr;
-	SpinBox *shrink_pixels = nullptr;
-	Button *update_preview = nullptr;
+	SpinBox *simplification;
+	SpinBox *grow_pixels;
+	SpinBox *shrink_pixels;
+	Button *update_preview;
 
 	void _menu_option(int p_option);
 
 	//void _create_uv_lines();
-	friend class Sprite2DEditorPlugin;
+	friend class SpriteEditorPlugin;
 
 	void _debug_uv_draw();
 	void _update_mesh_data();
@@ -91,28 +88,28 @@ class Sprite2DEditor : public Control {
 
 protected:
 	void _node_removed(Node *p_node);
-	void _notification(int p_what);
 	static void _bind_methods();
 
 public:
-	void edit(Sprite2D *p_sprite);
-	Sprite2DEditor();
+	void edit(Sprite *p_sprite);
+	SpriteEditor();
 };
 
-class Sprite2DEditorPlugin : public EditorPlugin {
-	GDCLASS(Sprite2DEditorPlugin, EditorPlugin);
+class SpriteEditorPlugin : public EditorPlugin {
+	GDCLASS(SpriteEditorPlugin, EditorPlugin);
 
-	Sprite2DEditor *sprite_editor = nullptr;
+	SpriteEditor *sprite_editor;
+	EditorNode *editor;
 
 public:
-	virtual String get_name() const override { return "Sprite2D"; }
-	bool has_main_screen() const override { return false; }
-	virtual void edit(Object *p_object) override;
-	virtual bool handles(Object *p_object) const override;
-	virtual void make_visible(bool p_visible) override;
+	virtual String get_name() const { return "Sprite"; }
+	bool has_main_screen() const { return false; }
+	virtual void edit(Object *p_object);
+	virtual bool handles(Object *p_object) const;
+	virtual void make_visible(bool p_visible);
 
-	Sprite2DEditorPlugin();
-	~Sprite2DEditorPlugin();
+	SpriteEditorPlugin(EditorNode *p_node);
+	~SpriteEditorPlugin();
 };
 
-#endif // SPRITE_2D_EDITOR_PLUGIN_H
+#endif // SPRITE_EDITOR_PLUGIN_H

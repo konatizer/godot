@@ -5897,7 +5897,7 @@ static BrotliDictionary kBrotliDictionary = {
 #endif
 };
 
-const BrotliDictionary* BrotliGetDictionary(void) {
+const BrotliDictionary* BrotliGetDictionary() {
   return &kBrotliDictionary;
 }
 

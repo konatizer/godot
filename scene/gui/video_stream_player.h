@@ -1,50 +1,48 @@
-/**************************************************************************/
-/*  video_stream_player.h                                                 */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  video_player.h                                                       */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
-#ifndef VIDEO_STREAM_PLAYER_H
-#define VIDEO_STREAM_PLAYER_H
+#ifndef VIDEO_PLAYER_H
+#define VIDEO_PLAYER_H
 
 #include "scene/gui/control.h"
 #include "scene/resources/video_stream.h"
 #include "servers/audio/audio_rb_resampler.h"
 #include "servers/audio_server.h"
 
-class ImageTexture;
-
-class VideoStreamPlayer : public Control {
-	GDCLASS(VideoStreamPlayer, Control);
+class VideoPlayer : public Control {
+	GDCLASS(VideoPlayer, Control);
 
 	struct Output {
 		AudioFrame vol;
-		int bus_index = 0;
-		Viewport *viewport = nullptr; //pointer only used for reference to previous mix
+		int bus_index;
+		Viewport *viewport; //pointer only used for reference to previous mix
 	};
 	Ref<VideoStreamPlayback> playback;
 	Ref<VideoStream> stream;
@@ -58,19 +56,17 @@ class VideoStreamPlayer : public Control {
 
 	AudioRBResampler resampler;
 	Vector<AudioFrame> mix_buffer;
-	int wait_resampler = 0;
-	int wait_resampler_limit = 2;
+	int wait_resampler, wait_resampler_limit;
 
-	bool paused = false;
-	bool paused_from_tree = false;
-	bool autoplay = false;
-	float volume = 1.0;
-	double last_audio_time = 0.0;
-	bool expand = false;
-	bool loop = false;
-	int buffering_ms = 500;
-	int audio_track = 0;
-	int bus_index = 0;
+	bool paused;
+	bool autoplay;
+	float volume;
+	double last_audio_time;
+	bool expand;
+	bool loops;
+	int buffering_ms;
+	int audio_track;
+	int bus_index;
 
 	StringName bus;
 
@@ -84,11 +80,11 @@ protected:
 	void _validate_property(PropertyInfo &p_property) const;
 
 public:
-	Size2 get_minimum_size() const override;
+	Size2 get_minimum_size() const;
 	void set_expand(bool p_expand);
 	bool has_expand() const;
 
-	Ref<Texture2D> get_video_texture() const;
+	Ref<Texture> get_video_texture() const;
 
 	void set_stream(const Ref<VideoStream> &p_stream);
 	Ref<VideoStream> get_stream() const;
@@ -96,9 +92,6 @@ public:
 	void play();
 	void stop();
 	bool is_playing() const;
-
-	void set_loop(bool p_loop);
-	bool has_loop() const;
 
 	void set_paused(bool p_paused);
 	bool is_paused() const;
@@ -110,9 +103,8 @@ public:
 	float get_volume_db() const;
 
 	String get_stream_name() const;
-	double get_stream_length() const;
-	double get_stream_position() const;
-	void set_stream_position(double p_position);
+	float get_stream_position() const;
+	void set_stream_position(float p_position);
 
 	void set_autoplay(bool p_enable);
 	bool has_autoplay() const;
@@ -126,8 +118,8 @@ public:
 	void set_bus(const StringName &p_bus);
 	StringName get_bus() const;
 
-	VideoStreamPlayer();
-	~VideoStreamPlayer();
+	VideoPlayer();
+	~VideoPlayer();
 };
 
-#endif // VIDEO_STREAM_PLAYER_H
+#endif // VIDEO_PLAYER_H

@@ -1,41 +1,39 @@
-/**************************************************************************/
-/*  editor_vcs_interface.h                                                */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  editor_vcs_interface.h                                               */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef EDITOR_VCS_INTERFACE_H
 #define EDITOR_VCS_INTERFACE_H
 
-#include "core/object/class_db.h"
-#include "core/object/gdvirtual.gen.inc"
-#include "core/object/script_language_extension.h"
-#include "core/string/ustring.h"
-#include "core/variant/type_info.h"
+#include "core/object.h"
+#include "core/ustring.h"
+#include "scene/gui/panel_container.h"
 
 class EditorVCSInterface : public Object {
 	GDCLASS(EditorVCSInterface, Object)
@@ -105,42 +103,11 @@ protected:
 	Commit _convert_commit(Dictionary p_commit);
 	StatusFile _convert_status_file(Dictionary p_status_file);
 
-	// Proxy endpoints for extensions to implement
-	GDVIRTUAL1R(bool, _initialize, String);
-	GDVIRTUAL5(_set_credentials, String, String, String, String, String);
-	GDVIRTUAL0R(TypedArray<Dictionary>, _get_modified_files_data);
-	GDVIRTUAL1(_stage_file, String);
-	GDVIRTUAL1(_unstage_file, String);
-	GDVIRTUAL1(_discard_file, String);
-	GDVIRTUAL1(_commit, String);
-	GDVIRTUAL2R(TypedArray<Dictionary>, _get_diff, String, int);
-	GDVIRTUAL0R(bool, _shut_down);
-	GDVIRTUAL0R(String, _get_vcs_name);
-	GDVIRTUAL1R(TypedArray<Dictionary>, _get_previous_commits, int);
-	GDVIRTUAL0R(TypedArray<String>, _get_branch_list);
-	GDVIRTUAL0R(TypedArray<String>, _get_remotes);
-	GDVIRTUAL1(_create_branch, String);
-	GDVIRTUAL1(_remove_branch, String);
-	GDVIRTUAL2(_create_remote, String, String);
-	GDVIRTUAL1(_remove_remote, String);
-	GDVIRTUAL0R(String, _get_current_branch_name);
-	GDVIRTUAL1R(bool, _checkout_branch, String);
-	GDVIRTUAL1(_pull, String);
-	GDVIRTUAL2(_push, String, bool);
-	GDVIRTUAL1(_fetch, String);
-	GDVIRTUAL2R(TypedArray<Dictionary>, _get_line_diff, String, String);
-
 public:
 	static EditorVCSInterface *get_singleton();
 	static void set_singleton(EditorVCSInterface *p_singleton);
 
-	enum class VCSMetadata {
-		NONE,
-		GIT,
-	};
-	static void create_vcs_metadata_files(VCSMetadata p_vcs_metadata_type, String &p_dir);
-
-	// Proxies to the editor for use
+	// Proxy functions to the editor for use
 	bool initialize(String p_project_path);
 	void set_credentials(String p_username, String p_password, String p_ssh_public_key_path, String p_ssh_private_key_path, String p_ssh_passphrase);
 	List<StatusFile> get_modified_files_data();
@@ -171,8 +138,8 @@ public:
 	Dictionary create_diff_file(String p_new_file, String p_old_file);
 	Dictionary create_commit(String p_msg, String p_author, String p_id, int64_t p_unix_timestamp, int64_t p_offset_minutes);
 	Dictionary create_status_file(String p_file_path, ChangeType p_change, TreeArea p_area);
-	Dictionary add_line_diffs_into_diff_hunk(Dictionary p_diff_hunk, TypedArray<Dictionary> p_line_diffs);
-	Dictionary add_diff_hunks_into_diff_file(Dictionary p_diff_file, TypedArray<Dictionary> p_diff_hunks);
+	Dictionary add_line_diffs_into_diff_hunk(Dictionary p_diff_hunk, Array p_line_diffs);
+	Dictionary add_diff_hunks_into_diff_file(Dictionary p_diff_file, Array p_diff_hunks);
 
 	void popup_error(String p_msg);
 };

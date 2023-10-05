@@ -1,36 +1,36 @@
-/**************************************************************************/
-/*  godot_joints_2d.cpp                                                   */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  joints_2d_sw.cpp                                                     */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
-#include "godot_joints_2d.h"
+#include "joints_2d_sw.h"
 
-#include "godot_space_2d.h"
+#include "space_2d_sw.h"
 
 //based on chipmunk joint constraints
 
@@ -55,26 +55,18 @@
  * SOFTWARE.
  */
 
-void GodotJoint2D::copy_settings_from(GodotJoint2D *p_joint) {
-	set_self(p_joint->get_self());
-	set_max_force(p_joint->get_max_force());
-	set_bias(p_joint->get_bias());
-	set_max_bias(p_joint->get_max_bias());
-	disable_collisions_between_bodies(p_joint->is_disabled_collisions_between_bodies());
-}
-
-static inline real_t k_scalar(GodotBody2D *a, GodotBody2D *b, const Vector2 &rA, const Vector2 &rB, const Vector2 &n) {
-	real_t value = 0.0;
+static inline real_t k_scalar(Body2DSW *a, Body2DSW *b, const Vector2 &rA, const Vector2 &rB, const Vector2 &n) {
+	real_t value = 0;
 
 	{
 		value += a->get_inv_mass();
-		real_t rcn = (rA - a->get_center_of_mass()).cross(n);
+		real_t rcn = rA.cross(n);
 		value += a->get_inv_inertia() * rcn * rcn;
 	}
 
 	if (b) {
 		value += b->get_inv_mass();
-		real_t rcn = (rB - b->get_center_of_mass()).cross(n);
+		real_t rcn = rB.cross(n);
 		value += b->get_inv_inertia() * rcn * rcn;
 	}
 
@@ -82,29 +74,26 @@ static inline real_t k_scalar(GodotBody2D *a, GodotBody2D *b, const Vector2 &rA,
 }
 
 static inline Vector2
-relative_velocity(GodotBody2D *a, GodotBody2D *b, Vector2 rA, Vector2 rB) {
-	Vector2 sum = a->get_linear_velocity() - (rA - a->get_center_of_mass()).orthogonal() * a->get_angular_velocity();
+relative_velocity(Body2DSW *a, Body2DSW *b, Vector2 rA, Vector2 rB) {
+	Vector2 sum = a->get_linear_velocity() - rA.tangent() * a->get_angular_velocity();
 	if (b) {
-		return (b->get_linear_velocity() - (rB - b->get_center_of_mass()).orthogonal() * b->get_angular_velocity()) - sum;
+		return (b->get_linear_velocity() - rB.tangent() * b->get_angular_velocity()) - sum;
 	} else {
 		return -sum;
 	}
 }
 
 static inline real_t
-normal_relative_velocity(GodotBody2D *a, GodotBody2D *b, Vector2 rA, Vector2 rB, Vector2 n) {
+normal_relative_velocity(Body2DSW *a, Body2DSW *b, Vector2 rA, Vector2 rB, Vector2 n) {
 	return relative_velocity(a, b, rA, rB).dot(n);
 }
 
-bool GodotPinJoint2D::setup(real_t p_step) {
-	dynamic_A = (A->get_mode() > PhysicsServer2D::BODY_MODE_KINEMATIC);
-	dynamic_B = (B->get_mode() > PhysicsServer2D::BODY_MODE_KINEMATIC);
-
-	if (!dynamic_A && !dynamic_B) {
+bool PinJoint2DSW::setup(real_t p_step) {
+	if ((A->get_mode() <= Physics2DServer::BODY_MODE_KINEMATIC) && (B->get_mode() <= Physics2DServer::BODY_MODE_KINEMATIC)) {
 		return false;
 	}
 
-	GodotSpace2D *space = A->get_space();
+	Space2DSW *space = A->get_space();
 	ERR_FAIL_COND_V(!space, false);
 
 	rA = A->get_transform().basis_xform(anchor_A);
@@ -118,26 +107,22 @@ bool GodotPinJoint2D::setup(real_t p_step) {
 	K1[0].y = 0.0f;
 	K1[1].y = A->get_inv_mass() + B_inv_mass;
 
-	Vector2 r1 = rA - A->get_center_of_mass();
-
 	Transform2D K2;
-	K2[0].x = A->get_inv_inertia() * r1.y * r1.y;
-	K2[1].x = -A->get_inv_inertia() * r1.x * r1.y;
-	K2[0].y = -A->get_inv_inertia() * r1.x * r1.y;
-	K2[1].y = A->get_inv_inertia() * r1.x * r1.x;
+	K2[0].x = A->get_inv_inertia() * rA.y * rA.y;
+	K2[1].x = -A->get_inv_inertia() * rA.x * rA.y;
+	K2[0].y = -A->get_inv_inertia() * rA.x * rA.y;
+	K2[1].y = A->get_inv_inertia() * rA.x * rA.x;
 
 	Transform2D K;
 	K[0] = K1[0] + K2[0];
 	K[1] = K1[1] + K2[1];
 
 	if (B) {
-		Vector2 r2 = rB - B->get_center_of_mass();
-
 		Transform2D K3;
-		K3[0].x = B->get_inv_inertia() * r2.y * r2.y;
-		K3[1].x = -B->get_inv_inertia() * r2.x * r2.y;
-		K3[0].y = -B->get_inv_inertia() * r2.x * r2.y;
-		K3[1].y = B->get_inv_inertia() * r2.x * r2.x;
+		K3[0].x = B->get_inv_inertia() * rB.y * rB.y;
+		K3[1].x = -B->get_inv_inertia() * rB.x * rB.y;
+		K3[0].y = -B->get_inv_inertia() * rB.x * rB.y;
+		K3[1].y = B->get_inv_inertia() * rB.x * rB.x;
 
 		K[0] += K3[0];
 		K[1] += K3[1];
@@ -155,6 +140,12 @@ bool GodotPinJoint2D::setup(real_t p_step) {
 
 	bias = delta * -(get_bias() == 0 ? space->get_constraint_bias() : get_bias()) * (1.0 / p_step);
 
+	// apply accumulated impulse
+	A->apply_impulse(rA, -P);
+	if (B) {
+		B->apply_impulse(rB, P);
+	}
+
 	return true;
 }
 
@@ -162,64 +153,61 @@ inline Vector2 custom_cross(const Vector2 &p_vec, real_t p_other) {
 	return Vector2(p_other * p_vec.y, -p_other * p_vec.x);
 }
 
-bool GodotPinJoint2D::pre_solve(real_t p_step) {
-	// Apply accumulated impulse.
-	if (dynamic_A) {
-		A->apply_impulse(-P, rA);
-	}
-	if (B && dynamic_B) {
-		B->apply_impulse(P, rB);
-	}
-
-	return true;
-}
-
-void GodotPinJoint2D::solve(real_t p_step) {
+void PinJoint2DSW::solve(real_t p_step) {
 	// compute relative velocity
-	Vector2 vA = A->get_linear_velocity() - custom_cross(rA - A->get_center_of_mass(), A->get_angular_velocity());
+	Vector2 vA = A->get_linear_velocity() - custom_cross(rA, A->get_angular_velocity());
 
 	Vector2 rel_vel;
 	if (B) {
-		rel_vel = B->get_linear_velocity() - custom_cross(rB - B->get_center_of_mass(), B->get_angular_velocity()) - vA;
+		rel_vel = B->get_linear_velocity() - custom_cross(rB, B->get_angular_velocity()) - vA;
 	} else {
 		rel_vel = -vA;
 	}
 
 	Vector2 impulse = M.basis_xform(bias - rel_vel - Vector2(softness, softness) * P);
 
-	if (dynamic_A) {
-		A->apply_impulse(-impulse, rA);
-	}
-	if (B && dynamic_B) {
-		B->apply_impulse(impulse, rB);
+	A->apply_impulse(rA, -impulse);
+	if (B) {
+		B->apply_impulse(rB, impulse);
 	}
 
 	P += impulse;
 }
 
-void GodotPinJoint2D::set_param(PhysicsServer2D::PinJointParam p_param, real_t p_value) {
-	if (p_param == PhysicsServer2D::PIN_JOINT_SOFTNESS) {
+void PinJoint2DSW::set_param(Physics2DServer::PinJointParam p_param, real_t p_value) {
+	if (p_param == Physics2DServer::PIN_JOINT_SOFTNESS) {
 		softness = p_value;
 	}
 }
 
-real_t GodotPinJoint2D::get_param(PhysicsServer2D::PinJointParam p_param) const {
-	if (p_param == PhysicsServer2D::PIN_JOINT_SOFTNESS) {
+real_t PinJoint2DSW::get_param(Physics2DServer::PinJointParam p_param) const {
+	if (p_param == Physics2DServer::PIN_JOINT_SOFTNESS) {
 		return softness;
 	}
 	ERR_FAIL_V(0);
 }
 
-GodotPinJoint2D::GodotPinJoint2D(const Vector2 &p_pos, GodotBody2D *p_body_a, GodotBody2D *p_body_b) :
-		GodotJoint2D(_arr, p_body_b ? 2 : 1) {
+PinJoint2DSW::PinJoint2DSW(const Vector2 &p_pos, Body2DSW *p_body_a, Body2DSW *p_body_b) :
+		Joint2DSW(_arr, p_body_b ? 2 : 1) {
 	A = p_body_a;
 	B = p_body_b;
 	anchor_A = p_body_a->get_inv_transform().xform(p_pos);
 	anchor_B = p_body_b ? p_body_b->get_inv_transform().xform(p_pos) : p_pos;
 
+	softness = 0;
+
 	p_body_a->add_constraint(this, 0);
 	if (p_body_b) {
 		p_body_b->add_constraint(this, 1);
+	}
+}
+
+PinJoint2DSW::~PinJoint2DSW() {
+	if (A) {
+		A->remove_constraint(this);
+	}
+	if (B) {
+		B->remove_constraint(this);
 	}
 }
 
@@ -228,7 +216,7 @@ GodotPinJoint2D::GodotPinJoint2D(const Vector2 &p_pos, GodotBody2D *p_body_a, Go
 //////////////////////////////////////////////
 
 static inline void
-k_tensor(GodotBody2D *a, GodotBody2D *b, Vector2 r1, Vector2 r2, Vector2 *k1, Vector2 *k2) {
+k_tensor(Body2DSW *a, Body2DSW *b, Vector2 r1, Vector2 r2, Vector2 *k1, Vector2 *k2) {
 	// calculate mass matrix
 	// If I wasn't lazy and wrote a proper matrix class, this wouldn't be so gross...
 	real_t k11, k12, k21, k22;
@@ -239,9 +227,6 @@ k_tensor(GodotBody2D *a, GodotBody2D *b, Vector2 r1, Vector2 r2, Vector2 *k1, Ve
 	k12 = 0.0f;
 	k21 = 0.0f;
 	k22 = m_sum;
-
-	r1 -= a->get_center_of_mass();
-	r2 -= b->get_center_of_mass();
 
 	// add the influence from r1
 	real_t a_i_inv = a->get_inv_inertia();
@@ -277,23 +262,18 @@ mult_k(const Vector2 &vr, const Vector2 &k1, const Vector2 &k2) {
 	return Vector2(vr.dot(k1), vr.dot(k2));
 }
 
-bool GodotGrooveJoint2D::setup(real_t p_step) {
-	dynamic_A = (A->get_mode() > PhysicsServer2D::BODY_MODE_KINEMATIC);
-	dynamic_B = (B->get_mode() > PhysicsServer2D::BODY_MODE_KINEMATIC);
-
-	if (!dynamic_A && !dynamic_B) {
+bool GrooveJoint2DSW::setup(real_t p_step) {
+	if ((A->get_mode() <= Physics2DServer::BODY_MODE_KINEMATIC) && (B->get_mode() <= Physics2DServer::BODY_MODE_KINEMATIC)) {
 		return false;
 	}
-
-	GodotSpace2D *space = A->get_space();
-	ERR_FAIL_COND_V(!space, false);
 
 	// calculate endpoints in worldspace
 	Vector2 ta = A->get_transform().xform(A_groove_1);
 	Vector2 tb = A->get_transform().xform(A_groove_2);
+	Space2DSW *space = A->get_space();
 
 	// calculate axis
-	Vector2 n = -(tb - ta).orthogonal().normalized();
+	Vector2 n = -(tb - ta).tangent().normalized();
 	real_t d = ta.dot(n);
 
 	xf_normal = n;
@@ -311,7 +291,7 @@ bool GodotGrooveJoint2D::setup(real_t p_step) {
 	} else {
 		clamp = 0.0f;
 		//joint->r1 = cpvsub(cpvadd(cpvmult(cpvperp(n), -td), cpvmult(n, d)), a->p);
-		rA = ((-n.orthogonal() * -td) + n * d) - A->get_transform().get_origin();
+		rA = ((-n.tangent() * -td) + n * d) - A->get_transform().get_origin();
 	}
 
 	// Calculate mass tensor
@@ -329,23 +309,15 @@ bool GodotGrooveJoint2D::setup(real_t p_step) {
 	real_t _b = get_bias();
 	gbias = (delta * -(_b == 0 ? space->get_constraint_bias() : _b) * (1.0 / p_step)).limit_length(get_max_bias());
 
+	// apply accumulated impulse
+	A->apply_impulse(rA, -jn_acc);
+	B->apply_impulse(rB, jn_acc);
+
 	correct = true;
 	return true;
 }
 
-bool GodotGrooveJoint2D::pre_solve(real_t p_step) {
-	// Apply accumulated impulse.
-	if (dynamic_A) {
-		A->apply_impulse(-jn_acc, rA);
-	}
-	if (dynamic_B) {
-		B->apply_impulse(jn_acc, rB);
-	}
-
-	return true;
-}
-
-void GodotGrooveJoint2D::solve(real_t p_step) {
+void GrooveJoint2DSW::solve(real_t p_step) {
 	// compute impulse
 	Vector2 vr = relative_velocity(A, B, rA, rB);
 
@@ -357,37 +329,35 @@ void GodotGrooveJoint2D::solve(real_t p_step) {
 
 	j = jn_acc - jOld;
 
-	if (dynamic_A) {
-		A->apply_impulse(-j, rA);
-	}
-	if (dynamic_B) {
-		B->apply_impulse(j, rB);
-	}
+	A->apply_impulse(rA, -j);
+	B->apply_impulse(rB, j);
 }
 
-GodotGrooveJoint2D::GodotGrooveJoint2D(const Vector2 &p_a_groove1, const Vector2 &p_a_groove2, const Vector2 &p_b_anchor, GodotBody2D *p_body_a, GodotBody2D *p_body_b) :
-		GodotJoint2D(_arr, 2) {
+GrooveJoint2DSW::GrooveJoint2DSW(const Vector2 &p_a_groove1, const Vector2 &p_a_groove2, const Vector2 &p_b_anchor, Body2DSW *p_body_a, Body2DSW *p_body_b) :
+		Joint2DSW(_arr, 2) {
 	A = p_body_a;
 	B = p_body_b;
 
 	A_groove_1 = A->get_inv_transform().xform(p_a_groove1);
 	A_groove_2 = A->get_inv_transform().xform(p_a_groove2);
 	B_anchor = B->get_inv_transform().xform(p_b_anchor);
-	A_groove_normal = -(A_groove_2 - A_groove_1).normalized().orthogonal();
+	A_groove_normal = -(A_groove_2 - A_groove_1).normalized().tangent();
 
 	A->add_constraint(this, 0);
 	B->add_constraint(this, 1);
+}
+
+GrooveJoint2DSW::~GrooveJoint2DSW() {
+	A->remove_constraint(this);
+	B->remove_constraint(this);
 }
 
 //////////////////////////////////////////////
 //////////////////////////////////////////////
 //////////////////////////////////////////////
 
-bool GodotDampedSpringJoint2D::setup(real_t p_step) {
-	dynamic_A = (A->get_mode() > PhysicsServer2D::BODY_MODE_KINEMATIC);
-	dynamic_B = (B->get_mode() > PhysicsServer2D::BODY_MODE_KINEMATIC);
-
-	if (!dynamic_A && !dynamic_B) {
+bool DampedSpringJoint2DSW::setup(real_t p_step) {
+	if ((A->get_mode() <= Physics2DServer::BODY_MODE_KINEMATIC) && (B->get_mode() <= Physics2DServer::BODY_MODE_KINEMATIC)) {
 		return false;
 	}
 
@@ -409,26 +379,17 @@ bool GodotDampedSpringJoint2D::setup(real_t p_step) {
 	target_vrn = 0.0f;
 	v_coef = 1.0f - Math::exp(-damping * (p_step)*k);
 
-	// Calculate spring force.
+	// apply spring force
 	real_t f_spring = (rest_length - dist) * stiffness;
-	j = n * f_spring * (p_step);
+	Vector2 j = n * f_spring * (p_step);
+
+	A->apply_impulse(rA, -j);
+	B->apply_impulse(rB, j);
 
 	return true;
 }
 
-bool GodotDampedSpringJoint2D::pre_solve(real_t p_step) {
-	// Apply spring force.
-	if (dynamic_A) {
-		A->apply_impulse(-j, rA);
-	}
-	if (dynamic_B) {
-		B->apply_impulse(j, rB);
-	}
-
-	return true;
-}
-
-void GodotDampedSpringJoint2D::solve(real_t p_step) {
+void DampedSpringJoint2DSW::solve(real_t p_step) {
 	// compute relative velocity
 	real_t vrn = normal_relative_velocity(A, B, rA, rB, n) - target_vrn;
 
@@ -436,39 +397,35 @@ void GodotDampedSpringJoint2D::solve(real_t p_step) {
 	// not 100% certain this is derived correctly, though it makes sense
 	real_t v_damp = -vrn * v_coef;
 	target_vrn = vrn + v_damp;
-	Vector2 j_new = n * v_damp * n_mass;
+	Vector2 j = n * v_damp * n_mass;
 
-	if (dynamic_A) {
-		A->apply_impulse(-j_new, rA);
-	}
-	if (dynamic_B) {
-		B->apply_impulse(j_new, rB);
-	}
+	A->apply_impulse(rA, -j);
+	B->apply_impulse(rB, j);
 }
 
-void GodotDampedSpringJoint2D::set_param(PhysicsServer2D::DampedSpringParam p_param, real_t p_value) {
+void DampedSpringJoint2DSW::set_param(Physics2DServer::DampedStringParam p_param, real_t p_value) {
 	switch (p_param) {
-		case PhysicsServer2D::DAMPED_SPRING_REST_LENGTH: {
+		case Physics2DServer::DAMPED_STRING_REST_LENGTH: {
 			rest_length = p_value;
 		} break;
-		case PhysicsServer2D::DAMPED_SPRING_DAMPING: {
+		case Physics2DServer::DAMPED_STRING_DAMPING: {
 			damping = p_value;
 		} break;
-		case PhysicsServer2D::DAMPED_SPRING_STIFFNESS: {
+		case Physics2DServer::DAMPED_STRING_STIFFNESS: {
 			stiffness = p_value;
 		} break;
 	}
 }
 
-real_t GodotDampedSpringJoint2D::get_param(PhysicsServer2D::DampedSpringParam p_param) const {
+real_t DampedSpringJoint2DSW::get_param(Physics2DServer::DampedStringParam p_param) const {
 	switch (p_param) {
-		case PhysicsServer2D::DAMPED_SPRING_REST_LENGTH: {
+		case Physics2DServer::DAMPED_STRING_REST_LENGTH: {
 			return rest_length;
 		} break;
-		case PhysicsServer2D::DAMPED_SPRING_DAMPING: {
+		case Physics2DServer::DAMPED_STRING_DAMPING: {
 			return damping;
 		} break;
-		case PhysicsServer2D::DAMPED_SPRING_STIFFNESS: {
+		case Physics2DServer::DAMPED_STRING_STIFFNESS: {
 			return stiffness;
 		} break;
 	}
@@ -476,15 +433,22 @@ real_t GodotDampedSpringJoint2D::get_param(PhysicsServer2D::DampedSpringParam p_
 	ERR_FAIL_V(0);
 }
 
-GodotDampedSpringJoint2D::GodotDampedSpringJoint2D(const Vector2 &p_anchor_a, const Vector2 &p_anchor_b, GodotBody2D *p_body_a, GodotBody2D *p_body_b) :
-		GodotJoint2D(_arr, 2) {
+DampedSpringJoint2DSW::DampedSpringJoint2DSW(const Vector2 &p_anchor_a, const Vector2 &p_anchor_b, Body2DSW *p_body_a, Body2DSW *p_body_b) :
+		Joint2DSW(_arr, 2) {
 	A = p_body_a;
 	B = p_body_b;
 	anchor_A = A->get_inv_transform().xform(p_anchor_a);
 	anchor_B = B->get_inv_transform().xform(p_anchor_b);
 
 	rest_length = p_anchor_a.distance_to(p_anchor_b);
+	stiffness = 20;
+	damping = 1.5;
 
 	A->add_constraint(this, 0);
 	B->add_constraint(this, 1);
+}
+
+DampedSpringJoint2DSW::~DampedSpringJoint2DSW() {
+	A->remove_constraint(this);
+	B->remove_constraint(this);
 }

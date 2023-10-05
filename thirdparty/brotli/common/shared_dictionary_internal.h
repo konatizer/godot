@@ -9,11 +9,10 @@
 #ifndef BROTLI_COMMON_SHARED_DICTIONARY_INTERNAL_H_
 #define BROTLI_COMMON_SHARED_DICTIONARY_INTERNAL_H_
 
-#include <brotli/shared_dictionary.h>
-#include <brotli/types.h>
-
 #include "dictionary.h"
+#include <brotli/shared_dictionary.h>
 #include "transform.h"
+#include <brotli/types.h>
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {

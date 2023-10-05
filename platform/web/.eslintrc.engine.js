@@ -5,7 +5,6 @@ module.exports = {
 	"globals": {
 		"InternalConfig": true,
 		"Godot": true,
-		"Features": true,
 		"Preloader": true,
 	},
 };

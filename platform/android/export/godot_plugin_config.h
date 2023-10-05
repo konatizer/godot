@@ -1,42 +1,40 @@
-/**************************************************************************/
-/*  godot_plugin_config.h                                                 */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  godot_plugin_config.h                                                */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef ANDROID_GODOT_PLUGIN_CONFIG_H
 #define ANDROID_GODOT_PLUGIN_CONFIG_H
 
-#ifndef DISABLE_DEPRECATED
-
-#include "core/config/project_settings.h"
-#include "core/error/error_list.h"
+#include "core/error_list.h"
 #include "core/io/config_file.h"
-#include "core/string/ustring.h"
+#include "core/project_settings.h"
+#include "core/ustring.h"
 
 /*
  The `config` section and fields are required and defined as follow:
@@ -54,20 +52,22 @@ The `dependencies` section and fields are optional and defined as follow:
  See https://github.com/godotengine/godot/issues/38157#issuecomment-618773871
  */
 struct PluginConfigAndroid {
-	inline static const char *PLUGIN_CONFIG_EXT = ".gdap";
+	static const char *PLUGIN_CONFIG_EXT;
 
-	inline static const char *CONFIG_SECTION = "config";
-	inline static const char *CONFIG_NAME_KEY = "name";
-	inline static const char *CONFIG_BINARY_TYPE_KEY = "binary_type";
-	inline static const char *CONFIG_BINARY_KEY = "binary";
+	static const char *CONFIG_SECTION;
+	static const char *CONFIG_NAME_KEY;
+	static const char *CONFIG_BINARY_TYPE_KEY;
+	static const char *CONFIG_BINARY_KEY;
 
-	inline static const char *DEPENDENCIES_SECTION = "dependencies";
-	inline static const char *DEPENDENCIES_LOCAL_KEY = "local";
-	inline static const char *DEPENDENCIES_REMOTE_KEY = "remote";
-	inline static const char *DEPENDENCIES_CUSTOM_MAVEN_REPOS_KEY = "custom_maven_repos";
+	static const char *DEPENDENCIES_SECTION;
+	static const char *DEPENDENCIES_LOCAL_KEY;
+	static const char *DEPENDENCIES_REMOTE_KEY;
+	static const char *DEPENDENCIES_CUSTOM_MAVEN_REPOS_KEY;
 
-	inline static const char *BINARY_TYPE_LOCAL = "local";
-	inline static const char *BINARY_TYPE_REMOTE = "remote";
+	static const char *BINARY_TYPE_LOCAL;
+	static const char *BINARY_TYPE_REMOTE;
+
+	static const char *PLUGIN_VALUE_SEPARATOR;
 
 	// Set to true when the config file is properly loaded.
 	bool valid_config = false;
@@ -96,13 +96,11 @@ struct PluginConfigAndroid {
 
 	static PluginConfigAndroid load_plugin_config(Ref<ConfigFile> config_file, const String &path);
 
-	static void get_plugins_binaries(String binary_type, Vector<PluginConfigAndroid> plugins_configs, Vector<String> &r_result);
+	static String get_plugins_binaries(String type, Vector<PluginConfigAndroid> plugins_configs);
 
-	static void get_plugins_custom_maven_repos(Vector<PluginConfigAndroid> plugins_configs, Vector<String> &r_result);
+	static String get_plugins_custom_maven_repos(Vector<PluginConfigAndroid> plugins_configs);
 
-	static void get_plugins_names(Vector<PluginConfigAndroid> plugins_configs, Vector<String> &r_result);
+	static String get_plugins_names(Vector<PluginConfigAndroid> plugins_configs);
 };
-
-#endif // DISABLE_DEPRECATED
 
 #endif // ANDROID_GODOT_PLUGIN_CONFIG_H

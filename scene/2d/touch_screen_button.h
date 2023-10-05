@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  touch_screen_button.h                                                 */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  touch_screen_button.h                                                */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef TOUCH_SCREEN_BUTTON_H
 #define TOUCH_SCREEN_BUTTON_H
@@ -46,22 +46,22 @@ public:
 	};
 
 private:
-	Ref<Texture2D> texture_normal;
-	Ref<Texture2D> texture_pressed;
+	Ref<Texture> texture;
+	Ref<Texture> texture_pressed;
 	Ref<BitMap> bitmask;
 	Ref<Shape2D> shape;
-	bool shape_centered = true;
-	bool shape_visible = true;
+	bool shape_centered;
+	bool shape_visible;
 
 	Ref<RectangleShape2D> unit_rect;
 
 	StringName action;
-	bool passby_press = false;
-	int finger_pressed = -1;
+	bool passby_press;
+	int finger_pressed;
 
-	VisibilityMode visibility = VISIBILITY_ALWAYS;
+	VisibilityMode visibility;
 
-	virtual void input(const Ref<InputEvent> &p_event) override;
+	void _input(const Ref<InputEvent> &p_event);
 
 	bool _is_point_inside(const Point2 &p_point);
 
@@ -71,21 +71,18 @@ private:
 protected:
 	void _notification(int p_what);
 	static void _bind_methods();
-#ifndef DISABLE_DEPRECATED
-	bool _set(const StringName &p_name, const Variant &p_value);
-#endif // DISABLE_DEPRECATED
 
 public:
 #ifdef TOOLS_ENABLED
-	virtual Rect2 _edit_get_rect() const override;
-	virtual bool _edit_use_rect() const override;
+	virtual Rect2 _edit_get_rect() const;
+	virtual bool _edit_use_rect() const;
 #endif
 
-	void set_texture_normal(const Ref<Texture2D> &p_texture);
-	Ref<Texture2D> get_texture_normal() const;
+	void set_texture(const Ref<Texture> &p_texture);
+	Ref<Texture> get_texture() const;
 
-	void set_texture_pressed(const Ref<Texture2D> &p_texture_pressed);
-	Ref<Texture2D> get_texture_pressed() const;
+	void set_texture_pressed(const Ref<Texture> &p_texture_pressed);
+	Ref<Texture> get_texture_pressed() const;
 
 	void set_bitmask(const Ref<BitMap> &p_bitmask);
 	Ref<BitMap> get_bitmask() const;
@@ -110,7 +107,7 @@ public:
 
 	bool is_pressed() const;
 
-	virtual Rect2 get_anchorable_rect() const override;
+	virtual Rect2 get_anchorable_rect() const;
 
 	TouchScreenButton();
 };

@@ -1,39 +1,44 @@
-/**************************************************************************/
-/*  app_uwp.cpp                                                           */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  app.cpp                                                              */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
-#include "app_uwp.h"
+//
+// This file demonstrates how to initialize EGL in a Windows Store app, using ICoreWindow.
+//
 
-#include "core/io/dir_access.h"
-#include "core/io/file_access.h"
+#include "app.h"
+
+#include "core/os/dir_access.h"
+#include "core/os/file_access.h"
 #include "core/os/keyboard.h"
 #include "main/main.h"
+
 #include "platform/windows/key_mapping_windows.h"
 
 #include <collection.h>
@@ -71,6 +76,16 @@ public:
 	auto godotApplicationSource = ref new GodotUWPViewSource();
 	CoreApplication::Run(godotApplicationSource);
 	return 0;
+}
+
+App::App() :
+		mWindowClosed(false),
+		mWindowVisible(true),
+		mWindowWidth(0),
+		mWindowHeight(0),
+		mEglDisplay(EGL_NO_DISPLAY),
+		mEglContext(EGL_NO_CONTEXT),
+		mEglSurface(EGL_NO_SURFACE) {
 }
 
 // The first method called when the IFrameworkView is being created.
@@ -139,40 +154,40 @@ void App::SetWindow(CoreWindow ^ p_window) {
 	Main::setup2();
 }
 
-static MouseButton _get_button(Windows::UI::Input::PointerPoint ^ pt) {
+static int _get_button(Windows::UI::Input::PointerPoint ^ pt) {
 	using namespace Windows::UI::Input;
 
 #if WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP
-	return MOUSE_BUTTON_LEFT;
+	return BUTTON_LEFT;
 #else
 	switch (pt->Properties->PointerUpdateKind) {
 		case PointerUpdateKind::LeftButtonPressed:
 		case PointerUpdateKind::LeftButtonReleased:
-			return MOUSE_BUTTON_LEFT;
+			return BUTTON_LEFT;
 
 		case PointerUpdateKind::RightButtonPressed:
 		case PointerUpdateKind::RightButtonReleased:
-			return MOUSE_BUTTON_RIGHT;
+			return BUTTON_RIGHT;
 
 		case PointerUpdateKind::MiddleButtonPressed:
 		case PointerUpdateKind::MiddleButtonReleased:
-			return MOUSE_BUTTON_MIDDLE;
+			return BUTTON_MIDDLE;
 
 		case PointerUpdateKind::XButton1Pressed:
 		case PointerUpdateKind::XButton1Released:
-			return MOUSE_BUTTON_WHEEL_UP;
+			return BUTTON_WHEEL_UP;
 
 		case PointerUpdateKind::XButton2Pressed:
 		case PointerUpdateKind::XButton2Released:
-			return MOUSE_BUTTON_WHEEL_DOWN;
+			return BUTTON_WHEEL_DOWN;
 
 		default:
 			break;
 	}
 #endif
 
-	return MOUSE_BUTTON_NONE;
-}
+	return 0;
+};
 
 static bool _is_touch(Windows::UI::Input::PointerPoint ^ pointerPoint) {
 #if WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP
@@ -226,19 +241,19 @@ static Windows::Foundation::Point _get_pixel_position(CoreWindow ^ window, Windo
 	outputPosition.Y *= vm.height;
 
 	return outputPosition;
-}
+};
 
 static int _get_finger(uint32_t p_touch_id) {
 	return p_touch_id % 31; // for now
-}
+};
 
 void App::pointer_event(Windows::UI::Core::CoreWindow ^ sender, Windows::UI::Core::PointerEventArgs ^ args, bool p_pressed, bool p_is_wheel) {
 	Windows::UI::Input::PointerPoint ^ point = args->CurrentPoint;
 	Windows::Foundation::Point pos = _get_pixel_position(window, point->Position, os);
-	MouseButton but = _get_button(point);
+	int but = _get_button(point);
 	if (_is_touch(point)) {
 		Ref<InputEventScreenTouch> screen_touch;
-		screen_touch.instantiate();
+		screen_touch.instance();
 		screen_touch->set_device(0);
 		screen_touch->set_pressed(p_pressed);
 		screen_touch->set_position(Vector2(pos.X, pos.Y));
@@ -250,7 +265,7 @@ void App::pointer_event(Windows::UI::Core::CoreWindow ^ sender, Windows::UI::Cor
 		os->input_event(screen_touch);
 	} else {
 		Ref<InputEventMouseButton> mouse_button;
-		mouse_button.instantiate();
+		mouse_button.instance();
 		mouse_button->set_device(0);
 		mouse_button->set_pressed(p_pressed);
 		mouse_button->set_button_index(but);
@@ -259,9 +274,9 @@ void App::pointer_event(Windows::UI::Core::CoreWindow ^ sender, Windows::UI::Cor
 
 		if (p_is_wheel) {
 			if (point->Properties->MouseWheelDelta > 0) {
-				mouse_button->set_button_index(point->Properties->IsHorizontalMouseWheel ? MOUSE_BUTTON_WHEEL_RIGHT : MOUSE_BUTTON_WHEEL_UP);
+				mouse_button->set_button_index(point->Properties->IsHorizontalMouseWheel ? BUTTON_WHEEL_RIGHT : BUTTON_WHEEL_UP);
 			} else if (point->Properties->MouseWheelDelta < 0) {
-				mouse_button->set_button_index(point->Properties->IsHorizontalMouseWheel ? MOUSE_BUTTON_WHEEL_LEFT : MOUSE_BUTTON_WHEEL_DOWN);
+				mouse_button->set_button_index(point->Properties->IsHorizontalMouseWheel ? BUTTON_WHEEL_LEFT : BUTTON_WHEEL_DOWN);
 			}
 		}
 
@@ -276,15 +291,15 @@ void App::pointer_event(Windows::UI::Core::CoreWindow ^ sender, Windows::UI::Cor
 			os->input_event(mouse_button);
 		}
 	}
-}
+};
 
 void App::OnPointerPressed(Windows::UI::Core::CoreWindow ^ sender, Windows::UI::Core::PointerEventArgs ^ args) {
 	pointer_event(sender, args, true);
-}
+};
 
 void App::OnPointerReleased(Windows::UI::Core::CoreWindow ^ sender, Windows::UI::Core::PointerEventArgs ^ args) {
 	pointer_event(sender, args, false);
-}
+};
 
 void App::OnPointerWheelChanged(Windows::UI::Core::CoreWindow ^ sender, Windows::UI::Core::PointerEventArgs ^ args) {
 	pointer_event(sender, args, true, true);
@@ -318,7 +333,7 @@ void App::OnPointerMoved(Windows::UI::Core::CoreWindow ^ sender, Windows::UI::Co
 
 	if (_is_touch(point)) {
 		Ref<InputEventScreenDrag> screen_drag;
-		screen_drag.instantiate();
+		screen_drag.instance();
 		screen_drag->set_device(0);
 		screen_drag->set_position(Vector2(pos.X, pos.Y));
 		screen_drag->set_index(_get_finger(point->PointerId));
@@ -327,12 +342,11 @@ void App::OnPointerMoved(Windows::UI::Core::CoreWindow ^ sender, Windows::UI::Co
 		os->input_event(screen_drag);
 	} else {
 		// In case the mouse grabbed, MouseMoved will handle this
-		if (os->get_mouse_mode() == OS::MouseMode::MOUSE_MODE_CAPTURED) {
+		if (os->get_mouse_mode() == OS::MouseMode::MOUSE_MODE_CAPTURED)
 			return;
-		}
 
 		Ref<InputEventMouseMotion> mouse_motion;
-		mouse_motion.instantiate();
+		mouse_motion.instance();
 		mouse_motion->set_device(0);
 		mouse_motion->set_position(Vector2(pos.X, pos.Y));
 		mouse_motion->set_global_position(Vector2(pos.X, pos.Y));
@@ -346,16 +360,15 @@ void App::OnPointerMoved(Windows::UI::Core::CoreWindow ^ sender, Windows::UI::Co
 
 void App::OnMouseMoved(MouseDevice ^ mouse_device, MouseEventArgs ^ args) {
 	// In case the mouse isn't grabbed, PointerMoved will handle this
-	if (os->get_mouse_mode() != OS::MouseMode::MOUSE_MODE_CAPTURED) {
+	if (os->get_mouse_mode() != OS::MouseMode::MOUSE_MODE_CAPTURED)
 		return;
-	}
 
 	Windows::Foundation::Point pos;
 	pos.X = last_mouse_pos.X + args->MouseDelta.X;
 	pos.Y = last_mouse_pos.Y + args->MouseDelta.Y;
 
 	Ref<InputEventMouseMotion> mouse_motion;
-	mouse_motion.instantiate();
+	mouse_motion.instance();
 	mouse_motion->set_device(0);
 	mouse_motion->set_position(Vector2(pos.X, pos.Y));
 	mouse_motion->set_global_position(Vector2(pos.X, pos.Y));
@@ -378,21 +391,20 @@ void App::key_event(Windows::UI::Core::CoreWindow ^ sender, bool p_pressed, Wind
 	if (key_args != nullptr) {
 		ke.type = OS_UWP::KeyEvent::MessageType::KEY_EVENT_MESSAGE;
 		ke.unicode = 0;
-		ke.keycode = KeyMappingWindows::get_keysym((unsigned int)key_args->VirtualKey);
-		ke.physical_keycode = KeyMappingWindows::get_scansym((unsigned int)key_args->KeyStatus.ScanCode, key_args->KeyStatus.IsExtendedKey);
+		ke.scancode = KeyMappingWindows::get_keysym((unsigned int)key_args->VirtualKey);
+		ke.physical_scancode = KeyMappingWindows::get_scansym((unsigned int)key_args->KeyStatus.ScanCode, key_args->KeyStatus.IsExtendedKey);
 		ke.echo = (!p_pressed && !key_args->KeyStatus.IsKeyReleased) || (p_pressed && key_args->KeyStatus.WasKeyDown);
 
 	} else {
 		ke.type = OS_UWP::KeyEvent::MessageType::CHAR_EVENT_MESSAGE;
 		ke.unicode = char_args->KeyCode;
-		ke.keycode = 0;
-		ke.physical_keycode = 0;
+		ke.scancode = 0;
+		ke.physical_scancode = 0;
 		ke.echo = (!p_pressed && !char_args->KeyStatus.IsKeyReleased) || (p_pressed && char_args->KeyStatus.WasKeyDown);
 	}
 
 	os->queue_key_event(ke);
 }
-
 void App::OnKeyDown(CoreWindow ^ sender, KeyEventArgs ^ args) {
 	key_event(sender, true, args);
 }
@@ -411,9 +423,8 @@ void App::Load(Platform::String ^ entryPoint) {
 
 // This method is called after the window becomes active.
 void App::Run() {
-	if (Main::start()) {
+	if (Main::start())
 		os->run();
-	}
 }
 
 // Terminate events do not cause Uninitialize to be called. It will be called if your IFrameworkView
@@ -475,12 +486,12 @@ void App::UpdateWindowSize(Size size) {
 }
 
 char **App::get_command_line(unsigned int *out_argc) {
-	static char *fail_cl[] = { "--path", "game", nullptr };
+	static char *fail_cl[] = { "--path", "game", NULL };
 	*out_argc = 2;
 
 	FILE *f = _wfopen(L"__cl__.cl", L"rb");
 
-	if (f == nullptr) {
+	if (f == NULL) {
 		wprintf(L"Couldn't open command line file.\n");
 		return fail_cl;
 	}
@@ -523,7 +534,7 @@ char **App::get_command_line(unsigned int *out_argc) {
 		arg[strlen] = '\0';
 
 		if (r == strlen) {
-			int warg_size = MultiByteToWideChar(CP_UTF8, 0, arg, -1, nullptr, 0);
+			int warg_size = MultiByteToWideChar(CP_UTF8, 0, arg, -1, NULL, 0);
 			wchar_t *warg = new wchar_t[warg_size];
 
 			MultiByteToWideChar(CP_UTF8, 0, arg, -1, warg, warg_size);
@@ -546,14 +557,14 @@ char **App::get_command_line(unsigned int *out_argc) {
 	char **ret = new char *[cl.Size + 1];
 
 	for (int i = 0; i < cl.Size; i++) {
-		int arg_size = WideCharToMultiByte(CP_UTF8, 0, cl.GetAt(i)->Data(), -1, nullptr, 0, nullptr, nullptr);
+		int arg_size = WideCharToMultiByte(CP_UTF8, 0, cl.GetAt(i)->Data(), -1, NULL, 0, NULL, NULL);
 		char *arg = new char[arg_size];
 
-		WideCharToMultiByte(CP_UTF8, 0, cl.GetAt(i)->Data(), -1, arg, arg_size, nullptr, nullptr);
+		WideCharToMultiByte(CP_UTF8, 0, cl.GetAt(i)->Data(), -1, arg, arg_size, NULL, NULL);
 
 		ret[i] = arg;
 	}
-	ret[cl.Size] = nullptr;
+	ret[cl.Size] = NULL;
 	*out_argc = cl.Size;
 
 	return ret;

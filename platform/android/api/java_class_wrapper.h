@@ -1,37 +1,37 @@
-/**************************************************************************/
-/*  java_class_wrapper.h                                                  */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  java_class_wrapper.h                                                 */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef JAVA_CLASS_WRAPPER_H
 #define JAVA_CLASS_WRAPPER_H
 
-#include "core/object/ref_counted.h"
+#include "core/reference.h"
 
 #ifdef ANDROID_ENABLED
 #include <android/log.h>
@@ -42,11 +42,12 @@
 class JavaObject;
 #endif
 
-class JavaClass : public RefCounted {
-	GDCLASS(JavaClass, RefCounted);
+class JavaClass : public Reference {
+	GDCLASS(JavaClass, Reference);
 
 #ifdef ANDROID_ENABLED
 	enum ArgumentType{
+
 		ARG_TYPE_VOID,
 		ARG_TYPE_BOOLEAN,
 		ARG_TYPE_BYTE,
@@ -63,13 +64,13 @@ class JavaClass : public RefCounted {
 		ARG_TYPE_MASK = (1 << 16) - 1
 	};
 
-	RBMap<StringName, Variant> constant_map;
+	Map<StringName, Variant> constant_map;
 
 	struct MethodInfo {
-		bool _static = false;
+		bool _static;
 		Vector<uint32_t> param_types;
 		Vector<StringName> param_sigs;
-		uint32_t return_type = 0;
+		uint32_t return_type;
 		jmethodID method;
 	};
 
@@ -112,12 +113,12 @@ class JavaClass : public RefCounted {
 				break;
 			case ARG_TYPE_FLOAT | ARG_NUMBER_CLASS_BIT:
 			case ARG_TYPE_FLOAT:
-				r_type = Variant::FLOAT;
+				r_type = Variant::REAL;
 				likelihood = 1.0;
 				break;
 			case ARG_TYPE_DOUBLE | ARG_NUMBER_CLASS_BIT:
 			case ARG_TYPE_DOUBLE:
-				r_type = Variant::FLOAT;
+				r_type = Variant::REAL;
 				likelihood = 0.5;
 				break;
 			case ARG_TYPE_STRING:
@@ -133,35 +134,35 @@ class JavaClass : public RefCounted {
 				r_type = Variant::ARRAY;
 				break;
 			case ARG_ARRAY_BIT | ARG_TYPE_BYTE:
-				r_type = Variant::PACKED_BYTE_ARRAY;
+				r_type = Variant::POOL_BYTE_ARRAY;
 				likelihood = 1.0;
 				break;
 			case ARG_ARRAY_BIT | ARG_TYPE_CHAR:
-				r_type = Variant::PACKED_BYTE_ARRAY;
+				r_type = Variant::POOL_BYTE_ARRAY;
 				likelihood = 0.5;
 				break;
 			case ARG_ARRAY_BIT | ARG_TYPE_SHORT:
-				r_type = Variant::PACKED_INT32_ARRAY;
+				r_type = Variant::POOL_INT_ARRAY;
 				likelihood = 0.3;
 				break;
 			case ARG_ARRAY_BIT | ARG_TYPE_INT:
-				r_type = Variant::PACKED_INT32_ARRAY;
+				r_type = Variant::POOL_INT_ARRAY;
 				likelihood = 1.0;
 				break;
 			case ARG_ARRAY_BIT | ARG_TYPE_LONG:
-				r_type = Variant::PACKED_INT32_ARRAY;
+				r_type = Variant::POOL_INT_ARRAY;
 				likelihood = 0.5;
 				break;
 			case ARG_ARRAY_BIT | ARG_TYPE_FLOAT:
-				r_type = Variant::PACKED_FLOAT32_ARRAY;
+				r_type = Variant::POOL_REAL_ARRAY;
 				likelihood = 1.0;
 				break;
 			case ARG_ARRAY_BIT | ARG_TYPE_DOUBLE:
-				r_type = Variant::PACKED_FLOAT32_ARRAY;
+				r_type = Variant::POOL_REAL_ARRAY;
 				likelihood = 0.5;
 				break;
 			case ARG_ARRAY_BIT | ARG_TYPE_STRING:
-				r_type = Variant::PACKED_STRING_ARRAY;
+				r_type = Variant::POOL_STRING_ARRAY;
 				break;
 			case ARG_ARRAY_BIT | ARG_TYPE_CLASS:
 				r_type = Variant::ARRAY;
@@ -171,21 +172,21 @@ class JavaClass : public RefCounted {
 
 	_FORCE_INLINE_ static bool _convert_object_to_variant(JNIEnv *env, jobject obj, Variant &var, uint32_t p_sig);
 
-	bool _call_method(JavaObject *p_instance, const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error, Variant &ret);
+	bool _call_method(JavaObject *p_instance, const StringName &p_method, const Variant **p_args, int p_argcount, Variant::CallError &r_error, Variant &ret);
 
 	friend class JavaClassWrapper;
-	HashMap<StringName, List<MethodInfo>> methods;
+	Map<StringName, List<MethodInfo>> methods;
 	jclass _class;
 #endif
 
 public:
-	virtual Variant callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) override;
+	virtual Variant call(const StringName &p_method, const Variant **p_args, int p_argcount, Variant::CallError &r_error);
 
 	JavaClass();
 };
 
-class JavaObject : public RefCounted {
-	GDCLASS(JavaObject, RefCounted);
+class JavaObject : public Reference {
+	GDCLASS(JavaObject, Reference);
 
 #ifdef ANDROID_ENABLED
 	Ref<JavaClass> base_class;
@@ -195,7 +196,7 @@ class JavaObject : public RefCounted {
 #endif
 
 public:
-	virtual Variant callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) override;
+	virtual Variant call(const StringName &p_method, const Variant **p_args, int p_argcount, Variant::CallError &r_error);
 
 #ifdef ANDROID_ENABLED
 	JavaObject(const Ref<JavaClass> &p_base, jobject *p_instance);
@@ -207,7 +208,7 @@ class JavaClassWrapper : public Object {
 	GDCLASS(JavaClassWrapper, Object);
 
 #ifdef ANDROID_ENABLED
-	RBMap<String, Ref<JavaClass>> class_cache;
+	Map<String, Ref<JavaClass>> class_cache;
 	friend class JavaClass;
 	jclass activityClass;
 	jmethodID findClass;
@@ -245,7 +246,7 @@ public:
 	Ref<JavaClass> wrap(const String &p_class);
 
 #ifdef ANDROID_ENABLED
-	JavaClassWrapper(jobject p_activity = nullptr);
+	JavaClassWrapper(jobject p_activity = NULL);
 #else
 	JavaClassWrapper();
 #endif

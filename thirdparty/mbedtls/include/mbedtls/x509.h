@@ -311,6 +311,8 @@ int mbedtls_x509_time_is_future(const mbedtls_x509_time *from);
 
 /** \} addtogroup x509_module */
 
+/** \} addtogroup x509_module */
+
 #if defined(MBEDTLS_SELF_TEST)
 
 /**

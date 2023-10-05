@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  gjk_epa.cpp                                                           */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  gjk_epa.cpp                                                          */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "gjk_epa.h"
 
@@ -96,7 +96,7 @@ struct sResults	{
 
 	Vector3	witnesses[2];
 	Vector3	normal;
-	real_t	distance = 0.0;
+	real_t	distance;
 };
 
 // Shorthands
@@ -105,18 +105,19 @@ typedef unsigned char	U1;
 
 // MinkowskiDiff
 struct	MinkowskiDiff {
-	const GodotShape3D* m_shapes[2];
 
-	Transform3D transform_A;
-	Transform3D transform_B;
+	const ShapeSW* m_shapes[2];
+
+	Transform transform_A;
+	Transform transform_B;
 
 	real_t margin_A = 0.0;
 	real_t margin_B = 0.0;
 
-	Vector3 (*get_support)(const GodotShape3D*, const Vector3&, real_t) = nullptr;
+	Vector3 (*get_support)(const ShapeSW*, const Vector3&, real_t);
 
-	void Initialize(const GodotShape3D* shape0, const Transform3D& wtrs0, const real_t margin0,
-		const GodotShape3D* shape1, const Transform3D& wtrs1, const real_t margin1) {
+	void Initialize(const ShapeSW* shape0, const Transform& wtrs0, const real_t margin0,
+		const ShapeSW* shape1, const Transform& wtrs1, const real_t margin1) {
 		m_shapes[0]		=	shape0;
 		m_shapes[1]		=	shape1;
 		transform_A		=	wtrs0;
@@ -131,11 +132,11 @@ struct	MinkowskiDiff {
 		}
 	}
 
-	static Vector3 get_support_without_margin(const GodotShape3D* p_shape, const Vector3& p_dir, real_t p_margin) {
+	static Vector3 get_support_without_margin(const ShapeSW* p_shape, const Vector3& p_dir, real_t p_margin) {
 		return p_shape->get_support(p_dir.normalized());
 	}
 
-	static Vector3 get_support_with_margin(const GodotShape3D* p_shape, const Vector3& p_dir, real_t p_margin) {
+	static Vector3 get_support_with_margin(const ShapeSW* p_shape, const Vector3& p_dir, real_t p_margin) {
 		Vector3 local_dir_norm = p_dir;
 		if (local_dir_norm.length_squared() < CMP_EPSILON2) {
 			local_dir_norm = Vector3(-1.0, -1.0, -1.0);
@@ -191,13 +192,13 @@ struct	GJK
 		/* Fields		*/
 		tShape			m_shape;
 		Vector3		m_ray;
-		real_t		m_distance = 0.0f;
+		real_t		m_distance;
 		sSimplex		m_simplices[2];
 		sSV				m_store[4];
 		sSV*			m_free[4];
-		U				m_nfree = 0;
-		U				m_current = 0;
-		sSimplex*		m_simplex = nullptr;
+		U				m_nfree;
+		U				m_current;
+		sSimplex*		m_simplex;
 		eStatus::_		m_status;
 		/* Methods		*/
 		GJK()
@@ -548,25 +549,25 @@ struct	GJK
 		struct	sFace
 		{
 			Vector3	n;
-			real_t	d = 0.0f;
+			real_t	d;
 			sSV*		c[3];
 			sFace*		f[3];
 			sFace*		l[2];
 			U1			e[3];
-			U1			pass = 0;
+			U1			pass;
 		};
 		struct	sList
 		{
-			sFace*		root = nullptr;
-			U			count = 0;
-			sList() 	{}
+			sFace*		root;
+			U			count;
+			sList() : root(nullptr),count(0)	{}
 		};
 		struct	sHorizon
 		{
-			sFace*		cf = nullptr;
-			sFace*		ff = nullptr;
-			U			nf = 0;
-			sHorizon() 	{}
+			sFace*		cf;
+			sFace*		ff;
+			U			nf;
+			sHorizon() : cf(nullptr),ff(nullptr),nf(0)	{}
 		};
 		struct	eStatus { enum _ {
 			Valid,
@@ -583,10 +584,10 @@ struct	GJK
 			eStatus::_		m_status;
 			GJK::sSimplex	m_result;
 			Vector3		m_normal;
-			real_t		m_depth = 0.0f;
+			real_t		m_depth;
 			sSV				m_sv_store[EPA_MAX_VERTICES];
 			sFace			m_fc_store[EPA_MAX_FACES];
-			U				m_nextsv = 0;
+			U				m_nextsv;
 			sList			m_hull;
 			sList			m_stock;
 			/* Methods		*/
@@ -638,6 +639,7 @@ struct	GJK
 				GJK::sSimplex&	simplex=*gjk.m_simplex;
 				if((simplex.rank>1)&&gjk.EncloseOrigin())
 				{
+
 					/* Clean up				*/
 					while(m_hull.root)
 					{
@@ -723,14 +725,14 @@ struct	GJK
 					}
 				}
 				/* Fallback		*/
-				m_status = eStatus::FallBack;
-				m_normal = -guess;
-				const real_t nl = m_normal.length();
-				if (nl > 0) {
-					m_normal = m_normal/nl;
+				m_status	=	eStatus::FallBack;
+				m_normal	=	-guess;
+				const real_t	nl=m_normal.length();
+				if(nl>0) {
+					m_normal	=	m_normal/nl;
 				} else {
-					m_normal = Vector3(1,0,0);
-				}
+					m_normal	=	Vector3(1,0,0);
+}
 				m_depth	=	0;
 				m_result.rank=1;
 				m_result.c[0]=simplex.c[0];
@@ -744,19 +746,26 @@ struct	GJK
 				const Vector3 n_ab = vec3_cross(ba, face->n);   // Outward facing edge normal direction, on triangle plane
 				const real_t a_dot_nab = vec3_dot(a->w, n_ab);  // Only care about the sign to determine inside/outside, so not normalization required
 
-				if (a_dot_nab < 0) {
+				if (a_dot_nab < 0)
+				{
 					// Outside of edge a->b
+
 					const real_t ba_l2 = ba.length_squared();
 					const real_t a_dot_ba = vec3_dot(a->w, ba);
 					const real_t b_dot_ba = vec3_dot(b->w, ba);
 
-					if (a_dot_ba > 0) {
+					if (a_dot_ba > 0)
+					{
 						// Pick distance vertex a
 						dist = a->w.length();
-					} else if (b_dot_ba < 0) {
+					}
+					else if (b_dot_ba < 0)
+					{
 						// Pick distance vertex b
 						dist = b->w.length();
-					} else {
+					}
+					else
+					{
 						// Pick distance to edge a->b
 						const real_t a_dot_b = vec3_dot(a->w, b->w);
 						dist = Math::sqrt(MAX((a->w.length_squared() * b->w.length_squared() - a_dot_b * a_dot_b) / ba_l2, 0.0));
@@ -770,7 +779,8 @@ struct	GJK
 
 			sFace*				newface(sSV* a,sSV* b,sSV* c,bool forced)
 			{
-				if (m_stock.root) {
+				if(m_stock.root)
+				{
 					sFace*	face=m_stock.root;
 					remove(m_stock,face);
 					append(m_hull,face);
@@ -781,23 +791,24 @@ struct	GJK
 					face->n		=	vec3_cross(b->w-a->w,c->w-a->w);
 					const real_t	l=face->n.length();
 					const bool		v=l>EPA_ACCURACY;
-					if (v) {
+					if(v)
+					{
 						if (!(getedgedist(face, a, b, face->d) ||
 							  getedgedist(face, b, c, face->d) ||
-							  getedgedist(face, c, a, face->d))) {
+							  getedgedist(face, c, a, face->d)))
+						{
 							// Origin projects to the interior of the triangle
 							// Use distance to triangle plane
 							face->d = vec3_dot(a->w, face->n) / l;
 						}
 						face->n		/=	l;
-						if (forced||(face->d>=-EPA_PLANE_EPS)) {
+						if(forced||(face->d>=-EPA_PLANE_EPS))
+						{
 							return(face);
-						} else {
-							m_status=eStatus::NonConvex;
-						}
-					} else {
-						m_status=eStatus::Degenerated;
-					}
+						} else { m_status=eStatus::NonConvex;
+}
+					} else { m_status=eStatus::Degenerated;
+}
 					remove(m_hull,face);
 					append(m_stock,face);
 					return(nullptr);
@@ -862,8 +873,8 @@ struct	GJK
 	};
 
 	//
-	static void	Initialize(	const GodotShape3D* shape0, const Transform3D& wtrs0, real_t margin0,
-		const GodotShape3D* shape1, const Transform3D& wtrs1, real_t margin1,
+	static void	Initialize(	const ShapeSW* shape0, const Transform& wtrs0, real_t margin0,
+		const ShapeSW* shape1, const Transform& wtrs1, real_t margin1,
 		sResults& results,
 		tShape& shape)
 	{
@@ -873,6 +884,7 @@ struct	GJK
 		results.status			=	sResults::Separated;
 		/* Shape		*/
 		shape.Initialize(shape0, wtrs0, margin0, shape1, wtrs1, margin1);
+
 	}
 
 
@@ -884,11 +896,11 @@ struct	GJK
 //
 
 //
-bool Distance(	const GodotShape3D*	shape0,
-									  const Transform3D&		wtrs0,
+bool Distance(	const ShapeSW*	shape0,
+									  const Transform&		wtrs0,
 									  real_t				margin0,
-									  const GodotShape3D*		shape1,
-									  const Transform3D&		wtrs1,
+									  const ShapeSW*		shape1,
+									  const Transform&		wtrs1,
 									  real_t				margin1,
 									  const Vector3&		guess,
 									  sResults&				results)
@@ -918,18 +930,17 @@ bool Distance(	const GodotShape3D*	shape0,
 	{
 		results.status	=	gjk_status==GJK::eStatus::Inside?
 			sResults::Penetrating	:
-		sResults::GJK_Failed;
+		sResults::GJK_Failed	;
 		return(false);
 	}
 }
 
-
 //
-bool Penetration(	const GodotShape3D*	shape0,
-									 const Transform3D&		wtrs0,
+bool Penetration(	const ShapeSW*	shape0,
+									 const Transform&		wtrs0,
 									 real_t					margin0,
-									 const GodotShape3D*		shape1,
-									 const Transform3D&		wtrs1,
+									 const ShapeSW*			shape1,
+									 const Transform&		wtrs1,
 									 real_t					margin1,
 									 const Vector3&			guess,
 									 sResults&				results
@@ -971,7 +982,6 @@ bool Penetration(	const GodotShape3D*	shape0,
 }
 
 
-
 /* Symbols cleanup		*/
 
 #undef GJK_MAX_ITERATIONS
@@ -989,11 +999,13 @@ bool Penetration(	const GodotShape3D*	shape0,
 #undef EPA_FALLBACK
 #undef EPA_PLANE_EPS
 #undef EPA_INSIDE_EPS
+
+
 } // end of namespace
 
 /* clang-format on */
 
-bool gjk_epa_calculate_distance(const GodotShape3D *p_shape_A, const Transform3D &p_transform_A, const GodotShape3D *p_shape_B, const Transform3D &p_transform_B, Vector3 &r_result_A, Vector3 &r_result_B) {
+bool gjk_epa_calculate_distance(const ShapeSW *p_shape_A, const Transform &p_transform_A, const ShapeSW *p_shape_B, const Transform &p_transform_B, Vector3 &r_result_A, Vector3 &r_result_B) {
 	GjkEpa2::sResults res;
 
 	if (GjkEpa2::Distance(p_shape_A, p_transform_A, 0.0, p_shape_B, p_transform_B, 0.0, p_transform_B.origin - p_transform_A.origin, res)) {
@@ -1005,17 +1017,15 @@ bool gjk_epa_calculate_distance(const GodotShape3D *p_shape_A, const Transform3D
 	return false;
 }
 
-bool gjk_epa_calculate_penetration(const GodotShape3D *p_shape_A, const Transform3D &p_transform_A, const GodotShape3D *p_shape_B, const Transform3D &p_transform_B, GodotCollisionSolver3D::CallbackResult p_result_callback, void *p_userdata, bool p_swap, real_t p_margin_A, real_t p_margin_B) {
+bool gjk_epa_calculate_penetration(const ShapeSW *p_shape_A, const Transform &p_transform_A, const ShapeSW *p_shape_B, const Transform &p_transform_B, CollisionSolverSW::CallbackResult p_result_callback, void *p_userdata, bool p_swap, real_t p_margin_A, real_t p_margin_B) {
 	GjkEpa2::sResults res;
 
 	if (GjkEpa2::Penetration(p_shape_A, p_transform_A, p_margin_A, p_shape_B, p_transform_B, p_margin_B, p_transform_B.origin - p_transform_A.origin, res)) {
 		if (p_result_callback) {
 			if (p_swap) {
-				Vector3 normal = (res.witnesses[1] - res.witnesses[0]).normalized();
-				p_result_callback(res.witnesses[1], 0, res.witnesses[0], 0, normal, p_userdata);
+				p_result_callback(res.witnesses[1], res.witnesses[0], p_userdata);
 			} else {
-				Vector3 normal = (res.witnesses[0] - res.witnesses[1]).normalized();
-				p_result_callback(res.witnesses[0], 0, res.witnesses[1], 0, normal, p_userdata);
+				p_result_callback(res.witnesses[0], res.witnesses[1], p_userdata);
 			}
 		}
 		return true;

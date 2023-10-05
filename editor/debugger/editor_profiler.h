@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  editor_profiler.h                                                     */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  editor_profiler.h                                                    */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef EDITOR_PROFILER_H
 #define EDITOR_PROFILER_H
@@ -40,34 +40,32 @@
 #include "scene/gui/texture_rect.h"
 #include "scene/gui/tree.h"
 
-class ImageTexture;
-
 class EditorProfiler : public VBoxContainer {
 	GDCLASS(EditorProfiler, VBoxContainer);
 
 public:
 	struct Metric {
-		bool valid = false;
+		bool valid;
 
-		int frame_number = 0;
-		float frame_time = 0;
-		float process_time = 0;
-		float physics_time = 0;
-		float physics_frame_time = 0;
+		int frame_number;
+		float frame_time;
+		float process_time;
+		float physics_time;
+		float physics_frame_time;
 
 		struct Category {
 			StringName signature;
 			String name;
-			float total_time = 0; //total for category
+			float total_time; //total for category
 
 			struct Item {
 				StringName signature;
 				String name;
 				String script;
-				int line = 0;
-				float self = 0;
-				float total = 0;
-				int calls = 0;
+				int line;
+				float self;
+				float total;
+				int calls;
 			};
 
 			Vector<Item> items;
@@ -75,8 +73,13 @@ public:
 
 		Vector<Category> categories;
 
-		HashMap<StringName, Category *> category_ptrs;
-		HashMap<StringName, Category::Item *> item_ptrs;
+		Map<StringName, Category *> category_ptrs;
+		Map<StringName, Category::Item *> item_ptrs;
+
+		Metric() {
+			valid = false;
+			frame_number = 0;
+		}
 	};
 
 	enum DisplayMode {
@@ -92,39 +95,38 @@ public:
 	};
 
 private:
-	Button *activate = nullptr;
-	Button *clear_button = nullptr;
-	TextureRect *graph = nullptr;
+	Button *activate;
+	Button *clear_button;
+	TextureRect *graph;
 	Ref<ImageTexture> graph_texture;
-	Vector<uint8_t> graph_image;
-	Tree *variables = nullptr;
-	HSplitContainer *h_split = nullptr;
+	PoolVector<uint8_t> graph_image;
+	Tree *variables;
+	HSplitContainer *h_split;
 
-	HashSet<StringName> plot_sigs;
+	Set<StringName> plot_sigs;
 
-	OptionButton *display_mode = nullptr;
-	OptionButton *display_time = nullptr;
+	OptionButton *display_mode;
+	OptionButton *display_time;
 
-	SpinBox *cursor_metric_edit = nullptr;
+	SpinBox *cursor_metric_edit;
 
 	Vector<Metric> frame_metrics;
-	int total_metrics = 0;
-	int last_metric = -1;
+	int last_metric;
 
-	int max_functions = 0;
+	int max_functions;
 
-	bool updating_frame = false;
+	bool updating_frame;
 
-	int hover_metric = -1;
+	//int cursor_metric;
+	int hover_metric;
 
-	float graph_height = 1.0f;
+	float graph_height;
 
-	bool seeking = false;
+	bool seeking;
 
-	Timer *frame_delay = nullptr;
-	Timer *plot_delay = nullptr;
+	Timer *frame_delay;
+	Timer *plot_delay;
 
-	void _update_button_text();
 	void _update_frame();
 
 	void _activate_pressed();
@@ -142,13 +144,13 @@ private:
 	void _graph_tex_draw();
 	void _graph_tex_input(const Ref<InputEvent> &p_ev);
 
+	int _get_cursor_index() const;
+
 	Color _get_color_from_signature(const StringName &p_signature) const;
 
 	void _cursor_metric_changed(double);
 
 	void _combo_changed(int);
-
-	Metric _get_frame_metric(int index);
 
 protected:
 	void _notification(int p_what);
@@ -156,8 +158,7 @@ protected:
 
 public:
 	void add_frame_metric(const Metric &p_metric, bool p_final = false);
-	void set_enabled(bool p_enable, bool p_clear = true);
-	void set_pressed(bool p_pressed);
+	void set_enabled(bool p_enable);
 	bool is_profiling();
 	bool is_seeking() { return seeking; }
 	void disable_seeking();

@@ -1,39 +1,39 @@
-/**************************************************************************/
-/*  list.h                                                                */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  list.h                                                               */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef LIST_H
 #define LIST_H
 
-#include "core/error/error_macros.h"
+#include "core/error_macros.h"
 #include "core/os/memory.h"
-#include "core/templates/sort_array.h"
+#include "core/sort_array.h"
 
 /**
  * Generic Templatized Linked List Implementation.
@@ -53,9 +53,9 @@ public:
 		friend class List<T, A>;
 
 		T value;
-		Element *next_ptr = nullptr;
-		Element *prev_ptr = nullptr;
-		_Data *data = nullptr;
+		Element *next_ptr;
+		Element *prev_ptr;
+		_Data *data;
 
 	public:
 		/**
@@ -63,160 +63,87 @@ public:
 		 */
 		_FORCE_INLINE_ const Element *next() const {
 			return next_ptr;
-		}
+		};
 		/**
 		 * Get NEXT Element iterator,
 		 */
 		_FORCE_INLINE_ Element *next() {
 			return next_ptr;
-		}
+		};
 
 		/**
 		 * Get PREV Element iterator, for constant lists.
 		 */
 		_FORCE_INLINE_ const Element *prev() const {
 			return prev_ptr;
-		}
+		};
 		/**
 		 * Get PREV Element iterator,
 		 */
 		_FORCE_INLINE_ Element *prev() {
 			return prev_ptr;
-		}
+		};
 
 		/**
 		 * * operator, for using as *iterator, when iterators are defined on stack.
 		 */
 		_FORCE_INLINE_ const T &operator*() const {
 			return value;
-		}
+		};
 		/**
 		 * operator->, for using as iterator->, when iterators are defined on stack, for constant lists.
 		 */
 		_FORCE_INLINE_ const T *operator->() const {
 			return &value;
-		}
+		};
 		/**
 		 * * operator, for using as *iterator, when iterators are defined on stack,
 		 */
 		_FORCE_INLINE_ T &operator*() {
 			return value;
-		}
+		};
 		/**
 		 * operator->, for using as iterator->, when iterators are defined on stack, for constant lists.
 		 */
 		_FORCE_INLINE_ T *operator->() {
 			return &value;
-		}
+		};
 
 		/**
 		 * get the value stored in this element.
 		 */
 		_FORCE_INLINE_ T &get() {
 			return value;
-		}
+		};
 		/**
 		 * get the value stored in this element, for constant lists
 		 */
 		_FORCE_INLINE_ const T &get() const {
 			return value;
-		}
+		};
 		/**
 		 * set the value stored in this element.
 		 */
 		_FORCE_INLINE_ void set(const T &p_value) {
 			value = (T &)p_value;
-		}
+		};
 
 		void erase() {
 			data->erase(this);
 		}
 
-		_FORCE_INLINE_ Element() {}
+		_FORCE_INLINE_ Element() {
+			next_ptr = nullptr;
+			prev_ptr = nullptr;
+			data = nullptr;
+		};
 	};
 
-	typedef T ValueType;
-
-	struct Iterator {
-		_FORCE_INLINE_ T &operator*() const {
-			return E->get();
-		}
-		_FORCE_INLINE_ T *operator->() const { return &E->get(); }
-		_FORCE_INLINE_ Iterator &operator++() {
-			E = E->next();
-			return *this;
-		}
-		_FORCE_INLINE_ Iterator &operator--() {
-			E = E->prev();
-			return *this;
-		}
-
-		_FORCE_INLINE_ bool operator==(const Iterator &b) const { return E == b.E; }
-		_FORCE_INLINE_ bool operator!=(const Iterator &b) const { return E != b.E; }
-
-		Iterator(Element *p_E) { E = p_E; }
-		Iterator() {}
-		Iterator(const Iterator &p_it) { E = p_it.E; }
-
-	private:
-		Element *E = nullptr;
-	};
-
-	struct ConstIterator {
-		_FORCE_INLINE_ const T &operator*() const {
-			return E->get();
-		}
-		_FORCE_INLINE_ const T *operator->() const { return &E->get(); }
-		_FORCE_INLINE_ ConstIterator &operator++() {
-			E = E->next();
-			return *this;
-		}
-		_FORCE_INLINE_ ConstIterator &operator--() {
-			E = E->prev();
-			return *this;
-		}
-
-		_FORCE_INLINE_ bool operator==(const ConstIterator &b) const { return E == b.E; }
-		_FORCE_INLINE_ bool operator!=(const ConstIterator &b) const { return E != b.E; }
-
-		_FORCE_INLINE_ ConstIterator(const Element *p_E) { E = p_E; }
-		_FORCE_INLINE_ ConstIterator() {}
-		_FORCE_INLINE_ ConstIterator(const ConstIterator &p_it) { E = p_it.E; }
-
-	private:
-		const Element *E = nullptr;
-	};
-
-	_FORCE_INLINE_ Iterator begin() {
-		return Iterator(front());
-	}
-	_FORCE_INLINE_ Iterator end() {
-		return Iterator(nullptr);
-	}
-
-#if 0
-	//to use when replacing find()
-	_FORCE_INLINE_ Iterator find(const K &p_key) {
-		return Iterator(find(p_key));
-	}
-#endif
-	_FORCE_INLINE_ ConstIterator begin() const {
-		return ConstIterator(front());
-	}
-	_FORCE_INLINE_ ConstIterator end() const {
-		return ConstIterator(nullptr);
-	}
-#if 0
-	//to use when replacing find()
-	_FORCE_INLINE_ ConstIterator find(const K &p_key) const {
-		return ConstIterator(find(p_key));
-	}
-#endif
 private:
 	struct _Data {
-		Element *first = nullptr;
-		Element *last = nullptr;
-		int size_cache = 0;
+		Element *first;
+		Element *last;
+		int size_cache;
 
 		bool erase(const Element *p_I) {
 			ERR_FAIL_COND_V(!p_I, false);
@@ -224,7 +151,7 @@ private:
 
 			if (first == p_I) {
 				first = p_I->next_ptr;
-			}
+			};
 
 			if (last == p_I) {
 				last = p_I->prev_ptr;
@@ -245,7 +172,7 @@ private:
 		}
 	};
 
-	_Data *_data = nullptr;
+	_Data *_data;
 
 public:
 	/**
@@ -253,28 +180,28 @@ public:
 	 */
 	_FORCE_INLINE_ const Element *front() const {
 		return _data ? _data->first : nullptr;
-	}
+	};
 
 	/**
 	 * return an iterator to the beginning of the list.
 	 */
 	_FORCE_INLINE_ Element *front() {
 		return _data ? _data->first : nullptr;
-	}
+	};
 
 	/**
 	 * return a const iterator to the last member of the list.
 	 */
 	_FORCE_INLINE_ const Element *back() const {
 		return _data ? _data->last : nullptr;
-	}
+	};
 
 	/**
 	 * return an iterator to the last member of the list.
 	 */
 	_FORCE_INLINE_ Element *back() {
 		return _data ? _data->last : nullptr;
-	}
+	};
 
 	/**
 	 * store a new element at the end of the list
@@ -307,7 +234,7 @@ public:
 		_data->size_cache++;
 
 		return n;
-	}
+	};
 
 	void pop_back() {
 		if (_data && _data->last) {
@@ -345,7 +272,7 @@ public:
 		_data->size_cache++;
 
 		return n;
-	}
+	};
 
 	void pop_front() {
 		if (_data && _data->first) {
@@ -416,16 +343,16 @@ public:
 				return it;
 			}
 			it = it->next();
-		}
+		};
 
 		return nullptr;
-	}
+	};
 
 	/**
 	 * erase an element in the list, by iterator pointing to it. Return true if it was found/erased.
 	 */
 	bool erase(const Element *p_I) {
-		if (_data && p_I) {
+		if (_data) {
 			bool ret = _data->erase(p_I);
 
 			if (_data->size_cache == 0) {
@@ -437,7 +364,7 @@ public:
 		}
 
 		return false;
-	}
+	};
 
 	/**
 	 * erase the first element in the list, that contains value
@@ -445,12 +372,12 @@ public:
 	bool erase(const T &value) {
 		Element *I = find(value);
 		return erase(I);
-	}
+	};
 
 	/**
 	 * return whether the list is empty
 	 */
-	_FORCE_INLINE_ bool is_empty() const {
+	_FORCE_INLINE_ bool empty() const {
 		return (!_data || !_data->size_cache);
 	}
 
@@ -460,8 +387,8 @@ public:
 	void clear() {
 		while (front()) {
 			erase(front());
-		}
-	}
+		};
+	};
 
 	_FORCE_INLINE_ int size() const {
 		return _data ? _data->size_cache : 0;
@@ -522,12 +449,15 @@ public:
 
 		Element *I = front();
 		int c = 0;
-		while (c < p_index) {
+		while (I) {
+			if (c == p_index) {
+				return I->get();
+			}
 			I = I->next();
 			c++;
 		}
 
-		return I->get();
+		CRASH_NOW(); // bug!!
 	}
 
 	const T &operator[](int p_index) const {
@@ -535,12 +465,15 @@ public:
 
 		const Element *I = front();
 		int c = 0;
-		while (c < p_index) {
+		while (I) {
+			if (c == p_index) {
+				return I->get();
+			}
 			I = I->next();
 			c++;
 		}
 
-		return I->get();
+		CRASH_NOW(); // bug!!
 	}
 
 	void move_to_back(Element *p_I) {
@@ -551,7 +484,7 @@ public:
 
 		if (_data->first == p_I) {
 			_data->first = p_I->next_ptr;
-		}
+		};
 
 		if (_data->last == p_I) {
 			_data->last = p_I->prev_ptr;
@@ -569,7 +502,7 @@ public:
 		_data->last = p_I;
 	}
 
-	void reverse() {
+	void invert() {
 		int s = size() / 2;
 		Element *F = front();
 		Element *B = back();
@@ -588,7 +521,7 @@ public:
 
 		if (_data->first == p_I) {
 			_data->first = p_I->next_ptr;
-		}
+		};
 
 		if (_data->last == p_I) {
 			_data->last = p_I->prev_ptr;
@@ -623,7 +556,7 @@ public:
 			value->prev_ptr = _data->last;
 			_data->last = value;
 			return;
-		}
+		};
 
 		value->prev_ptr = where->prev_ptr;
 
@@ -631,10 +564,10 @@ public:
 			where->prev_ptr->next_ptr = value;
 		} else {
 			_data->first = value;
-		}
+		};
 
 		where->prev_ptr = value;
-	}
+	};
 
 	/**
 	 * simple insertion sort
@@ -658,7 +591,7 @@ public:
 			Element *next = current->next_ptr;
 
 			if (from != current) {
-				current->prev_ptr = nullptr;
+				current->prev_ptr = NULL;
 				current->next_ptr = from;
 
 				Element *find = from;
@@ -681,8 +614,8 @@ public:
 					to = current;
 				}
 			} else {
-				current->prev_ptr = nullptr;
-				current->next_ptr = nullptr;
+				current->prev_ptr = NULL;
+				current->next_ptr = NULL;
 			}
 
 			current = next;
@@ -744,6 +677,7 @@ public:
 	 * copy constructor for the list
 	 */
 	List(const List &p_list) {
+		_data = nullptr;
 		const Element *it = p_list.front();
 		while (it) {
 			push_back(it->get());
@@ -751,15 +685,16 @@ public:
 		}
 	}
 
-	List() {}
-
+	List() {
+		_data = nullptr;
+	};
 	~List() {
 		clear();
 		if (_data) {
 			ERR_FAIL_COND(_data->size_cache);
 			memdelete_allocator<_Data, A>(_data);
 		}
-	}
+	};
 };
 
 #endif // LIST_H

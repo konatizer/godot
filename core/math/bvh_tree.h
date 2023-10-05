@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  bvh_tree.h                                                            */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  bvh_tree.h                                                           */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef BVH_TREE_H
 #define BVH_TREE_H
@@ -39,12 +39,13 @@
 // to a simpler tree.
 // Note that MAX_CHILDREN should be fixed at 2 for now.
 
+#include "core/local_vector.h"
 #include "core/math/aabb.h"
 #include "core/math/bvh_abb.h"
-#include "core/math/geometry_3d.h"
+#include "core/math/geometry.h"
 #include "core/math/vector3.h"
-#include "core/templates/local_vector.h"
-#include "core/templates/pooled_list.h"
+#include "core/pooled_list.h"
+#include "core/print_string.h"
 #include <limits.h>
 
 #define BVHABB_CLASS BVH_ABB<BOUNDS, POINT>
@@ -53,7 +54,7 @@
 #define BVH_EXPAND_LEAF_AABBS
 
 // never do these checks in release
-#ifdef DEV_ENABLED
+#if defined(TOOLS_ENABLED) && defined(DEBUG_ENABLED)
 //#define BVH_VERBOSE
 //#define BVH_VERBOSE_TREE
 //#define BVH_VERBOSE_PAIRING
@@ -139,7 +140,7 @@ public:
 	// request new addition to stack
 	T *request() {
 		if (depth > threshold) {
-			if (aux_stack.is_empty()) {
+			if (aux_stack.empty()) {
 				aux_stack.resize(ALLOCA_STACK_SIZE * 2);
 				memcpy(aux_stack.ptr(), stack, get_alloca_stacksize());
 			} else {
@@ -216,7 +217,7 @@ private:
 		BVH_ASSERT(!parent.is_leaf());
 
 		int child_num = parent.find_child(p_old_child_id);
-		BVH_ASSERT(child_num != -1);
+		BVH_ASSERT(child_num != BVHCommon::INVALID);
 		parent.children[child_num] = p_new_child_id;
 
 		TNode &new_child = _nodes[p_new_child_id];
@@ -228,13 +229,13 @@ private:
 		BVH_ASSERT(!parent.is_leaf());
 
 		int child_num = parent.find_child(p_child_id);
-		BVH_ASSERT(child_num != -1);
+		BVH_ASSERT(child_num != BVHCommon::INVALID);
 
 		parent.remove_child_internal(child_num);
 
 		// no need to keep back references for children at the moment
 
-		uint32_t sibling_id = 0; // always a node id, as tnode is never a leaf
+		uint32_t sibling_id; // always a node id, as tnode is never a leaf
 		bool sibling_present = false;
 
 		// if there are more children, or this is the root node, don't try and delete

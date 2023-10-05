@@ -1,51 +1,54 @@
-/**************************************************************************/
-/*  audio_driver_xaudio2.cpp                                              */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  audio_driver_xaudio2.cpp                                             */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "audio_driver_xaudio2.h"
 
-#include "core/config/project_settings.h"
 #include "core/os/os.h"
+#include "core/project_settings.h"
+
+const char *AudioDriverXAudio2::get_name() const {
+	return "XAudio2";
+}
 
 Error AudioDriverXAudio2::init() {
 	active.clear();
 	exit_thread.clear();
 	pcm_open = false;
-	samples_in = nullptr;
+	samples_in = NULL;
 
-	mix_rate = _get_configured_mix_rate();
-
+	mix_rate = GLOBAL_GET("audio/mix_rate");
 	// FIXME: speaker_mode seems unused in the Xaudio2 driver so far
 	speaker_mode = SPEAKER_MODE_STEREO;
 	channels = 2;
 
-	int latency = Engine::get_singleton()->get_audio_output_latency();
+	int latency = GLOBAL_GET("audio/output_latency");
 	buffer_size = closest_power_of_2(latency * mix_rate / 1000);
 
 	samples_in = memnew_arr(int32_t, buffer_size * channels);
@@ -80,7 +83,7 @@ Error AudioDriverXAudio2::init() {
 }
 
 void AudioDriverXAudio2::thread_func(void *p_udata) {
-	AudioDriverXAudio2 *ad = static_cast<AudioDriverXAudio2 *>(p_udata);
+	AudioDriverXAudio2 *ad = (AudioDriverXAudio2 *)p_udata;
 
 	while (!ad->exit_thread.is_set()) {
 		if (!ad->active.is_set()) {
@@ -144,16 +147,16 @@ float AudioDriverXAudio2::get_latency() {
 void AudioDriverXAudio2::lock() {
 	mutex.lock();
 }
-
 void AudioDriverXAudio2::unlock() {
 	mutex.unlock();
 }
 
 void AudioDriverXAudio2::finish() {
+	if (!thread.is_started())
+		return;
+
 	exit_thread.set();
-	if (thread.is_started()) {
-		thread.wait_to_finish();
-	}
+	thread.wait_to_finish();
 
 	if (source_voice) {
 		source_voice->Stop(0);
@@ -172,9 +175,14 @@ void AudioDriverXAudio2::finish() {
 	mastering_voice->DestroyVoice();
 }
 
-AudioDriverXAudio2::AudioDriverXAudio2() {
+AudioDriverXAudio2::AudioDriverXAudio2() :
+		current_buffer(0) {
+	wave_format = { 0 };
 	for (int i = 0; i < AUDIO_BUFFERS; i++) {
 		xaudio_buffer[i] = { 0 };
 		samples_out[i] = 0;
 	}
+}
+
+AudioDriverXAudio2::~AudioDriverXAudio2() {
 }

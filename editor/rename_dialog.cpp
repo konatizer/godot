@@ -1,59 +1,52 @@
-/**************************************************************************/
-/*  rename_dialog.cpp                                                     */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  rename_dialog.cpp                                                    */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "rename_dialog.h"
 
 #include "modules/modules_enabled.gen.h" // For regex.
 #ifdef MODULE_REGEX_ENABLED
 
-#include "core/string/print_string.h"
-#include "editor/editor_node.h"
-#include "editor/editor_scale.h"
-#include "editor/editor_settings.h"
-#include "editor/editor_string_names.h"
-#include "editor/editor_themes.h"
-#include "editor/editor_undo_redo_manager.h"
+#include "core/print_string.h"
+#include "editor_node.h"
+#include "editor_scale.h"
+#include "editor_settings.h"
+#include "editor_themes.h"
 #include "modules/regex/regex.h"
 #include "plugins/script_editor_plugin.h"
-#include "scene/gui/check_box.h"
-#include "scene/gui/check_button.h"
 #include "scene/gui/control.h"
-#include "scene/gui/grid_container.h"
 #include "scene/gui/label.h"
-#include "scene/gui/option_button.h"
-#include "scene/gui/separator.h"
-#include "scene/gui/spin_box.h"
 #include "scene/gui/tab_container.h"
 
-RenameDialog::RenameDialog(SceneTreeEditor *p_scene_tree_editor) {
+RenameDialog::RenameDialog(SceneTreeEditor *p_scene_tree_editor, UndoRedo *p_undo_redo) {
 	scene_tree_editor = p_scene_tree_editor;
+	undo_redo = p_undo_redo;
 	preview_node = nullptr;
 
 	set_title(TTR("Batch Rename"));
@@ -65,7 +58,7 @@ RenameDialog::RenameDialog(SceneTreeEditor *p_scene_tree_editor) {
 
 	GridContainer *grd_main = memnew(GridContainer);
 	grd_main->set_columns(2);
-	grd_main->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+	grd_main->set_v_size_flags(SIZE_EXPAND_FILL);
 	vbc->add_child(grd_main);
 
 	// ---- 1st & 2nd row
@@ -75,14 +68,14 @@ RenameDialog::RenameDialog(SceneTreeEditor *p_scene_tree_editor) {
 
 	lne_search = memnew(LineEdit);
 	lne_search->set_name("lne_search");
-	lne_search->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	lne_search->set_h_size_flags(SIZE_EXPAND_FILL);
 
 	Label *lbl_replace = memnew(Label);
 	lbl_replace->set_text(TTR("Replace:"));
 
 	lne_replace = memnew(LineEdit);
 	lne_replace->set_name("lne_replace");
-	lne_replace->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	lne_replace->set_h_size_flags(SIZE_EXPAND_FILL);
 
 	grd_main->add_child(lbl_search);
 	grd_main->add_child(lbl_replace);
@@ -96,14 +89,14 @@ RenameDialog::RenameDialog(SceneTreeEditor *p_scene_tree_editor) {
 
 	lne_prefix = memnew(LineEdit);
 	lne_prefix->set_name("lne_prefix");
-	lne_prefix->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	lne_prefix->set_h_size_flags(SIZE_EXPAND_FILL);
 
 	Label *lbl_suffix = memnew(Label);
 	lbl_suffix->set_text(TTR("Suffix:"));
 
 	lne_suffix = memnew(LineEdit);
 	lne_suffix->set_name("lne_suffix");
-	lne_suffix->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	lne_suffix->set_h_size_flags(SIZE_EXPAND_FILL);
 
 	grd_main->add_child(lbl_prefix);
 	grd_main->add_child(lbl_suffix);
@@ -121,13 +114,14 @@ RenameDialog::RenameDialog(SceneTreeEditor *p_scene_tree_editor) {
 	vbc->add_child(cbut_collapse_features);
 
 	tabc_features = memnew(TabContainer);
+	tabc_features->set_tab_align(TabContainer::ALIGN_LEFT);
 	tabc_features->set_use_hidden_tabs_for_min_size(true);
 	vbc->add_child(tabc_features);
 
 	// ---- Tab Substitute
 
 	VBoxContainer *vbc_substitute = memnew(VBoxContainer);
-	vbc_substitute->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	vbc_substitute->set_h_size_flags(SIZE_EXPAND_FILL);
 
 	vbc_substitute->set_name(TTR("Substitute"));
 	tabc_features->add_child(vbc_substitute);
@@ -144,65 +138,65 @@ RenameDialog::RenameDialog(SceneTreeEditor *p_scene_tree_editor) {
 
 	but_insert_name = memnew(Button);
 	but_insert_name->set_text("NAME");
-	but_insert_name->set_tooltip_text(String("${NAME}\n") + TTR("Node name."));
-	but_insert_name->set_focus_mode(Control::FOCUS_NONE);
-	but_insert_name->connect("pressed", callable_mp(this, &RenameDialog::_insert_text).bind("${NAME}"));
-	but_insert_name->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	but_insert_name->set_tooltip(String("${NAME}\n") + TTR("Node name"));
+	but_insert_name->set_focus_mode(FOCUS_NONE);
+	but_insert_name->connect("pressed", this, "_insert_text", make_binds("${NAME}"));
+	but_insert_name->set_h_size_flags(SIZE_EXPAND_FILL);
 	grd_substitute->add_child(but_insert_name);
 
 	// Parent
 
 	but_insert_parent = memnew(Button);
 	but_insert_parent->set_text("PARENT");
-	but_insert_parent->set_tooltip_text(String("${PARENT}\n") + TTR("Node's parent name, if available."));
-	but_insert_parent->set_focus_mode(Control::FOCUS_NONE);
-	but_insert_parent->connect("pressed", callable_mp(this, &RenameDialog::_insert_text).bind("${PARENT}"));
-	but_insert_parent->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	but_insert_parent->set_tooltip(String("${PARENT}\n") + TTR("Node's parent name, if available"));
+	but_insert_parent->set_focus_mode(FOCUS_NONE);
+	but_insert_parent->connect("pressed", this, "_insert_text", make_binds("${PARENT}"));
+	but_insert_parent->set_h_size_flags(SIZE_EXPAND_FILL);
 	grd_substitute->add_child(but_insert_parent);
 
 	// Type
 
 	but_insert_type = memnew(Button);
 	but_insert_type->set_text("TYPE");
-	but_insert_type->set_tooltip_text(String("${TYPE}\n") + TTR("Node type."));
-	but_insert_type->set_focus_mode(Control::FOCUS_NONE);
-	but_insert_type->connect("pressed", callable_mp(this, &RenameDialog::_insert_text).bind("${TYPE}"));
-	but_insert_type->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	but_insert_type->set_tooltip(String("${TYPE}\n") + TTR("Node type"));
+	but_insert_type->set_focus_mode(FOCUS_NONE);
+	but_insert_type->connect("pressed", this, "_insert_text", make_binds("${TYPE}"));
+	but_insert_type->set_h_size_flags(SIZE_EXPAND_FILL);
 	grd_substitute->add_child(but_insert_type);
 
 	// Scene
 
 	but_insert_scene = memnew(Button);
 	but_insert_scene->set_text("SCENE");
-	but_insert_scene->set_tooltip_text(String("${SCENE}\n") + TTR("Current scene name."));
-	but_insert_scene->set_focus_mode(Control::FOCUS_NONE);
-	but_insert_scene->connect("pressed", callable_mp(this, &RenameDialog::_insert_text).bind("${SCENE}"));
-	but_insert_scene->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	but_insert_scene->set_tooltip(String("${SCENE}\n") + TTR("Current scene name"));
+	but_insert_scene->set_focus_mode(FOCUS_NONE);
+	but_insert_scene->connect("pressed", this, "_insert_text", make_binds("${SCENE}"));
+	but_insert_scene->set_h_size_flags(SIZE_EXPAND_FILL);
 	grd_substitute->add_child(but_insert_scene);
 
 	// Root
 
 	but_insert_root = memnew(Button);
 	but_insert_root->set_text("ROOT");
-	but_insert_root->set_tooltip_text(String("${ROOT}\n") + TTR("Root node name."));
-	but_insert_root->set_focus_mode(Control::FOCUS_NONE);
-	but_insert_root->connect("pressed", callable_mp(this, &RenameDialog::_insert_text).bind("${ROOT}"));
-	but_insert_root->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	but_insert_root->set_tooltip(String("${ROOT}\n") + TTR("Root node name"));
+	but_insert_root->set_focus_mode(FOCUS_NONE);
+	but_insert_root->connect("pressed", this, "_insert_text", make_binds("${ROOT}"));
+	but_insert_root->set_h_size_flags(SIZE_EXPAND_FILL);
 	grd_substitute->add_child(but_insert_root);
 
 	// Count
 
 	but_insert_count = memnew(Button);
 	but_insert_count->set_text("COUNTER");
-	but_insert_count->set_tooltip_text(String("${COUNTER}\n") + TTR("Sequential integer counter.\nCompare counter options."));
-	but_insert_count->set_focus_mode(Control::FOCUS_NONE);
-	but_insert_count->connect("pressed", callable_mp(this, &RenameDialog::_insert_text).bind("${COUNTER}"));
-	but_insert_count->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	but_insert_count->set_tooltip(String("${COUNTER}\n") + TTR("Sequential integer counter.\nCompare counter options."));
+	but_insert_count->set_focus_mode(FOCUS_NONE);
+	but_insert_count->connect("pressed", this, "_insert_text", make_binds("${COUNTER}"));
+	but_insert_count->set_h_size_flags(SIZE_EXPAND_FILL);
 	grd_substitute->add_child(but_insert_count);
 
 	chk_per_level_counter = memnew(CheckBox);
 	chk_per_level_counter->set_text(TTR("Per-level Counter"));
-	chk_per_level_counter->set_tooltip_text(TTR("If set, the counter restarts for each group of child nodes."));
+	chk_per_level_counter->set_tooltip(TTR("If set, the counter restarts for each group of child nodes."));
 	vbc_substitute->add_child(chk_per_level_counter);
 
 	HBoxContainer *hbc_count_options = memnew(HBoxContainer);
@@ -210,39 +204,39 @@ RenameDialog::RenameDialog(SceneTreeEditor *p_scene_tree_editor) {
 
 	Label *lbl_count_start = memnew(Label);
 	lbl_count_start->set_text(TTR("Start"));
-	lbl_count_start->set_tooltip_text(TTR("Initial value for the counter."));
+	lbl_count_start->set_tooltip(TTR("Initial value for the counter"));
 	hbc_count_options->add_child(lbl_count_start);
 
 	spn_count_start = memnew(SpinBox);
-	spn_count_start->set_tooltip_text(TTR("Initial value for the counter."));
+	spn_count_start->set_tooltip(TTR("Initial value for the counter"));
 	spn_count_start->set_step(1);
 	spn_count_start->set_min(0);
 	hbc_count_options->add_child(spn_count_start);
 
 	Label *lbl_count_step = memnew(Label);
 	lbl_count_step->set_text(TTR("Step"));
-	lbl_count_step->set_tooltip_text(TTR("Amount by which counter is incremented for each node."));
+	lbl_count_step->set_tooltip(TTR("Amount by which counter is incremented for each node"));
 	hbc_count_options->add_child(lbl_count_step);
 
 	spn_count_step = memnew(SpinBox);
-	spn_count_step->set_tooltip_text(TTR("Amount by which counter is incremented for each node."));
+	spn_count_step->set_tooltip(TTR("Amount by which counter is incremented for each node"));
 	spn_count_step->set_step(1);
 	hbc_count_options->add_child(spn_count_step);
 
 	Label *lbl_count_padding = memnew(Label);
 	lbl_count_padding->set_text(TTR("Padding"));
-	lbl_count_padding->set_tooltip_text(TTR("Minimum number of digits for the counter.\nMissing digits are padded with leading zeros."));
+	lbl_count_padding->set_tooltip(TTR("Minimum number of digits for the counter.\nMissing digits are padded with leading zeros."));
 	hbc_count_options->add_child(lbl_count_padding);
 
 	spn_count_padding = memnew(SpinBox);
-	spn_count_padding->set_tooltip_text(TTR("Minimum number of digits for the counter.\nMissing digits are padded with leading zeros."));
+	spn_count_padding->set_tooltip(TTR("Minimum number of digits for the counter.\nMissing digits are padded with leading zeros."));
 	spn_count_padding->set_step(1);
 	hbc_count_options->add_child(spn_count_padding);
 
 	// ---- Tab Process
 
 	VBoxContainer *vbc_process = memnew(VBoxContainer);
-	vbc_process->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	vbc_process->set_h_size_flags(SIZE_EXPAND_FILL);
 	vbc_process->set_name(TTR("Post-Process"));
 	tabc_features->add_child(vbc_process);
 
@@ -290,13 +284,14 @@ RenameDialog::RenameDialog(SceneTreeEditor *p_scene_tree_editor) {
 	vbc->add_child(lbl_preview_title);
 
 	lbl_preview = memnew(Label);
-	lbl_preview->set_autowrap_mode(TextServer::AUTOWRAP_WORD_SMART);
+	lbl_preview->set_autowrap(true);
 	vbc->add_child(lbl_preview);
 
 	// ---- Dialog related
 
-	set_min_size(Size2(383, 0));
-	set_ok_button_text(TTR("Rename"));
+	set_custom_minimum_size(Size2(383, 0));
+	set_as_toplevel(true);
+	get_ok()->set_text(TTR("Rename"));
 	Button *but_reset = add_button(TTR("Reset"));
 
 	eh.errfunc = _error_handler;
@@ -304,46 +299,52 @@ RenameDialog::RenameDialog(SceneTreeEditor *p_scene_tree_editor) {
 
 	// ---- Connections
 
-	cbut_collapse_features->connect("toggled", callable_mp(this, &RenameDialog::_features_toggled));
+	cbut_collapse_features->connect("toggled", this, "_features_toggled");
 
 	// Substitute Buttons
 
-	lne_search->connect("focus_entered", callable_mp(this, &RenameDialog::_update_substitute));
-	lne_search->connect("focus_exited", callable_mp(this, &RenameDialog::_update_substitute));
-	lne_replace->connect("focus_entered", callable_mp(this, &RenameDialog::_update_substitute));
-	lne_replace->connect("focus_exited", callable_mp(this, &RenameDialog::_update_substitute));
-	lne_prefix->connect("focus_entered", callable_mp(this, &RenameDialog::_update_substitute));
-	lne_prefix->connect("focus_exited", callable_mp(this, &RenameDialog::_update_substitute));
-	lne_suffix->connect("focus_entered", callable_mp(this, &RenameDialog::_update_substitute));
-	lne_suffix->connect("focus_exited", callable_mp(this, &RenameDialog::_update_substitute));
+	lne_search->connect("focus_entered", this, "_update_substitute");
+	lne_search->connect("focus_exited", this, "_update_substitute");
+	lne_replace->connect("focus_entered", this, "_update_substitute");
+	lne_replace->connect("focus_exited", this, "_update_substitute");
+	lne_prefix->connect("focus_entered", this, "_update_substitute");
+	lne_prefix->connect("focus_exited", this, "_update_substitute");
+	lne_suffix->connect("focus_entered", this, "_update_substitute");
+	lne_suffix->connect("focus_exited", this, "_update_substitute");
 
 	// Preview
 
-	lne_prefix->connect("text_changed", callable_mp(this, &RenameDialog::_update_preview));
-	lne_suffix->connect("text_changed", callable_mp(this, &RenameDialog::_update_preview));
-	lne_search->connect("text_changed", callable_mp(this, &RenameDialog::_update_preview));
-	lne_replace->connect("text_changed", callable_mp(this, &RenameDialog::_update_preview));
-	spn_count_start->connect("value_changed", callable_mp(this, &RenameDialog::_update_preview_int));
-	spn_count_step->connect("value_changed", callable_mp(this, &RenameDialog::_update_preview_int));
-	spn_count_padding->connect("value_changed", callable_mp(this, &RenameDialog::_update_preview_int));
-	opt_style->connect("item_selected", callable_mp(this, &RenameDialog::_update_preview_int));
-	opt_case->connect("item_selected", callable_mp(this, &RenameDialog::_update_preview_int));
-	cbut_substitute->connect("pressed", callable_mp(this, &RenameDialog::_update_preview).bind(""));
-	cbut_regex->connect("pressed", callable_mp(this, &RenameDialog::_update_preview).bind(""));
-	cbut_process->connect("pressed", callable_mp(this, &RenameDialog::_update_preview).bind(""));
+	lne_prefix->connect("text_changed", this, "_update_preview");
+	lne_suffix->connect("text_changed", this, "_update_preview");
+	lne_search->connect("text_changed", this, "_update_preview");
+	lne_replace->connect("text_changed", this, "_update_preview");
+	spn_count_start->connect("value_changed", this, "_update_preview_int");
+	spn_count_step->connect("value_changed", this, "_update_preview_int");
+	spn_count_padding->connect("value_changed", this, "_update_preview_int");
+	opt_style->connect("item_selected", this, "_update_preview_int");
+	opt_case->connect("item_selected", this, "_update_preview_int");
+	cbut_substitute->connect("pressed", this, "_update_preview", varray(""));
+	cbut_regex->connect("pressed", this, "_update_preview", varray(""));
+	cbut_process->connect("pressed", this, "_update_preview", varray(""));
 
-	but_reset->connect("pressed", callable_mp(this, &RenameDialog::reset));
+	but_reset->connect("pressed", this, "reset");
 
 	reset();
 	_features_toggled(false);
 }
 
 void RenameDialog::_bind_methods() {
+	ClassDB::bind_method("_features_toggled", &RenameDialog::_features_toggled);
+	ClassDB::bind_method("_update_preview", &RenameDialog::_update_preview);
+	ClassDB::bind_method("_update_preview_int", &RenameDialog::_update_preview_int);
+	ClassDB::bind_method("_insert_text", &RenameDialog::_insert_text);
+	ClassDB::bind_method("_update_substitute", &RenameDialog::_update_substitute);
+	ClassDB::bind_method("reset", &RenameDialog::reset);
 	ClassDB::bind_method("rename", &RenameDialog::rename);
 }
 
 void RenameDialog::_update_substitute() {
-	LineEdit *focus_owner_line_edit = Object::cast_to<LineEdit>(get_viewport()->gui_get_focus_owner());
+	LineEdit *focus_owner_line_edit = Object::cast_to<LineEdit>(get_focus_owner());
 	bool is_main_field = _is_main_field(focus_owner_line_edit);
 
 	but_insert_name->set_disabled(!is_main_field);
@@ -354,24 +355,22 @@ void RenameDialog::_update_substitute() {
 	but_insert_count->set_disabled(!is_main_field);
 
 	// The focus mode seems to be reset when disabling/re-enabling
-	but_insert_name->set_focus_mode(Control::FOCUS_NONE);
-	but_insert_parent->set_focus_mode(Control::FOCUS_NONE);
-	but_insert_type->set_focus_mode(Control::FOCUS_NONE);
-	but_insert_scene->set_focus_mode(Control::FOCUS_NONE);
-	but_insert_root->set_focus_mode(Control::FOCUS_NONE);
-	but_insert_count->set_focus_mode(Control::FOCUS_NONE);
+	but_insert_name->set_focus_mode(FOCUS_NONE);
+	but_insert_parent->set_focus_mode(FOCUS_NONE);
+	but_insert_type->set_focus_mode(FOCUS_NONE);
+	but_insert_scene->set_focus_mode(FOCUS_NONE);
+	but_insert_root->set_focus_mode(FOCUS_NONE);
+	but_insert_count->set_focus_mode(FOCUS_NONE);
 }
 
 void RenameDialog::_post_popup() {
-	ConfirmationDialog::_post_popup();
-
 	EditorSelection *editor_selection = EditorNode::get_singleton()->get_editor_selection();
 	preview_node = nullptr;
 
 	Array selected_node_list = editor_selection->get_selected_nodes();
 	ERR_FAIL_COND(selected_node_list.size() == 0);
 
-	preview_node = Object::cast_to<Node>(selected_node_list[0]);
+	preview_node = selected_node_list[0];
 
 	_update_preview();
 	_update_substitute();
@@ -397,11 +396,11 @@ void RenameDialog::_update_preview(String new_text) {
 
 		if (new_name == preview_node->get_name()) {
 			// New name is identical to the old one. Don't color it as much to avoid distracting the user.
-			const Color accent_color = EditorNode::get_singleton()->get_gui_base()->get_theme_color(SNAME("accent_color"), EditorStringName(Editor));
-			const Color text_color = EditorNode::get_singleton()->get_gui_base()->get_theme_color(SNAME("default_color"), SNAME("RichTextLabel"));
-			lbl_preview->add_theme_color_override("font_color", accent_color.lerp(text_color, 0.5));
+			const Color accent_color = EditorNode::get_singleton()->get_gui_base()->get_color("accent_color", "Editor");
+			const Color text_color = EditorNode::get_singleton()->get_gui_base()->get_color("default_color", "RichTextLabel");
+			lbl_preview->add_color_override("font_color", accent_color.linear_interpolate(text_color, 0.5));
 		} else {
-			lbl_preview->add_theme_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_theme_color(SNAME("success_color"), EditorStringName(Editor)));
+			lbl_preview->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("success_color", "Editor"));
 		}
 	}
 
@@ -445,11 +444,11 @@ String RenameDialog::_substitute(const String &subject, const Node *node, int co
 		result = result.replace("${TYPE}", node->get_class());
 	}
 
-	int current = EditorNode::get_editor_data().get_edited_scene();
+	int current = EditorNode::get_singleton()->get_editor_data().get_edited_scene();
 	// Always request the scene title with the extension stripped.
 	// Otherwise, the result could vary depending on whether a scene with the same name
 	// (but different extension) is currently open.
-	result = result.replace("${SCENE}", EditorNode::get_editor_data().get_scene_title(current, true));
+	result = result.replace("${SCENE}", EditorNode::get_singleton()->get_editor_data().get_scene_title(current, true));
 
 	Node *root_node = SceneTree::get_singleton()->get_edited_scene_root();
 	if (root_node) {
@@ -469,7 +468,7 @@ String RenameDialog::_substitute(const String &subject, const Node *node, int co
 	return result;
 }
 
-void RenameDialog::_error_handler(void *p_self, const char *p_func, const char *p_file, int p_line, const char *p_error, const char *p_errorexp, bool p_editor_notify, ErrorHandlerType p_type) {
+void RenameDialog::_error_handler(void *p_self, const char *p_func, const char *p_file, int p_line, const char *p_error, const char *p_errorexp, ErrorHandlerType p_type) {
 	RenameDialog *self = (RenameDialog *)p_self;
 	String source_file = String::utf8(p_file);
 
@@ -487,7 +486,7 @@ void RenameDialog::_error_handler(void *p_self, const char *p_func, const char *
 
 	self->has_errors = true;
 	self->lbl_preview_title->set_text(TTR("Regular Expression Error:"));
-	self->lbl_preview->add_theme_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_theme_color(SNAME("error_color"), EditorStringName(Editor)));
+	self->lbl_preview->add_color_override("font_color", EditorNode::get_singleton()->get_gui_base()->get_color("error_color", "Editor"));
 	self->lbl_preview->set_text(vformat(TTR("At character %s"), err_str));
 }
 
@@ -505,7 +504,7 @@ String RenameDialog::_postprocess(const String &subject) {
 	if (style_id == 1) {
 		// PascalCase to snake_case
 
-		result = result.to_snake_case();
+		result = result.camelcase_to_underscore(true);
 		result = _regex("_+", result, "_");
 
 	} else if (style_id == 2) {
@@ -526,7 +525,7 @@ String RenameDialog::_postprocess(const String &subject) {
 				end = start + 1;
 			}
 			buffer += result.substr(end, result.size() - (end + 1));
-			result = buffer.to_pascal_case();
+			result = buffer.replace("_", "").capitalize();
 		}
 	}
 
@@ -587,9 +586,8 @@ void RenameDialog::rename() {
 	// Forward recursive as opposed to the actual renaming.
 	_iterate_scene(root_node, selected_node_list, &global_count);
 
-	if (!to_rename.is_empty()) {
-		EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
-		undo_redo->create_action(TTR("Batch Rename"), UndoRedo::MERGE_DISABLE, root_node, true);
+	if (undo_redo && !to_rename.empty()) {
+		undo_redo->create_action(TTR("Batch Rename"));
 
 		// Make sure to iterate reversed so that child nodes will find parents.
 		for (int i = to_rename.size() - 1; i >= 0; --i) {
@@ -601,7 +599,9 @@ void RenameDialog::rename() {
 				continue;
 			}
 
-			scene_tree_editor->call("_rename_node", n, new_name);
+			scene_tree_editor->emit_signal("node_prerename", n, new_name);
+			undo_redo->add_do_method(scene_tree_editor, "_rename_node", n->get_instance_id(), new_name);
+			undo_redo->add_undo_method(scene_tree_editor, "_rename_node", n->get_instance_id(), n->get_name());
 		}
 
 		undo_redo->commit_action();
@@ -634,16 +634,15 @@ void RenameDialog::reset() {
 }
 
 bool RenameDialog::_is_main_field(LineEdit *line_edit) {
-	return line_edit &&
-			(line_edit == lne_search || line_edit == lne_replace || line_edit == lne_prefix || line_edit == lne_suffix);
+	return line_edit && (line_edit == lne_search || line_edit == lne_replace || line_edit == lne_prefix || line_edit == lne_suffix);
 }
 
 void RenameDialog::_insert_text(String text) {
-	LineEdit *focus_owner = Object::cast_to<LineEdit>(get_viewport()->gui_get_focus_owner());
+	LineEdit *focus_owner = Object::cast_to<LineEdit>(get_focus_owner());
 
 	if (_is_main_field(focus_owner)) {
 		focus_owner->selection_delete();
-		focus_owner->insert_text_at_caret(text);
+		focus_owner->append_at_cursor(text);
 		_update_preview();
 	}
 }
@@ -656,9 +655,9 @@ void RenameDialog::_features_toggled(bool pressed) {
 	}
 
 	// Adjust to minimum size in y
-	Size2i new_size = get_size();
-	new_size.y = 0;
-	set_size(new_size);
+	Size2i size = get_size();
+	size.y = 0;
+	set_size(size);
 }
 
 #endif // MODULE_REGEX_ENABLED

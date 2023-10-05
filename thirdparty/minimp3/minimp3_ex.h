@@ -377,7 +377,7 @@ int mp3dec_load_cb(mp3dec_t *dec, mp3dec_io_t *io, uint8_t *buf, size_t buf_size
         samples = hdr_frame_samples(hdr)*frame_info.channels;
         if (3 != frame_info.layer)
             break;
-        ret = mp3dec_check_vbrtag(hdr, frame_size, &frames, &delay, &padding);
+        int ret = mp3dec_check_vbrtag(hdr, frame_size, &frames, &delay, &padding);
         if (ret > 0)
         {
             padding *= frame_info.channels;
@@ -529,8 +529,7 @@ int mp3dec_iterate_buf(const uint8_t *buf, size_t buf_size, MP3D_ITERATE_CB call
 
         if (callback)
         {
-            ret = callback(user_data, hdr, frame_size, free_format_bytes, buf_size, hdr - orig_buf, &frame_info);
-            if (ret != 0)
+            if ((ret = callback(user_data, hdr, frame_size, free_format_bytes, buf_size, hdr - orig_buf, &frame_info)))
                 return ret;
         }
         buf      += frame_size;
@@ -563,7 +562,7 @@ int mp3dec_iterate_cb(mp3dec_io_t *io, uint8_t *buf, size_t buf_size, MP3D_ITERA
         readed += id3v2size;
     } else
     {
-        readed = io->read(buf + MINIMP3_ID3_DETECT_SIZE, buf_size - MINIMP3_ID3_DETECT_SIZE, io->read_data);
+        size_t readed = io->read(buf + MINIMP3_ID3_DETECT_SIZE, buf_size - MINIMP3_ID3_DETECT_SIZE, io->read_data);
         if (readed > (buf_size - MINIMP3_ID3_DETECT_SIZE))
             return MP3D_E_IOERROR;
         filled += readed;
@@ -591,8 +590,7 @@ int mp3dec_iterate_cb(mp3dec_io_t *io, uint8_t *buf, size_t buf_size, MP3D_ITERA
         readed += i;
         if (callback)
         {
-            ret = callback(user_data, hdr, frame_size, free_format_bytes, filled - consumed, readed, &frame_info);
-            if (ret != 0)
+            if ((ret = callback(user_data, hdr, frame_size, free_format_bytes, filled - consumed, readed, &frame_info)))
                 return ret;
         }
         readed += frame_size;
@@ -602,7 +600,7 @@ int mp3dec_iterate_cb(mp3dec_io_t *io, uint8_t *buf, size_t buf_size, MP3D_ITERA
             memmove(buf, buf + consumed, filled - consumed);
             filled -= consumed;
             consumed = 0;
-            readed = io->read(buf + filled, buf_size - filled, io->read_data);
+            size_t readed = io->read(buf + filled, buf_size - filled, io->read_data);
             if (readed > (buf_size - filled))
                 return MP3D_E_IOERROR;
             if (readed != (buf_size - filled))

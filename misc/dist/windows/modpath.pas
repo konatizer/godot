@@ -3,9 +3,9 @@
 // Inno Setup Ver:	5.4.2
 // Script Version:	1.4.2
 // Author:			Jared Breland <jbreland@legroom.net>
-// Homepage:		https://www.legroom.net/software
+// Homepage:		http://www.legroom.net/software
 // License:			GNU Lesser General Public License (LGPL), version 3
-//						https://www.gnu.org/licenses/lgpl.html
+//						http://www.gnu.org/licenses/lgpl.html
 //
 // Script Function:
 //	Allow modification of environmental path directly from Inno Setup installers
@@ -144,7 +144,7 @@ begin
 	end;
 end;
 
-// Split a string into an array using passed delimiter.
+// Split a string into an array using passed delimiter
 procedure MPExplode(var Dest: TArrayOfString; Text: String; Separator: String);
 var
 	i: Integer;

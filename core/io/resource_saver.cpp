@@ -1,110 +1,88 @@
-/**************************************************************************/
-/*  resource_saver.cpp                                                    */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  resource_saver.cpp                                                   */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "resource_saver.h"
-#include "core/config/project_settings.h"
-#include "core/io/file_access.h"
 #include "core/io/resource_loader.h"
-#include "core/object/script_language.h"
+#include "core/os/file_access.h"
+#include "core/project_settings.h"
+#include "core/script_language.h"
 
 Ref<ResourceFormatSaver> ResourceSaver::saver[MAX_SAVERS];
 
 int ResourceSaver::saver_count = 0;
 bool ResourceSaver::timestamp_on_save = false;
 ResourceSavedCallback ResourceSaver::save_callback = nullptr;
-ResourceSaverGetResourceIDForPath ResourceSaver::save_get_id_for_path = nullptr;
 
-Error ResourceFormatSaver::save(const Ref<Resource> &p_resource, const String &p_path, uint32_t p_flags) {
-	Error err = ERR_METHOD_NOT_FOUND;
-	GDVIRTUAL_CALL(_save, p_resource, p_path, p_flags, err);
-	return err;
-}
-
-Error ResourceFormatSaver::set_uid(const String &p_path, ResourceUID::ID p_uid) {
-	Error err = ERR_FILE_UNRECOGNIZED;
-	GDVIRTUAL_CALL(_set_uid, p_path, p_uid, err);
-	return err;
-}
-
-bool ResourceFormatSaver::recognize(const Ref<Resource> &p_resource) const {
-	bool success = false;
-	GDVIRTUAL_CALL(_recognize, p_resource, success);
-	return success;
-}
-
-void ResourceFormatSaver::get_recognized_extensions(const Ref<Resource> &p_resource, List<String> *p_extensions) const {
-	PackedStringArray exts;
-	if (GDVIRTUAL_CALL(_get_recognized_extensions, p_resource, exts)) {
-		const String *r = exts.ptr();
-		for (int i = 0; i < exts.size(); ++i) {
-			p_extensions->push_back(r[i]);
-		}
-	}
-}
-
-bool ResourceFormatSaver::recognize_path(const Ref<Resource> &p_resource, const String &p_path) const {
-	bool ret = false;
-	if (GDVIRTUAL_CALL(_recognize_path, p_resource, p_path, ret)) {
-		return ret;
+Error ResourceFormatSaver::save(const String &p_path, const RES &p_resource, uint32_t p_flags) {
+	if (get_script_instance() && get_script_instance()->has_method("save")) {
+		return (Error)get_script_instance()->call("save", p_path, p_resource, p_flags).operator int64_t();
 	}
 
-	String extension = p_path.get_extension();
+	return ERR_METHOD_NOT_FOUND;
+}
 
-	List<String> extensions;
-	get_recognized_extensions(p_resource, &extensions);
-
-	for (const String &E : extensions) {
-		if (E.nocasecmp_to(extension) == 0) {
-			return true;
-		}
+bool ResourceFormatSaver::recognize(const RES &p_resource) const {
+	if (get_script_instance() && get_script_instance()->has_method("recognize")) {
+		return get_script_instance()->call("recognize", p_resource);
 	}
 
 	return false;
 }
 
-void ResourceFormatSaver::_bind_methods() {
-	GDVIRTUAL_BIND(_save, "resource", "path", "flags");
-	GDVIRTUAL_BIND(_set_uid, "path", "uid");
-	GDVIRTUAL_BIND(_recognize, "resource");
-	GDVIRTUAL_BIND(_get_recognized_extensions, "resource");
-	GDVIRTUAL_BIND(_recognize_path, "resource", "path");
+void ResourceFormatSaver::get_recognized_extensions(const RES &p_resource, List<String> *p_extensions) const {
+	if (get_script_instance() && get_script_instance()->has_method("get_recognized_extensions")) {
+		PoolStringArray exts = get_script_instance()->call("get_recognized_extensions", p_resource);
+
+		{
+			PoolStringArray::Read r = exts.read();
+			for (int i = 0; i < exts.size(); ++i) {
+				p_extensions->push_back(r[i]);
+			}
+		}
+	}
 }
 
-Error ResourceSaver::save(const Ref<Resource> &p_resource, const String &p_path, uint32_t p_flags) {
-	String path = p_path;
-	if (path.is_empty()) {
-		path = p_resource->get_path();
+void ResourceFormatSaver::_bind_methods() {
+	{
+		PropertyInfo arg0 = PropertyInfo(Variant::STRING, "path");
+		PropertyInfo arg1 = PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource");
+		PropertyInfo arg2 = PropertyInfo(Variant::INT, "flags");
+		ClassDB::add_virtual_method(get_class_static(), MethodInfo(Variant::INT, "save", arg0, arg1, arg2));
 	}
-	ERR_FAIL_COND_V_MSG(path.is_empty(), ERR_INVALID_PARAMETER, "Can't save resource to empty path. Provide non-empty path or a Resource with non-empty resource_path.");
 
-	String extension = path.get_extension();
+	ClassDB::add_virtual_method(get_class_static(), MethodInfo(Variant::POOL_STRING_ARRAY, "get_recognized_extensions", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
+	ClassDB::add_virtual_method(get_class_static(), MethodInfo(Variant::BOOL, "recognize", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
+}
+
+Error ResourceSaver::save(const String &p_path, const RES &p_resource, uint32_t p_flags) {
+	String extension = p_path.get_extension();
 	Error err = ERR_FILE_UNRECOGNIZED;
 
 	for (int i = 0; i < saver_count; i++) {
@@ -112,27 +90,37 @@ Error ResourceSaver::save(const Ref<Resource> &p_resource, const String &p_path,
 			continue;
 		}
 
-		if (!saver[i]->recognize_path(p_resource, path)) {
+		List<String> extensions;
+		bool recognized = false;
+		saver[i]->get_recognized_extensions(p_resource, &extensions);
+
+		for (List<String>::Element *E = extensions.front(); E; E = E->next()) {
+			if (E->get().nocasecmp_to(extension) == 0) {
+				recognized = true;
+			}
+		}
+
+		if (!recognized) {
 			continue;
 		}
 
 		String old_path = p_resource->get_path();
 
-		String local_path = ProjectSettings::get_singleton()->localize_path(path);
+		String local_path = ProjectSettings::get_singleton()->localize_path(p_path);
 
-		Ref<Resource> rwcopy = p_resource;
+		RES rwcopy = p_resource;
 		if (p_flags & FLAG_CHANGE_PATH) {
 			rwcopy->set_path(local_path);
 		}
 
-		err = saver[i]->save(p_resource, path, p_flags);
+		err = saver[i]->save(p_path, p_resource, p_flags);
 
 		if (err == OK) {
 #ifdef TOOLS_ENABLED
 
 			((Resource *)p_resource.ptr())->set_edited(false);
 			if (timestamp_on_save) {
-				uint64_t mt = FileAccess::get_modified_time(path);
+				uint64_t mt = FileAccess::get_modified_time(p_path);
 
 				((Resource *)p_resource.ptr())->set_last_modified_time(mt);
 			}
@@ -142,28 +130,11 @@ Error ResourceSaver::save(const Ref<Resource> &p_resource, const String &p_path,
 				rwcopy->set_path(old_path);
 			}
 
-			if (save_callback && path.begins_with("res://")) {
-				save_callback(p_resource, path);
+			if (save_callback && p_path.begins_with("res://")) {
+				save_callback(p_resource, p_path);
 			}
 
 			return OK;
-		}
-	}
-
-	return err;
-}
-
-Error ResourceSaver::set_uid(const String &p_path, ResourceUID::ID p_uid) {
-	String path = p_path;
-
-	ERR_FAIL_COND_V_MSG(path.is_empty(), ERR_INVALID_PARAMETER, "Can't update UID to empty path. Provide non-empty path.");
-
-	Error err = ERR_FILE_UNRECOGNIZED;
-
-	for (int i = 0; i < saver_count; i++) {
-		err = saver[i]->set_uid(path, p_uid);
-		if (err == OK) {
-			break;
 		}
 	}
 
@@ -174,7 +145,7 @@ void ResourceSaver::set_save_callback(ResourceSavedCallback p_callback) {
 	save_callback = p_callback;
 }
 
-void ResourceSaver::get_recognized_extensions(const Ref<Resource> &p_resource, List<String> *p_extensions) {
+void ResourceSaver::get_recognized_extensions(const RES &p_resource, List<String> *p_extensions) {
 	for (int i = 0; i < saver_count; i++) {
 		saver[i]->get_recognized_extensions(p_resource, p_extensions);
 	}
@@ -239,15 +210,22 @@ bool ResourceSaver::add_custom_resource_format_saver(String script_path) {
 	bool valid_type = ClassDB::is_parent_class(ibt, "ResourceFormatSaver");
 	ERR_FAIL_COND_V_MSG(!valid_type, false, "Script does not inherit a CustomResourceSaver: " + script_path + ".");
 
-	Object *obj = ClassDB::instantiate(ibt);
+	Object *obj = ClassDB::instance(ibt);
 
 	ERR_FAIL_COND_V_MSG(obj == nullptr, false, "Cannot instance script as custom resource saver, expected 'ResourceFormatSaver' inheritance, got: " + String(ibt) + ".");
 
 	Ref<ResourceFormatSaver> crl = Object::cast_to<ResourceFormatSaver>(obj);
-	crl->set_script(s);
+	crl->set_script(s.get_ref_ptr());
 	ResourceSaver::add_resource_format_saver(crl);
 
 	return true;
+}
+
+void ResourceSaver::remove_custom_resource_format_saver(String script_path) {
+	Ref<ResourceFormatSaver> custom_saver = _find_custom_resource_format_saver(script_path);
+	if (custom_saver.is_valid()) {
+		remove_resource_format_saver(custom_saver);
+	}
 }
 
 void ResourceSaver::add_custom_savers() {
@@ -258,7 +236,8 @@ void ResourceSaver::add_custom_savers() {
 	List<StringName> global_classes;
 	ScriptServer::get_global_class_list(&global_classes);
 
-	for (const StringName &class_name : global_classes) {
+	for (List<StringName>::Element *E = global_classes.front(); E; E = E->next()) {
+		StringName class_name = E->get();
 		StringName base_class = ScriptServer::get_global_class_native_base(class_name);
 
 		if (base_class == custom_saver_base_class) {
@@ -279,15 +258,4 @@ void ResourceSaver::remove_custom_savers() {
 	for (int i = 0; i < custom_savers.size(); ++i) {
 		remove_resource_format_saver(custom_savers[i]);
 	}
-}
-
-ResourceUID::ID ResourceSaver::get_resource_id_for_path(const String &p_path, bool p_generate) {
-	if (save_get_id_for_path) {
-		return save_get_id_for_path(p_path, p_generate);
-	}
-	return ResourceUID::INVALID_ID;
-}
-
-void ResourceSaver::set_get_resource_id_for_path(ResourceSaverGetResourceIDForPath p_callback) {
-	save_get_id_for_path = p_callback;
 }

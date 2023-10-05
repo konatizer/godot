@@ -1,35 +1,35 @@
-/**************************************************************************/
-/*  joint_2d.h                                                            */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  joints_2d.h                                                          */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
-#ifndef JOINT_2D_H
-#define JOINT_2D_H
+#ifndef JOINTS_2D_H
+#define JOINTS_2D_H
 
 #include "node_2d.h"
 
@@ -43,10 +43,9 @@ class Joint2D : public Node2D {
 
 	NodePath a;
 	NodePath b;
-	real_t bias = 0.0;
+	real_t bias;
 
-	bool exclude_from_collision = true;
-	bool configured = false;
+	bool exclude_from_collision;
 	String warning;
 
 protected:
@@ -55,14 +54,12 @@ protected:
 	void _update_joint(bool p_only_free = false);
 
 	void _notification(int p_what);
-	virtual void _configure_joint(RID p_joint, PhysicsBody2D *body_a, PhysicsBody2D *body_b) = 0;
+	virtual RID _configure_joint(PhysicsBody2D *body_a, PhysicsBody2D *body_b) = 0;
 
 	static void _bind_methods();
 
-	_FORCE_INLINE_ bool is_configured() const { return configured; }
-
 public:
-	virtual PackedStringArray get_configuration_warnings() const override;
+	virtual String get_configuration_warning() const;
 
 	void set_node_a(const NodePath &p_node_a);
 	NodePath get_node_a() const;
@@ -78,17 +75,16 @@ public:
 
 	RID get_joint() const { return joint; }
 	Joint2D();
-	~Joint2D();
 };
 
 class PinJoint2D : public Joint2D {
 	GDCLASS(PinJoint2D, Joint2D);
 
-	real_t softness = 0.0;
+	real_t softness;
 
 protected:
 	void _notification(int p_what);
-	virtual void _configure_joint(RID p_joint, PhysicsBody2D *body_a, PhysicsBody2D *body_b) override;
+	virtual RID _configure_joint(PhysicsBody2D *body_a, PhysicsBody2D *body_b);
 	static void _bind_methods();
 
 public:
@@ -101,12 +97,12 @@ public:
 class GrooveJoint2D : public Joint2D {
 	GDCLASS(GrooveJoint2D, Joint2D);
 
-	real_t length = 50.0;
-	real_t initial_offset = 25.0;
+	real_t length;
+	real_t initial_offset;
 
 protected:
 	void _notification(int p_what);
-	virtual void _configure_joint(RID p_joint, PhysicsBody2D *body_a, PhysicsBody2D *body_b) override;
+	virtual RID _configure_joint(PhysicsBody2D *body_a, PhysicsBody2D *body_b);
 	static void _bind_methods();
 
 public:
@@ -122,14 +118,14 @@ public:
 class DampedSpringJoint2D : public Joint2D {
 	GDCLASS(DampedSpringJoint2D, Joint2D);
 
-	real_t stiffness = 20.0;
-	real_t damping = 1.0;
-	real_t rest_length = 0.0;
-	real_t length = 50.0;
+	real_t stiffness;
+	real_t damping;
+	real_t rest_length;
+	real_t length;
 
 protected:
 	void _notification(int p_what);
-	virtual void _configure_joint(RID p_joint, PhysicsBody2D *body_a, PhysicsBody2D *body_b) override;
+	virtual RID _configure_joint(PhysicsBody2D *body_a, PhysicsBody2D *body_b);
 	static void _bind_methods();
 
 public:
@@ -148,4 +144,4 @@ public:
 	DampedSpringJoint2D();
 };
 
-#endif // JOINT_2D_H
+#endif // JOINTS_2D_H

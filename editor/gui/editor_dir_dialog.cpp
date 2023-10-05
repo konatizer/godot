@@ -1,64 +1,61 @@
-/**************************************************************************/
-/*  editor_dir_dialog.cpp                                                 */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  editor_dir_dialog.cpp                                                */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "editor_dir_dialog.h"
 
-#include "core/io/dir_access.h"
 #include "core/os/keyboard.h"
 #include "core/os/os.h"
 #include "editor/editor_file_system.h"
-#include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
-#include "scene/gui/check_box.h"
-#include "scene/gui/tree.h"
-#include "servers/display_server.h"
-
+#include "editor_scale.h"
 void EditorDirDialog::_update_dir(TreeItem *p_item, EditorFileSystemDirectory *p_dir, const String &p_select_path) {
 	updating = true;
 
 	String path = p_dir->get_path();
 
 	p_item->set_metadata(0, p_dir->get_path());
-	p_item->set_icon(0, tree->get_editor_theme_icon(SNAME("Folder")));
-	p_item->set_icon_modulate(0, tree->get_theme_color(SNAME("folder_icon_color"), SNAME("FileDialog")));
+	p_item->set_icon(0, get_icon("Folder", "EditorIcons"));
+	p_item->set_icon_modulate(0, get_color("folder_icon_modulate", "FileDialog"));
 
 	if (!p_item->get_parent()) {
 		p_item->set_text(0, "res://");
 	} else {
-		if (!opened_paths.has(path) && (p_select_path.is_empty() || !p_select_path.begins_with(path))) {
+		if (!opened_paths.has(path) && (p_select_path == String() || !p_select_path.begins_with(path))) {
 			p_item->set_collapsed(true);
 		}
 
 		p_item->set_text(0, p_dir->get_name());
 	}
 
+	//this should be handled by EditorFileSystem already
+	//bool show_hidden = EditorSettings::get_singleton()->get("filesystem/file_dialog/show_hidden_files");
 	updating = false;
 	for (int i = 0; i < p_dir->get_subdir_count(); i++) {
 		TreeItem *ti = tree->create_item(p_item);
@@ -67,7 +64,7 @@ void EditorDirDialog::_update_dir(TreeItem *p_item, EditorFileSystemDirectory *p
 }
 
 void EditorDirDialog::reload(const String &p_path) {
-	if (!is_visible()) {
+	if (!is_visible_in_tree()) {
 		must_reload = true;
 		return;
 	}
@@ -79,44 +76,30 @@ void EditorDirDialog::reload(const String &p_path) {
 	must_reload = false;
 }
 
-bool EditorDirDialog::is_copy_pressed() const {
-	return copy->is_pressed();
-}
-
 void EditorDirDialog::_notification(int p_what) {
-	switch (p_what) {
-		case NOTIFICATION_ENTER_TREE: {
-			EditorFileSystem::get_singleton()->connect("filesystem_changed", callable_mp(this, &EditorDirDialog::reload).bind(""));
-			reload();
+	if (p_what == NOTIFICATION_ENTER_TREE) {
+		EditorFileSystem::get_singleton()->connect("filesystem_changed", this, "reload");
+		reload();
 
-			if (!tree->is_connected("item_collapsed", callable_mp(this, &EditorDirDialog::_item_collapsed))) {
-				tree->connect("item_collapsed", callable_mp(this, &EditorDirDialog::_item_collapsed), CONNECT_DEFERRED);
-			}
+		if (!tree->is_connected("item_collapsed", this, "_item_collapsed")) {
+			tree->connect("item_collapsed", this, "_item_collapsed", varray(), CONNECT_DEFERRED);
+		}
 
-			if (!EditorFileSystem::get_singleton()->is_connected("filesystem_changed", callable_mp(this, &EditorDirDialog::reload))) {
-				EditorFileSystem::get_singleton()->connect("filesystem_changed", callable_mp(this, &EditorDirDialog::reload).bind(""));
-			}
-		} break;
-
-		case NOTIFICATION_EXIT_TREE: {
-			if (EditorFileSystem::get_singleton()->is_connected("filesystem_changed", callable_mp(this, &EditorDirDialog::reload))) {
-				EditorFileSystem::get_singleton()->disconnect("filesystem_changed", callable_mp(this, &EditorDirDialog::reload));
-			}
-		} break;
-
-		case NOTIFICATION_VISIBILITY_CHANGED: {
-			if (must_reload && is_visible()) {
-				reload();
-			}
-		} break;
+		if (!EditorFileSystem::get_singleton()->is_connected("filesystem_changed", this, "reload")) {
+			EditorFileSystem::get_singleton()->connect("filesystem_changed", this, "reload");
+		}
 	}
-}
 
-void EditorDirDialog::_copy_toggled(bool p_pressed) {
-	if (p_pressed) {
-		set_ok_button_text(TTR("Copy"));
-	} else {
-		set_ok_button_text(TTR("Move"));
+	if (p_what == NOTIFICATION_EXIT_TREE) {
+		if (EditorFileSystem::get_singleton()->is_connected("filesystem_changed", this, "reload")) {
+			EditorFileSystem::get_singleton()->disconnect("filesystem_changed", this, "reload");
+		}
+	}
+
+	if (p_what == NOTIFICATION_VISIBILITY_CHANGED) {
+		if (must_reload && is_visible_in_tree()) {
+			reload();
+		}
 	}
 }
 
@@ -134,10 +117,6 @@ void EditorDirDialog::_item_collapsed(Object *p_item) {
 	}
 }
 
-void EditorDirDialog::_item_activated() {
-	_ok_pressed(); // From AcceptDialog.
-}
-
 void EditorDirDialog::ok_pressed() {
 	TreeItem *ti = tree->get_selected();
 	if (!ti) {
@@ -145,7 +124,7 @@ void EditorDirDialog::ok_pressed() {
 	}
 
 	String dir = ti->get_metadata(0);
-	emit_signal(SNAME("dir_selected"), dir);
+	emit_signal("dir_selected", dir);
 	hide();
 }
 
@@ -153,11 +132,11 @@ void EditorDirDialog::_make_dir() {
 	TreeItem *ti = tree->get_selected();
 	if (!ti) {
 		mkdirerr->set_text(TTR("Please select a base directory first."));
-		mkdirerr->popup_centered();
+		mkdirerr->popup_centered_minsize();
 		return;
 	}
 
-	makedialog->popup_centered(Size2(250, 80));
+	makedialog->popup_centered_minsize(Size2(250, 80));
 	makedirname->grab_focus();
 }
 
@@ -169,50 +148,42 @@ void EditorDirDialog::_make_dir_confirm() {
 
 	String dir = ti->get_metadata(0);
 
-	Ref<DirAccess> d = DirAccess::open(dir);
-	ERR_FAIL_COND_MSG(d.is_null(), "Cannot open directory '" + dir + "'.");
+	DirAccessRef d = DirAccess::open(dir);
+	ERR_FAIL_COND_MSG(!d, "Cannot open directory '" + dir + "'.");
+	Error err = d->make_dir(makedirname->get_text());
 
-	const String stripped_dirname = makedirname->get_text().strip_edges();
-
-	if (d->dir_exists(stripped_dirname)) {
-		mkdirerr->set_text(TTR("Could not create folder. File with that name already exists."));
-		mkdirerr->popup_centered();
-		return;
-	}
-
-	Error err = d->make_dir(stripped_dirname);
 	if (err != OK) {
-		mkdirerr->popup_centered(Size2(250, 80) * EDSCALE);
+		mkdirerr->popup_centered_minsize(Size2(250, 80) * EDSCALE);
 	} else {
 		opened_paths.insert(dir);
-		EditorFileSystem::get_singleton()->scan_changes(); // We created a dir, so rescan changes.
+		//reload(dir.plus_file(makedirname->get_text()));
+		EditorFileSystem::get_singleton()->scan_changes(); //we created a dir, so rescan changes
 	}
 	makedirname->set_text(""); // reset label
 }
 
 void EditorDirDialog::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("_item_collapsed"), &EditorDirDialog::_item_collapsed);
+	ClassDB::bind_method(D_METHOD("_make_dir"), &EditorDirDialog::_make_dir);
+	ClassDB::bind_method(D_METHOD("_make_dir_confirm"), &EditorDirDialog::_make_dir_confirm);
+	ClassDB::bind_method(D_METHOD("reload"), &EditorDirDialog::reload, DEFVAL(""));
+
 	ADD_SIGNAL(MethodInfo("dir_selected", PropertyInfo(Variant::STRING, "dir")));
 }
 
 EditorDirDialog::EditorDirDialog() {
+	updating = false;
+
 	set_title(TTR("Choose a Directory"));
 	set_hide_on_ok(false);
 
-	VBoxContainer *vb = memnew(VBoxContainer);
-	add_child(vb);
-
 	tree = memnew(Tree);
-	vb->add_child(tree);
-	tree->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	tree->connect("item_activated", callable_mp(this, &EditorDirDialog::_item_activated));
+	add_child(tree);
 
-	copy = memnew(CheckBox);
-	vb->add_child(copy);
-	copy->set_text(TTR("Copy File(s)"));
-	copy->connect("toggled", callable_mp(this, &EditorDirDialog::_copy_toggled));
+	tree->connect("item_activated", this, "_ok");
 
-	makedir = add_button(TTR("Create Folder"), DisplayServer::get_singleton()->get_swap_cancel_ok(), "makedir");
-	makedir->connect("pressed", callable_mp(this, &EditorDirDialog::_make_dir));
+	makedir = add_button(TTR("Create Folder"), OS::get_singleton()->get_swap_ok_cancel(), "makedir");
+	makedir->connect("pressed", this, "_make_dir");
 
 	makedialog = memnew(ConfirmationDialog);
 	makedialog->set_title(TTR("Create Folder"));
@@ -220,15 +191,18 @@ EditorDirDialog::EditorDirDialog() {
 
 	VBoxContainer *makevb = memnew(VBoxContainer);
 	makedialog->add_child(makevb);
+	//makedialog->set_child_rect(makevb);
 
 	makedirname = memnew(LineEdit);
 	makevb->add_margin_child(TTR("Name:"), makedirname);
 	makedialog->register_text_enter(makedirname);
-	makedialog->connect("confirmed", callable_mp(this, &EditorDirDialog::_make_dir_confirm));
+	makedialog->connect("confirmed", this, "_make_dir_confirm");
 
 	mkdirerr = memnew(AcceptDialog);
 	mkdirerr->set_text(TTR("Could not create folder."));
 	add_child(mkdirerr);
 
-	set_ok_button_text(TTR("Move"));
+	get_ok()->set_text(TTR("Choose"));
+
+	must_reload = false;
 }

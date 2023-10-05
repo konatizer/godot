@@ -1,44 +1,44 @@
-/**************************************************************************/
-/*  file_access_memory.cpp                                                */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  file_access_memory.cpp                                               */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "file_access_memory.h"
 
-#include "core/config/project_settings.h"
-#include "core/io/dir_access.h"
-#include "core/templates/rb_map.h"
+#include "core/map.h"
+#include "core/os/dir_access.h"
+#include "core/project_settings.h"
 
-static HashMap<String, Vector<uint8_t>> *files = nullptr;
+static Map<String, Vector<uint8_t>> *files = nullptr;
 
 void FileAccessMemory::register_file(String p_name, Vector<uint8_t> p_data) {
 	if (!files) {
-		files = memnew((HashMap<String, Vector<uint8_t>>));
+		files = memnew((Map<String, Vector<uint8_t>>));
 	}
 
 	String name;
@@ -60,7 +60,7 @@ void FileAccessMemory::cleanup() {
 	memdelete(files);
 }
 
-Ref<FileAccess> FileAccessMemory::create() {
+FileAccess *FileAccessMemory::create() {
 	return memnew(FileAccessMemory);
 }
 
@@ -78,20 +78,24 @@ Error FileAccessMemory::open_custom(const uint8_t *p_data, uint64_t p_len) {
 	return OK;
 }
 
-Error FileAccessMemory::open_internal(const String &p_path, int p_mode_flags) {
+Error FileAccessMemory::_open(const String &p_path, int p_mode_flags) {
 	ERR_FAIL_COND_V(!files, ERR_FILE_NOT_FOUND);
 
 	String name = fix_path(p_path);
 	//name = DirAccess::normalize_path(name);
 
-	HashMap<String, Vector<uint8_t>>::Iterator E = files->find(name);
+	Map<String, Vector<uint8_t>>::Element *E = files->find(name);
 	ERR_FAIL_COND_V_MSG(!E, ERR_FILE_NOT_FOUND, "Can't find file '" + p_path + "'.");
 
-	data = E->value.ptrw();
-	length = E->value.size();
+	data = E->get().ptrw();
+	length = E->get().size();
 	pos = 0;
 
 	return OK;
+}
+
+void FileAccessMemory::close() {
+	data = nullptr;
 }
 
 bool FileAccessMemory::is_open() const {
@@ -113,7 +117,7 @@ uint64_t FileAccessMemory::get_position() const {
 	return pos;
 }
 
-uint64_t FileAccessMemory::get_length() const {
+uint64_t FileAccessMemory::get_len() const {
 	ERR_FAIL_COND_V(!data, 0);
 	return length;
 }
@@ -144,7 +148,7 @@ uint64_t FileAccessMemory::get_buffer(uint8_t *p_dst, uint64_t p_length) const {
 	}
 
 	memcpy(p_dst, &data[pos], read);
-	pos += read;
+	pos += p_length;
 
 	return read;
 }
@@ -172,5 +176,9 @@ void FileAccessMemory::store_buffer(const uint8_t *p_src, uint64_t p_length) {
 	}
 
 	memcpy(&data[pos], p_src, write);
-	pos += write;
+	pos += p_length;
+}
+
+FileAccessMemory::FileAccessMemory() {
+	data = nullptr;
 }

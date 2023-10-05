@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  godot_hinge_joint_3d.cpp                                              */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  hinge_joint_sw.cpp                                                   */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 /*
 Adapted to Godot from the Bullet library.
@@ -47,10 +47,28 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#include "godot_hinge_joint_3d.h"
+#include "hinge_joint_sw.h"
 
-GodotHingeJoint3D::GodotHingeJoint3D(GodotBody3D *rbA, GodotBody3D *rbB, const Transform3D &frameA, const Transform3D &frameB) :
-		GodotJoint3D(_arr, 2) {
+static void plane_space(const Vector3 &n, Vector3 &p, Vector3 &q) {
+	if (Math::abs(n.z) > Math_SQRT12) {
+		// choose p in y-z plane
+		real_t a = n[1] * n[1] + n[2] * n[2];
+		real_t k = 1.0 / Math::sqrt(a);
+		p = Vector3(0, -n[2] * k, n[1] * k);
+		// set q = n x p
+		q = Vector3(a * k, -n[0] * p[2], n[0] * p[1]);
+	} else {
+		// choose p in x-y plane
+		real_t a = n.x * n.x + n.y * n.y;
+		real_t k = 1.0 / Math::sqrt(a);
+		p = Vector3(-n.y * k, n.x * k, 0);
+		// set q = n x p
+		q = Vector3(-n.z * p.y, n.z * p.x, a * k);
+	}
+}
+
+HingeJointSW::HingeJointSW(BodySW *rbA, BodySW *rbB, const Transform &frameA, const Transform &frameB) :
+		JointSW(_arr, 2) {
 	A = rbA;
 	B = rbB;
 
@@ -61,29 +79,44 @@ GodotHingeJoint3D::GodotHingeJoint3D(GodotBody3D *rbA, GodotBody3D *rbB, const T
 	m_rbBFrame.basis[1][2] *= real_t(-1.);
 	m_rbBFrame.basis[2][2] *= real_t(-1.);
 
+	//start with free
+	m_lowerLimit = Math_PI;
+	m_upperLimit = -Math_PI;
+
+	m_useLimit = false;
+	m_biasFactor = 0.3f;
+	m_relaxationFactor = 1.0f;
+	m_limitSoftness = 0.9f;
+	m_solveLimit = false;
+
+	tau = 0.3;
+
+	m_angularOnly = false;
+	m_enableAngularMotor = false;
+
 	A->add_constraint(this, 0);
 	B->add_constraint(this, 1);
 }
 
-GodotHingeJoint3D::GodotHingeJoint3D(GodotBody3D *rbA, GodotBody3D *rbB, const Vector3 &pivotInA, const Vector3 &pivotInB,
+HingeJointSW::HingeJointSW(BodySW *rbA, BodySW *rbB, const Vector3 &pivotInA, const Vector3 &pivotInB,
 		const Vector3 &axisInA, const Vector3 &axisInB) :
-		GodotJoint3D(_arr, 2) {
+		JointSW(_arr, 2) {
 	A = rbA;
 	B = rbB;
 
 	m_rbAFrame.origin = pivotInA;
 
 	// since no frame is given, assume this to be zero angle and just pick rb transform axis
-	Vector3 rbAxisA1 = rbA->get_transform().basis.get_column(0);
+	Vector3 rbAxisA1 = rbA->get_transform().basis.get_axis(0);
 
 	Vector3 rbAxisA2;
 	real_t projection = axisInA.dot(rbAxisA1);
 	if (projection >= 1.0f - CMP_EPSILON) {
-		rbAxisA1 = -rbA->get_transform().basis.get_column(2);
-		rbAxisA2 = rbA->get_transform().basis.get_column(1);
+		rbAxisA1 = -rbA->get_transform().basis.get_axis(2);
+		rbAxisA2 = rbA->get_transform().basis.get_axis(1);
 	} else if (projection <= -1.0f + CMP_EPSILON) {
-		rbAxisA1 = rbA->get_transform().basis.get_column(2);
-		rbAxisA2 = rbA->get_transform().basis.get_column(1);
+		rbAxisA1 = rbA->get_transform().basis.get_axis(2);
+		rbAxisA2 = rbA->get_transform().basis.get_axis(1);
 	} else {
 		rbAxisA2 = axisInA.cross(rbAxisA1);
 		rbAxisA1 = rbAxisA2.cross(axisInA);
@@ -93,7 +126,7 @@ GodotHingeJoint3D::GodotHingeJoint3D(GodotBody3D *rbA, GodotBody3D *rbB, const V
 			rbAxisA1.y, rbAxisA2.y, axisInA.y,
 			rbAxisA1.z, rbAxisA2.z, axisInA.z);
 
-	Quaternion rotationArc = Quaternion(axisInA, axisInB);
+	Quat rotationArc = Quat(axisInA, axisInB);
 	Vector3 rbAxisB1 = rotationArc.xform(rbAxisA1);
 	Vector3 rbAxisB2 = axisInB.cross(rbAxisB1);
 
@@ -102,15 +135,27 @@ GodotHingeJoint3D::GodotHingeJoint3D(GodotBody3D *rbA, GodotBody3D *rbB, const V
 			rbAxisB1.y, rbAxisB2.y, -axisInB.y,
 			rbAxisB1.z, rbAxisB2.z, -axisInB.z);
 
+	//start with free
+	m_lowerLimit = Math_PI;
+	m_upperLimit = -Math_PI;
+
+	m_useLimit = false;
+	m_biasFactor = 0.3f;
+	m_relaxationFactor = 1.0f;
+	m_limitSoftness = 0.9f;
+	m_solveLimit = false;
+
+	tau = 0.3;
+
+	m_angularOnly = false;
+	m_enableAngularMotor = false;
+
 	A->add_constraint(this, 0);
 	B->add_constraint(this, 1);
 }
 
-bool GodotHingeJoint3D::setup(real_t p_step) {
-	dynamic_A = (A->get_mode() > PhysicsServer3D::BODY_MODE_KINEMATIC);
-	dynamic_B = (B->get_mode() > PhysicsServer3D::BODY_MODE_KINEMATIC);
-
-	if (!dynamic_A && !dynamic_B) {
+bool HingeJointSW::setup(real_t p_step) {
+	if ((A->get_mode() <= PhysicsServer::BODY_MODE_KINEMATIC) && (B->get_mode() <= PhysicsServer::BODY_MODE_KINEMATIC)) {
 		return false;
 	}
 
@@ -133,7 +178,7 @@ bool GodotHingeJoint3D::setup(real_t p_step) {
 		for (int i = 0; i < 3; i++) {
 			memnew_placement(
 					&m_jac[i],
-					GodotJacobianEntry3D(
+					JacobianEntrySW(
 							A->get_principal_inertia_axes().transposed(),
 							B->get_principal_inertia_axes().transposed(),
 							pivotAInW - A->get_transform().origin - A->get_center_of_mass(),
@@ -153,15 +198,15 @@ bool GodotHingeJoint3D::setup(real_t p_step) {
 	Vector3 jointAxis0local;
 	Vector3 jointAxis1local;
 
-	plane_space(m_rbAFrame.basis.get_column(2), jointAxis0local, jointAxis1local);
+	plane_space(m_rbAFrame.basis.get_axis(2), jointAxis0local, jointAxis1local);
 
 	Vector3 jointAxis0 = A->get_transform().basis.xform(jointAxis0local);
 	Vector3 jointAxis1 = A->get_transform().basis.xform(jointAxis1local);
-	Vector3 hingeAxisWorld = A->get_transform().basis.xform(m_rbAFrame.basis.get_column(2));
+	Vector3 hingeAxisWorld = A->get_transform().basis.xform(m_rbAFrame.basis.get_axis(2));
 
 	memnew_placement(
 			&m_jacAng[0],
-			GodotJacobianEntry3D(
+			JacobianEntrySW(
 					jointAxis0,
 					A->get_principal_inertia_axes().transposed(),
 					B->get_principal_inertia_axes().transposed(),
@@ -170,7 +215,7 @@ bool GodotHingeJoint3D::setup(real_t p_step) {
 
 	memnew_placement(
 			&m_jacAng[1],
-			GodotJacobianEntry3D(
+			JacobianEntrySW(
 					jointAxis1,
 					A->get_principal_inertia_axes().transposed(),
 					B->get_principal_inertia_axes().transposed(),
@@ -179,7 +224,7 @@ bool GodotHingeJoint3D::setup(real_t p_step) {
 
 	memnew_placement(
 			&m_jacAng[2],
-			GodotJacobianEntry3D(
+			JacobianEntrySW(
 					hingeAxisWorld,
 					A->get_principal_inertia_axes().transposed(),
 					B->get_principal_inertia_axes().transposed(),
@@ -195,12 +240,16 @@ bool GodotHingeJoint3D::setup(real_t p_step) {
 	m_solveLimit = false;
 	m_accLimitImpulse = real_t(0.);
 
+	//if (m_lowerLimit < m_upperLimit)
 	if (m_useLimit && m_lowerLimit <= m_upperLimit) {
+		//if (hingeAngle <= m_lowerLimit*m_limitSoftness)
 		if (hingeAngle <= m_lowerLimit) {
 			m_correction = (m_lowerLimit - hingeAngle);
 			m_limitSign = 1.0f;
 			m_solveLimit = true;
-		} else if (hingeAngle >= m_upperLimit) {
+		}
+		//else if (hingeAngle >= m_upperLimit*m_limitSoftness)
+		else if (hingeAngle >= m_upperLimit) {
 			m_correction = m_upperLimit - hingeAngle;
 			m_limitSign = -1.0f;
 			m_solveLimit = true;
@@ -208,13 +257,13 @@ bool GodotHingeJoint3D::setup(real_t p_step) {
 	}
 
 	//Compute K = J*W*J' for hinge axis
-	Vector3 axisA = A->get_transform().basis.xform(m_rbAFrame.basis.get_column(2));
+	Vector3 axisA = A->get_transform().basis.xform(m_rbAFrame.basis.get_axis(2));
 	m_kHinge = 1.0f / (A->compute_angular_impulse_denominator(axisA) + B->compute_angular_impulse_denominator(axisA));
 
 	return true;
 }
 
-void GodotHingeJoint3D::solve(real_t p_step) {
+void HingeJointSW::solve(real_t p_step) {
 	Vector3 pivotAInW = A->get_transform().xform(m_rbAFrame.origin);
 	Vector3 pivotBInW = B->get_transform().xform(m_rbBFrame.origin);
 
@@ -240,12 +289,8 @@ void GodotHingeJoint3D::solve(real_t p_step) {
 			real_t impulse = depth * tau / p_step * jacDiagABInv - rel_vel * jacDiagABInv;
 			m_appliedImpulse += impulse;
 			Vector3 impulse_vector = normal * impulse;
-			if (dynamic_A) {
-				A->apply_impulse(impulse_vector, pivotAInW - A->get_transform().origin);
-			}
-			if (dynamic_B) {
-				B->apply_impulse(-impulse_vector, pivotBInW - B->get_transform().origin);
-			}
+			A->apply_impulse(pivotAInW - A->get_transform().origin, impulse_vector);
+			B->apply_impulse(pivotBInW - B->get_transform().origin, -impulse_vector);
 		}
 	}
 
@@ -253,8 +298,8 @@ void GodotHingeJoint3D::solve(real_t p_step) {
 		///solve angular part
 
 		// get axes in world space
-		Vector3 axisA = A->get_transform().basis.xform(m_rbAFrame.basis.get_column(2));
-		Vector3 axisB = B->get_transform().basis.xform(m_rbBFrame.basis.get_column(2));
+		Vector3 axisA = A->get_transform().basis.xform(m_rbAFrame.basis.get_axis(2));
+		Vector3 axisB = B->get_transform().basis.xform(m_rbBFrame.basis.get_axis(2));
 
 		const Vector3 &angVelA = A->get_angular_velocity();
 		const Vector3 &angVelB = B->get_angular_velocity();
@@ -287,12 +332,8 @@ void GodotHingeJoint3D::solve(real_t p_step) {
 				angularError *= (real_t(1.) / denom2) * relaxation;
 			}
 
-			if (dynamic_A) {
-				A->apply_torque_impulse(-velrelOrthog + angularError);
-			}
-			if (dynamic_B) {
-				B->apply_torque_impulse(velrelOrthog - angularError);
-			}
+			A->apply_torque_impulse(-velrelOrthog + angularError);
+			B->apply_torque_impulse(velrelOrthog - angularError);
 
 			// solve limit
 			if (m_solveLimit) {
@@ -306,12 +347,8 @@ void GodotHingeJoint3D::solve(real_t p_step) {
 				impulseMag = m_accLimitImpulse - temp;
 
 				Vector3 impulse = axisA * impulseMag * m_limitSign;
-				if (dynamic_A) {
-					A->apply_torque_impulse(impulse);
-				}
-				if (dynamic_B) {
-					B->apply_torque_impulse(-impulse);
-				}
+				A->apply_torque_impulse(impulse);
+				B->apply_torque_impulse(-impulse);
 			}
 		}
 
@@ -332,108 +369,117 @@ void GodotHingeJoint3D::solve(real_t p_step) {
 			clippedMotorImpulse = clippedMotorImpulse < -m_maxMotorImpulse ? -m_maxMotorImpulse : clippedMotorImpulse;
 			Vector3 motorImp = clippedMotorImpulse * axisA;
 
-			if (dynamic_A) {
-				A->apply_torque_impulse(motorImp + angularLimit);
-			}
-			if (dynamic_B) {
-				B->apply_torque_impulse(-motorImp - angularLimit);
-			}
+			A->apply_torque_impulse(motorImp + angularLimit);
+			B->apply_torque_impulse(-motorImp - angularLimit);
 		}
 	}
 }
-
 /*
 void	HingeJointSW::updateRHS(real_t	timeStep)
 {
 	(void)timeStep;
-}
 
+}
 */
 
-real_t GodotHingeJoint3D::get_hinge_angle() {
-	const Vector3 refAxis0 = A->get_transform().basis.xform(m_rbAFrame.basis.get_column(0));
-	const Vector3 refAxis1 = A->get_transform().basis.xform(m_rbAFrame.basis.get_column(1));
-	const Vector3 swingAxis = B->get_transform().basis.xform(m_rbBFrame.basis.get_column(1));
+static _FORCE_INLINE_ real_t atan2fast(real_t y, real_t x) {
+	real_t coeff_1 = Math_PI / 4.0f;
+	real_t coeff_2 = 3.0f * coeff_1;
+	real_t abs_y = Math::abs(y);
+	real_t angle;
+	if (x >= 0.0f) {
+		real_t r = (x - abs_y) / (x + abs_y);
+		angle = coeff_1 - coeff_1 * r;
+	} else {
+		real_t r = (x + abs_y) / (abs_y - x);
+		angle = coeff_2 - coeff_1 * r;
+	}
+	return (y < 0.0f) ? -angle : angle;
+}
+
+real_t HingeJointSW::get_hinge_angle() {
+	const Vector3 refAxis0 = A->get_transform().basis.xform(m_rbAFrame.basis.get_axis(0));
+	const Vector3 refAxis1 = A->get_transform().basis.xform(m_rbAFrame.basis.get_axis(1));
+	const Vector3 swingAxis = B->get_transform().basis.xform(m_rbBFrame.basis.get_axis(1));
 
 	return atan2fast(swingAxis.dot(refAxis0), swingAxis.dot(refAxis1));
 }
 
-void GodotHingeJoint3D::set_param(PhysicsServer3D::HingeJointParam p_param, real_t p_value) {
+void HingeJointSW::set_param(PhysicsServer::HingeJointParam p_param, real_t p_value) {
 	switch (p_param) {
-		case PhysicsServer3D::HINGE_JOINT_BIAS:
+		case PhysicsServer::HINGE_JOINT_BIAS:
 			tau = p_value;
 			break;
-		case PhysicsServer3D::HINGE_JOINT_LIMIT_UPPER:
+		case PhysicsServer::HINGE_JOINT_LIMIT_UPPER:
 			m_upperLimit = p_value;
 			break;
-		case PhysicsServer3D::HINGE_JOINT_LIMIT_LOWER:
+		case PhysicsServer::HINGE_JOINT_LIMIT_LOWER:
 			m_lowerLimit = p_value;
 			break;
-		case PhysicsServer3D::HINGE_JOINT_LIMIT_BIAS:
+		case PhysicsServer::HINGE_JOINT_LIMIT_BIAS:
 			m_biasFactor = p_value;
 			break;
-		case PhysicsServer3D::HINGE_JOINT_LIMIT_SOFTNESS:
+		case PhysicsServer::HINGE_JOINT_LIMIT_SOFTNESS:
 			m_limitSoftness = p_value;
 			break;
-		case PhysicsServer3D::HINGE_JOINT_LIMIT_RELAXATION:
+		case PhysicsServer::HINGE_JOINT_LIMIT_RELAXATION:
 			m_relaxationFactor = p_value;
 			break;
-		case PhysicsServer3D::HINGE_JOINT_MOTOR_TARGET_VELOCITY:
+		case PhysicsServer::HINGE_JOINT_MOTOR_TARGET_VELOCITY:
 			m_motorTargetVelocity = p_value;
 			break;
-		case PhysicsServer3D::HINGE_JOINT_MOTOR_MAX_IMPULSE:
+		case PhysicsServer::HINGE_JOINT_MOTOR_MAX_IMPULSE:
 			m_maxMotorImpulse = p_value;
 			break;
-		case PhysicsServer3D::HINGE_JOINT_MAX:
+		case PhysicsServer::HINGE_JOINT_MAX:
 			break; // Can't happen, but silences warning
 	}
 }
 
-real_t GodotHingeJoint3D::get_param(PhysicsServer3D::HingeJointParam p_param) const {
+real_t HingeJointSW::get_param(PhysicsServer::HingeJointParam p_param) const {
 	switch (p_param) {
-		case PhysicsServer3D::HINGE_JOINT_BIAS:
+		case PhysicsServer::HINGE_JOINT_BIAS:
 			return tau;
-		case PhysicsServer3D::HINGE_JOINT_LIMIT_UPPER:
+		case PhysicsServer::HINGE_JOINT_LIMIT_UPPER:
 			return m_upperLimit;
-		case PhysicsServer3D::HINGE_JOINT_LIMIT_LOWER:
+		case PhysicsServer::HINGE_JOINT_LIMIT_LOWER:
 			return m_lowerLimit;
-		case PhysicsServer3D::HINGE_JOINT_LIMIT_BIAS:
+		case PhysicsServer::HINGE_JOINT_LIMIT_BIAS:
 			return m_biasFactor;
-		case PhysicsServer3D::HINGE_JOINT_LIMIT_SOFTNESS:
+		case PhysicsServer::HINGE_JOINT_LIMIT_SOFTNESS:
 			return m_limitSoftness;
-		case PhysicsServer3D::HINGE_JOINT_LIMIT_RELAXATION:
+		case PhysicsServer::HINGE_JOINT_LIMIT_RELAXATION:
 			return m_relaxationFactor;
-		case PhysicsServer3D::HINGE_JOINT_MOTOR_TARGET_VELOCITY:
+		case PhysicsServer::HINGE_JOINT_MOTOR_TARGET_VELOCITY:
 			return m_motorTargetVelocity;
-		case PhysicsServer3D::HINGE_JOINT_MOTOR_MAX_IMPULSE:
+		case PhysicsServer::HINGE_JOINT_MOTOR_MAX_IMPULSE:
 			return m_maxMotorImpulse;
-		case PhysicsServer3D::HINGE_JOINT_MAX:
+		case PhysicsServer::HINGE_JOINT_MAX:
 			break; // Can't happen, but silences warning
 	}
 
 	return 0;
 }
 
-void GodotHingeJoint3D::set_flag(PhysicsServer3D::HingeJointFlag p_flag, bool p_value) {
+void HingeJointSW::set_flag(PhysicsServer::HingeJointFlag p_flag, bool p_value) {
 	switch (p_flag) {
-		case PhysicsServer3D::HINGE_JOINT_FLAG_USE_LIMIT:
+		case PhysicsServer::HINGE_JOINT_FLAG_USE_LIMIT:
 			m_useLimit = p_value;
 			break;
-		case PhysicsServer3D::HINGE_JOINT_FLAG_ENABLE_MOTOR:
+		case PhysicsServer::HINGE_JOINT_FLAG_ENABLE_MOTOR:
 			m_enableAngularMotor = p_value;
 			break;
-		case PhysicsServer3D::HINGE_JOINT_FLAG_MAX:
+		case PhysicsServer::HINGE_JOINT_FLAG_MAX:
 			break; // Can't happen, but silences warning
 	}
 }
-
-bool GodotHingeJoint3D::get_flag(PhysicsServer3D::HingeJointFlag p_flag) const {
+bool HingeJointSW::get_flag(PhysicsServer::HingeJointFlag p_flag) const {
 	switch (p_flag) {
-		case PhysicsServer3D::HINGE_JOINT_FLAG_USE_LIMIT:
+		case PhysicsServer::HINGE_JOINT_FLAG_USE_LIMIT:
 			return m_useLimit;
-		case PhysicsServer3D::HINGE_JOINT_FLAG_ENABLE_MOTOR:
+		case PhysicsServer::HINGE_JOINT_FLAG_ENABLE_MOTOR:
 			return m_enableAngularMotor;
-		case PhysicsServer3D::HINGE_JOINT_FLAG_MAX:
+		case PhysicsServer::HINGE_JOINT_FLAG_MAX:
 			break; // Can't happen, but silences warning
 	}
 

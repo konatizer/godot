@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  line_builder.cpp                                                      */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  line_builder.cpp                                                     */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "line_builder.h"
 
@@ -86,6 +86,20 @@ static inline Vector2 interpolate(const Rect2 &r, const Vector2 &v) {
 //----------------------------------------------------------------------------
 
 LineBuilder::LineBuilder() {
+	joint_mode = Line2D::LINE_JOINT_SHARP;
+	width = 10;
+	curve = nullptr;
+	default_color = Color(0.4, 0.5, 1);
+	gradient = nullptr;
+	sharp_limit = 2.f;
+	round_precision = 8;
+	begin_cap_mode = Line2D::LINE_CAP_NONE;
+	end_cap_mode = Line2D::LINE_CAP_NONE;
+	tile_aspect = 1.f;
+
+	_interpolate_color = false;
+	_last_index[0] = 0;
+	_last_index[1] = 0;
 }
 
 void LineBuilder::clear_output() {
@@ -137,14 +151,14 @@ void LineBuilder::build() {
 		// The line's outer length will be a little higher due to begin and end caps
 		if (begin_cap_mode == Line2D::LINE_CAP_BOX || begin_cap_mode == Line2D::LINE_CAP_ROUND) {
 			if (retrieve_curve) {
-				total_distance += width * curve->sample_baked(0.f) * 0.5f;
+				total_distance += width * curve->interpolate_baked(0.f) * 0.5f;
 			} else {
 				total_distance += width * 0.5f;
 			}
 		}
 		if (end_cap_mode == Line2D::LINE_CAP_BOX || end_cap_mode == Line2D::LINE_CAP_ROUND) {
 			if (retrieve_curve) {
-				total_distance += width * curve->sample_baked(1.f) * 0.5f;
+				total_distance += width * curve->interpolate_baked(1.f) * 0.5f;
 			} else {
 				total_distance += width * 0.5f;
 			}
@@ -160,7 +174,7 @@ void LineBuilder::build() {
 	float uvx1 = 0.f;
 
 	if (retrieve_curve) {
-		width_factor = curve->sample_baked(0.f);
+		width_factor = curve->interpolate_baked(0.f);
 	}
 
 	pos_up0 += u0 * hw * width_factor;
@@ -219,7 +233,7 @@ void LineBuilder::build() {
 			color1 = gradient->get_color_at_offset(current_distance1 / total_distance);
 		}
 		if (retrieve_curve) {
-			width_factor = curve->sample_baked(current_distance1 / total_distance);
+			width_factor = curve->interpolate_baked(current_distance1 / total_distance);
 		}
 
 		Vector2 inner_normal0, inner_normal1;
@@ -367,7 +381,7 @@ void LineBuilder::build() {
 			}
 
 			if (intersection_result != SEGMENT_INTERSECT) {
-				// In this case the joint is too corrupted to be re-used,
+				// In this case the joint is too corrputed to be re-used,
 				// start again the strip with fallback points
 				strip_begin(pos_up0, pos_down0, color1, uvx1);
 			}
@@ -380,10 +394,10 @@ void LineBuilder::build() {
 		current_distance1 += pos0.distance_to(pos1);
 	}
 	if (_interpolate_color) {
-		color1 = gradient->get_color(gradient->get_point_count() - 1);
+		color1 = gradient->get_color(gradient->get_points_count() - 1);
 	}
 	if (retrieve_curve) {
-		width_factor = curve->sample_baked(1.f);
+		width_factor = curve->interpolate_baked(1.f);
 	}
 
 	Vector2 pos_up1 = pos1 + u0 * hw * width_factor;
@@ -393,8 +407,6 @@ void LineBuilder::build() {
 	if (end_cap_mode == Line2D::LINE_CAP_BOX) {
 		pos_up1 += f0 * hw * width_factor;
 		pos_down1 += f0 * hw * width_factor;
-
-		current_distance1 += hw * width_factor;
 	}
 
 	if (texture_mode == Line2D::LINE_TEXTURE_TILE) {
@@ -408,7 +420,7 @@ void LineBuilder::build() {
 	// End cap (round)
 	if (end_cap_mode == Line2D::LINE_CAP_ROUND) {
 		// Note: color is not used in case we don't interpolate...
-		Color color = _interpolate_color ? gradient->get_color(gradient->get_point_count() - 1) : Color(0, 0, 0);
+		Color color = _interpolate_color ? gradient->get_color(gradient->get_points_count() - 1) : Color(0, 0, 0);
 		float dist = 0;
 		if (texture_mode == Line2D::LINE_TEXTURE_TILE) {
 			dist = width_factor / tile_aspect;
@@ -437,6 +449,39 @@ void LineBuilder::strip_begin(Vector2 up, Vector2 down, Color color, float uvx) 
 
 	_last_index[UP] = vi;
 	_last_index[DOWN] = vi + 1;
+}
+
+void LineBuilder::strip_new_quad(Vector2 up, Vector2 down, Color color, float uvx) {
+	int vi = vertices.size();
+
+	vertices.push_back(vertices[_last_index[UP]]);
+	vertices.push_back(vertices[_last_index[DOWN]]);
+	vertices.push_back(up);
+	vertices.push_back(down);
+
+	if (_interpolate_color) {
+		colors.push_back(color);
+		colors.push_back(color);
+		colors.push_back(color);
+		colors.push_back(color);
+	}
+
+	if (texture_mode != Line2D::LINE_TEXTURE_NONE) {
+		uvs.push_back(uvs[_last_index[UP]]);
+		uvs.push_back(uvs[_last_index[DOWN]]);
+		uvs.push_back(Vector2(uvx, UP));
+		uvs.push_back(Vector2(uvx, DOWN));
+	}
+
+	indices.push_back(vi);
+	indices.push_back(vi + 3);
+	indices.push_back(vi + 1);
+	indices.push_back(vi);
+	indices.push_back(vi + 2);
+	indices.push_back(vi + 3);
+
+	_last_index[UP] = vi + 2;
+	_last_index[DOWN] = vi + 3;
 }
 
 void LineBuilder::strip_add_quad(Vector2 up, Vector2 down, Color color, float uvx) {
@@ -479,7 +524,7 @@ void LineBuilder::strip_add_tri(Vector2 up, Orientation orientation) {
 
 	if (texture_mode != Line2D::LINE_TEXTURE_NONE) {
 		// UVs are just one slice of the texture all along
-		// (otherwise we can't share the bottom vertex)
+		// (otherwise we can't share the bottom vertice)
 		uvs.push_back(uvs[_last_index[opposite_orientation]]);
 	}
 
@@ -514,7 +559,7 @@ void LineBuilder::strip_add_arc(Vector2 center, float angle_delta, Orientation o
 		strip_add_tri(rpos, orientation);
 	}
 
-	// Last arc vertex
+	// Last arc vertice
 	rpos = center + Vector2(Math::cos(end_angle), Math::sin(end_angle)) * radius;
 	strip_add_tri(rpos, orientation);
 }
@@ -534,7 +579,7 @@ void LineBuilder::new_arc(Vector2 center, Vector2 vbegin, float angle_delta, Col
 	float t = Vector2(1, 0).angle_to(vbegin);
 	float end_angle = t + angle_delta;
 	Vector2 rpos(0, 0);
-	float tt_begin = -Math_PI / 2.0f;
+	float tt_begin = -Math_PI / 2.f;
 	float tt = tt_begin;
 
 	// Center vertice
@@ -563,7 +608,7 @@ void LineBuilder::new_arc(Vector2 center, Vector2 vbegin, float angle_delta, Col
 		}
 	}
 
-	// Last arc vertex
+	// Last arc vertice
 	Vector2 sc = Vector2(Math::cos(end_angle), Math::sin(end_angle));
 	rpos = center + sc * radius;
 	vertices.push_back(rpos);

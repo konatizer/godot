@@ -1,57 +1,52 @@
-/**************************************************************************/
-/*  sprite_2d_editor_plugin.cpp                                           */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  sprite_editor_plugin.cpp                                             */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
-#include "sprite_2d_editor_plugin.h"
+#include "sprite_editor_plugin.h"
 
 #include "canvas_item_editor_plugin.h"
-#include "core/math/geometry_2d.h"
-#include "editor/editor_node.h"
 #include "editor/editor_scale.h"
-#include "editor/editor_undo_redo_manager.h"
-#include "editor/scene_tree_dock.h"
 #include "scene/2d/collision_polygon_2d.h"
 #include "scene/2d/light_occluder_2d.h"
 #include "scene/2d/mesh_instance_2d.h"
 #include "scene/2d/polygon_2d.h"
 #include "scene/gui/box_container.h"
-#include "scene/gui/menu_button.h"
 #include "thirdparty/misc/clipper.hpp"
 
-void Sprite2DEditor::_node_removed(Node *p_node) {
+void SpriteEditor::_node_removed(Node *p_node) {
 	if (p_node == node) {
 		node = nullptr;
 		options->hide();
 	}
 }
 
-void Sprite2DEditor::edit(Sprite2D *p_sprite) {
+void SpriteEditor::edit(Sprite *p_sprite) {
 	node = p_sprite;
 }
 
@@ -115,7 +110,7 @@ Vector<Vector2> expand(const Vector<Vector2> &points, const Rect2i &rect, float 
 	return outPoints;
 }
 
-void Sprite2DEditor::_menu_option(int p_option) {
+void SpriteEditor::_menu_option(int p_option) {
 	if (!node) {
 		return;
 	}
@@ -124,63 +119,58 @@ void Sprite2DEditor::_menu_option(int p_option) {
 
 	switch (p_option) {
 		case MENU_OPTION_CONVERT_TO_MESH_2D: {
-			debug_uv_dialog->set_ok_button_text(TTR("Create MeshInstance2D"));
-			debug_uv_dialog->set_title(TTR("MeshInstance2D Preview"));
+			debug_uv_dialog->get_ok()->set_text(TTR("Create Mesh2D"));
+			debug_uv_dialog->set_title(TTR("Mesh2D Preview"));
 
 			_update_mesh_data();
 			debug_uv_dialog->popup_centered();
-			debug_uv->queue_redraw();
+			debug_uv->update();
 
 		} break;
 		case MENU_OPTION_CONVERT_TO_POLYGON_2D: {
-			debug_uv_dialog->set_ok_button_text(TTR("Create Polygon2D"));
+			debug_uv_dialog->get_ok()->set_text(TTR("Create Polygon2D"));
 			debug_uv_dialog->set_title(TTR("Polygon2D Preview"));
 
 			_update_mesh_data();
 			debug_uv_dialog->popup_centered();
-			debug_uv->queue_redraw();
+			debug_uv->update();
 		} break;
 		case MENU_OPTION_CREATE_COLLISION_POLY_2D: {
-			debug_uv_dialog->set_ok_button_text(TTR("Create CollisionPolygon2D"));
+			debug_uv_dialog->get_ok()->set_text(TTR("Create CollisionPolygon2D"));
 			debug_uv_dialog->set_title(TTR("CollisionPolygon2D Preview"));
 
 			_update_mesh_data();
 			debug_uv_dialog->popup_centered();
-			debug_uv->queue_redraw();
+			debug_uv->update();
 
 		} break;
 		case MENU_OPTION_CREATE_LIGHT_OCCLUDER_2D: {
-			debug_uv_dialog->set_ok_button_text(TTR("Create LightOccluder2D"));
+			debug_uv_dialog->get_ok()->set_text(TTR("Create LightOccluder2D"));
 			debug_uv_dialog->set_title(TTR("LightOccluder2D Preview"));
 
 			_update_mesh_data();
 			debug_uv_dialog->popup_centered();
-			debug_uv->queue_redraw();
+			debug_uv->update();
 
 		} break;
 	}
 }
 
-void Sprite2DEditor::_update_mesh_data() {
-	if (node->get_owner() != get_tree()->get_edited_scene_root()) {
-		err_dialog->set_text(TTR("Can't convert a Sprite2D from a foreign scene."));
-		err_dialog->popup_centered();
-	}
-
-	Ref<Texture2D> texture = node->get_texture();
+void SpriteEditor::_update_mesh_data() {
+	Ref<Texture> texture = node->get_texture();
 	if (texture.is_null()) {
-		err_dialog->set_text(TTR("Sprite2D is empty!"));
-		err_dialog->popup_centered();
+		err_dialog->set_text(TTR("Sprite is empty!"));
+		err_dialog->popup_centered_minsize();
 		return;
 	}
 
 	if (node->get_hframes() > 1 || node->get_vframes() > 1) {
 		err_dialog->set_text(TTR("Can't convert a sprite using animation frames to mesh."));
-		err_dialog->popup_centered();
+		err_dialog->popup_centered_minsize();
 		return;
 	}
 
-	Ref<Image> image = texture->get_image();
+	Ref<Image> image = texture->get_data();
 	ERR_FAIL_COND(image.is_null());
 
 	if (image->is_compressed()) {
@@ -188,14 +178,14 @@ void Sprite2DEditor::_update_mesh_data() {
 	}
 
 	Rect2 rect;
-	if (node->is_region_enabled()) {
+	if (node->is_region()) {
 		rect = node->get_region_rect();
 	} else {
-		rect.size = image->get_size();
+		rect.size = Size2(image->get_width(), image->get_height());
 	}
 
 	Ref<BitMap> bm;
-	bm.instantiate();
+	bm.instance();
 	bm->create_from_image_alpha(image);
 
 	int shrink = shrink_pixels->get_value();
@@ -218,7 +208,7 @@ void Sprite2DEditor::_update_mesh_data() {
 	computed_uv.clear();
 	computed_indices.clear();
 
-	Size2 img_size = image->get_size();
+	Size2 img_size = Vector2(image->get_width(), image->get_height());
 	for (int i = 0; i < lines.size(); i++) {
 		lines.write[i] = expand(lines[i], rect, epsilon);
 	}
@@ -248,7 +238,7 @@ void Sprite2DEditor::_update_mesh_data() {
 				computed_vertices.push_back(vtx);
 			}
 
-			Vector<int> poly = Geometry2D::triangulate_polygon(lines[j]);
+			Vector<int> poly = Geometry::triangulate_polygon(lines[j]);
 
 			for (int i = 0; i < poly.size(); i += 3) {
 				for (int k = 0; k < 3; k++) {
@@ -303,10 +293,10 @@ void Sprite2DEditor::_update_mesh_data() {
 		}
 	}
 
-	debug_uv->queue_redraw();
+	debug_uv->update();
 }
 
-void Sprite2DEditor::_create_node() {
+void SpriteEditor::_create_node() {
 	switch (selected_menu_item) {
 		case MENU_OPTION_CONVERT_TO_MESH_2D: {
 			_convert_to_mesh_2d_node();
@@ -323,15 +313,15 @@ void Sprite2DEditor::_create_node() {
 	}
 }
 
-void Sprite2DEditor::_convert_to_mesh_2d_node() {
+void SpriteEditor::_convert_to_mesh_2d_node() {
 	if (computed_vertices.size() < 3) {
 		err_dialog->set_text(TTR("Invalid geometry, can't replace by mesh."));
-		err_dialog->popup_centered();
+		err_dialog->popup_centered_minsize();
 		return;
 	}
 
 	Ref<ArrayMesh> mesh;
-	mesh.instantiate();
+	mesh.instance();
 
 	Array a;
 	a.resize(Mesh::ARRAY_MAX);
@@ -339,21 +329,24 @@ void Sprite2DEditor::_convert_to_mesh_2d_node() {
 	a[Mesh::ARRAY_TEX_UV] = computed_uv;
 	a[Mesh::ARRAY_INDEX] = computed_indices;
 
-	mesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, a, Array(), Dictionary(), Mesh::ARRAY_FLAG_USE_2D_VERTICES);
+	mesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, a, Array(), Mesh::ARRAY_FLAG_USE_2D_VERTICES);
 
 	MeshInstance2D *mesh_instance = memnew(MeshInstance2D);
 	mesh_instance->set_mesh(mesh);
 
-	EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
+	UndoRedo *ur = EditorNode::get_singleton()->get_undo_redo();
 	ur->create_action(TTR("Convert to MeshInstance2D"));
-	SceneTreeDock::get_singleton()->replace_node(node, mesh_instance);
-	ur->commit_action(false);
+	ur->add_do_method(EditorNode::get_singleton()->get_scene_tree_dock(), "replace_node", node, mesh_instance, true, false);
+	ur->add_do_reference(mesh_instance);
+	ur->add_undo_method(EditorNode::get_singleton()->get_scene_tree_dock(), "replace_node", mesh_instance, node, false, false);
+	ur->add_undo_reference(node);
+	ur->commit_action();
 }
 
-void Sprite2DEditor::_convert_to_polygon_2d_node() {
-	if (computed_outline_lines.is_empty()) {
+void SpriteEditor::_convert_to_polygon_2d_node() {
+	if (computed_outline_lines.empty()) {
 		err_dialog->set_text(TTR("Invalid geometry, can't create polygon."));
-		err_dialog->popup_centered();
+		err_dialog->popup_centered_minsize();
 		return;
 	}
 
@@ -364,13 +357,13 @@ void Sprite2DEditor::_convert_to_polygon_2d_node() {
 		total_point_count += computed_outline_lines[i].size();
 	}
 
-	PackedVector2Array polygon;
+	PoolVector2Array polygon;
 	polygon.resize(total_point_count);
-	Vector2 *polygon_write = polygon.ptrw();
+	PoolVector2Array::Write polygon_write = polygon.write();
 
-	PackedVector2Array uvs;
+	PoolVector2Array uvs;
 	uvs.resize(total_point_count);
-	Vector2 *uvs_write = uvs.ptrw();
+	PoolVector2Array::Write uvs_write = uvs.write();
 
 	int current_point_index = 0;
 
@@ -381,9 +374,9 @@ void Sprite2DEditor::_convert_to_polygon_2d_node() {
 		Vector<Vector2> outline = computed_outline_lines[i];
 		Vector<Vector2> uv_outline = outline_lines[i];
 
-		PackedInt32Array pia;
+		PoolIntArray pia;
 		pia.resize(outline.size());
-		int *pia_write = pia.ptrw();
+		PoolIntArray::Write pia_write = pia.write();
 
 		for (int pi = 0; pi < outline.size(); pi++) {
 			polygon_write[current_point_index] = outline[pi];
@@ -399,16 +392,19 @@ void Sprite2DEditor::_convert_to_polygon_2d_node() {
 	polygon_2d_instance->set_polygon(polygon);
 	polygon_2d_instance->set_polygons(polys);
 
-	EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
+	UndoRedo *ur = EditorNode::get_singleton()->get_undo_redo();
 	ur->create_action(TTR("Convert to Polygon2D"));
-	SceneTreeDock::get_singleton()->replace_node(node, polygon_2d_instance);
-	ur->commit_action(false);
+	ur->add_do_method(EditorNode::get_singleton()->get_scene_tree_dock(), "replace_node", node, polygon_2d_instance, true, false);
+	ur->add_do_reference(polygon_2d_instance);
+	ur->add_undo_method(EditorNode::get_singleton()->get_scene_tree_dock(), "replace_node", polygon_2d_instance, node, false, false);
+	ur->add_undo_reference(node);
+	ur->commit_action();
 }
 
-void Sprite2DEditor::_create_collision_polygon_2d_node() {
-	if (computed_outline_lines.is_empty()) {
+void SpriteEditor::_create_collision_polygon_2d_node() {
+	if (computed_outline_lines.empty()) {
 		err_dialog->set_text(TTR("Invalid geometry, can't create collision polygon."));
-		err_dialog->popup_centered();
+		err_dialog->popup_centered_minsize();
 		return;
 	}
 
@@ -418,7 +414,7 @@ void Sprite2DEditor::_create_collision_polygon_2d_node() {
 		CollisionPolygon2D *collision_polygon_2d_instance = memnew(CollisionPolygon2D);
 		collision_polygon_2d_instance->set_polygon(outline);
 
-		EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
+		UndoRedo *ur = EditorNode::get_singleton()->get_undo_redo();
 		ur->create_action(TTR("Create CollisionPolygon2D Sibling"));
 		ur->add_do_method(this, "_add_as_sibling_or_child", node, collision_polygon_2d_instance);
 		ur->add_do_reference(collision_polygon_2d_instance);
@@ -427,10 +423,10 @@ void Sprite2DEditor::_create_collision_polygon_2d_node() {
 	}
 }
 
-void Sprite2DEditor::_create_light_occluder_2d_node() {
-	if (computed_outline_lines.is_empty()) {
+void SpriteEditor::_create_light_occluder_2d_node() {
+	if (computed_outline_lines.empty()) {
 		err_dialog->set_text(TTR("Invalid geometry, can't create light occluder."));
-		err_dialog->popup_centered();
+		err_dialog->popup_centered_minsize();
 		return;
 	}
 
@@ -438,11 +434,11 @@ void Sprite2DEditor::_create_light_occluder_2d_node() {
 		Vector<Vector2> outline = computed_outline_lines[i];
 
 		Ref<OccluderPolygon2D> polygon;
-		polygon.instantiate();
+		polygon.instance();
 
-		PackedVector2Array a;
+		PoolVector2Array a;
 		a.resize(outline.size());
-		Vector2 *aw = a.ptrw();
+		PoolVector2Array::Write aw = a.write();
 		for (int io = 0; io < outline.size(); io++) {
 			aw[io] = outline[io];
 		}
@@ -451,7 +447,7 @@ void Sprite2DEditor::_create_light_occluder_2d_node() {
 		LightOccluder2D *light_occluder_2d_instance = memnew(LightOccluder2D);
 		light_occluder_2d_instance->set_occluder_polygon(polygon);
 
-		EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
+		UndoRedo *ur = EditorNode::get_singleton()->get_undo_redo();
 		ur->create_action(TTR("Create LightOccluder2D Sibling"));
 		ur->add_do_method(this, "_add_as_sibling_or_child", node, light_occluder_2d_instance);
 		ur->add_do_reference(light_occluder_2d_instance);
@@ -460,7 +456,7 @@ void Sprite2DEditor::_create_light_occluder_2d_node() {
 	}
 }
 
-void Sprite2DEditor::_add_as_sibling_or_child(Node *p_own_node, Node *p_new_node) {
+void SpriteEditor::_add_as_sibling_or_child(Node *p_own_node, Node *p_new_node) {
 	// Can't make sibling if own node is scene root
 	if (p_own_node != this->get_tree()->get_edited_scene_root()) {
 		p_own_node->get_parent()->add_child(p_new_node, true);
@@ -472,8 +468,8 @@ void Sprite2DEditor::_add_as_sibling_or_child(Node *p_own_node, Node *p_new_node
 	p_new_node->set_owner(this->get_tree()->get_edited_scene_root());
 }
 
-void Sprite2DEditor::_debug_uv_draw() {
-	Ref<Texture2D> tex = node->get_texture();
+void SpriteEditor::_debug_uv_draw() {
+	Ref<Texture> tex = node->get_texture();
 	ERR_FAIL_COND(!tex.is_valid());
 
 	Point2 draw_pos_offset = Point2(1.0, 1.0);
@@ -499,30 +495,21 @@ void Sprite2DEditor::_debug_uv_draw() {
 	}
 }
 
-void Sprite2DEditor::_notification(int p_what) {
-	switch (p_what) {
-		case NOTIFICATION_ENTER_TREE:
-		case NOTIFICATION_THEME_CHANGED: {
-			options->set_icon(get_editor_theme_icon(SNAME("Sprite2D")));
-
-			options->get_popup()->set_item_icon(MENU_OPTION_CONVERT_TO_MESH_2D, get_editor_theme_icon(SNAME("MeshInstance2D")));
-			options->get_popup()->set_item_icon(MENU_OPTION_CONVERT_TO_POLYGON_2D, get_editor_theme_icon(SNAME("Polygon2D")));
-			options->get_popup()->set_item_icon(MENU_OPTION_CREATE_COLLISION_POLY_2D, get_editor_theme_icon(SNAME("CollisionPolygon2D")));
-			options->get_popup()->set_item_icon(MENU_OPTION_CREATE_LIGHT_OCCLUDER_2D, get_editor_theme_icon(SNAME("LightOccluder2D")));
-		} break;
-	}
+void SpriteEditor::_bind_methods() {
+	ClassDB::bind_method("_menu_option", &SpriteEditor::_menu_option);
+	ClassDB::bind_method("_debug_uv_draw", &SpriteEditor::_debug_uv_draw);
+	ClassDB::bind_method("_update_mesh_data", &SpriteEditor::_update_mesh_data);
+	ClassDB::bind_method("_create_node", &SpriteEditor::_create_node);
+	ClassDB::bind_method("_add_as_sibling_or_child", &SpriteEditor::_add_as_sibling_or_child);
 }
 
-void Sprite2DEditor::_bind_methods() {
-	ClassDB::bind_method("_add_as_sibling_or_child", &Sprite2DEditor::_add_as_sibling_or_child);
-}
-
-Sprite2DEditor::Sprite2DEditor() {
+SpriteEditor::SpriteEditor() {
 	options = memnew(MenuButton);
 
 	CanvasItemEditor::get_singleton()->add_control_to_menu_panel(options);
 
-	options->set_text(TTR("Sprite2D"));
+	options->set_text(TTR("Sprite"));
+	options->set_icon(EditorNode::get_singleton()->get_gui_base()->get_icon("Sprite", "EditorIcons"));
 
 	options->get_popup()->add_item(TTR("Convert to MeshInstance2D"), MENU_OPTION_CONVERT_TO_MESH_2D);
 	options->get_popup()->add_item(TTR("Convert to Polygon2D"), MENU_OPTION_CONVERT_TO_POLYGON_2D);
@@ -530,21 +517,25 @@ Sprite2DEditor::Sprite2DEditor() {
 	options->get_popup()->add_item(TTR("Create LightOccluder2D Sibling"), MENU_OPTION_CREATE_LIGHT_OCCLUDER_2D);
 	options->set_switch_on_hover(true);
 
-	options->get_popup()->connect("id_pressed", callable_mp(this, &Sprite2DEditor::_menu_option));
+	options->get_popup()->connect("id_pressed", this, "_menu_option");
 
 	err_dialog = memnew(AcceptDialog);
 	add_child(err_dialog);
 
 	debug_uv_dialog = memnew(ConfirmationDialog);
+	debug_uv_dialog->get_ok()->set_text(TTR("Create Mesh2D"));
+	debug_uv_dialog->set_title("Mesh 2D Preview");
 	VBoxContainer *vb = memnew(VBoxContainer);
 	debug_uv_dialog->add_child(vb);
 	ScrollContainer *scroll = memnew(ScrollContainer);
 	scroll->set_custom_minimum_size(Size2(800, 500) * EDSCALE);
+	scroll->set_enable_h_scroll(true);
+	scroll->set_enable_v_scroll(true);
 	vb->add_margin_child(TTR("Preview:"), scroll, true);
 	debug_uv = memnew(Control);
-	debug_uv->connect("draw", callable_mp(this, &Sprite2DEditor::_debug_uv_draw));
+	debug_uv->connect("draw", this, "_debug_uv_draw");
 	scroll->add_child(debug_uv);
-	debug_uv_dialog->connect("confirmed", callable_mp(this, &Sprite2DEditor::_create_node));
+	debug_uv_dialog->connect("confirmed", this, "_create_node");
 
 	HBoxContainer *hb = memnew(HBoxContainer);
 	hb->add_child(memnew(Label(TTR("Simplification:"))));
@@ -573,22 +564,22 @@ Sprite2DEditor::Sprite2DEditor() {
 	hb->add_spacer();
 	update_preview = memnew(Button);
 	update_preview->set_text(TTR("Update Preview"));
-	update_preview->connect("pressed", callable_mp(this, &Sprite2DEditor::_update_mesh_data));
+	update_preview->connect("pressed", this, "_update_mesh_data");
 	hb->add_child(update_preview);
 	vb->add_margin_child(TTR("Settings:"), hb);
 
 	add_child(debug_uv_dialog);
 }
 
-void Sprite2DEditorPlugin::edit(Object *p_object) {
-	sprite_editor->edit(Object::cast_to<Sprite2D>(p_object));
+void SpriteEditorPlugin::edit(Object *p_object) {
+	sprite_editor->edit(Object::cast_to<Sprite>(p_object));
 }
 
-bool Sprite2DEditorPlugin::handles(Object *p_object) const {
-	return p_object->is_class("Sprite2D");
+bool SpriteEditorPlugin::handles(Object *p_object) const {
+	return p_object->is_class("Sprite");
 }
 
-void Sprite2DEditorPlugin::make_visible(bool p_visible) {
+void SpriteEditorPlugin::make_visible(bool p_visible) {
 	if (p_visible) {
 		sprite_editor->options->show();
 	} else {
@@ -597,13 +588,14 @@ void Sprite2DEditorPlugin::make_visible(bool p_visible) {
 	}
 }
 
-Sprite2DEditorPlugin::Sprite2DEditorPlugin() {
-	sprite_editor = memnew(Sprite2DEditor);
-	EditorNode::get_singleton()->get_main_screen_control()->add_child(sprite_editor);
+SpriteEditorPlugin::SpriteEditorPlugin(EditorNode *p_node) {
+	editor = p_node;
+	sprite_editor = memnew(SpriteEditor);
+	editor->get_viewport()->add_child(sprite_editor);
 	make_visible(false);
 
 	//sprite_editor->options->hide();
 }
 
-Sprite2DEditorPlugin::~Sprite2DEditorPlugin() {
+SpriteEditorPlugin::~SpriteEditorPlugin() {
 }

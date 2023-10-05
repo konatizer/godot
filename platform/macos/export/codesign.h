@@ -1,35 +1,32 @@
-/**************************************************************************/
-/*  codesign.h                                                            */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
-
-#ifndef MACOS_CODESIGN_H
-#define MACOS_CODESIGN_H
+/*************************************************************************/
+/*  codesign.h                                                           */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 // macOS code signature creation utility.
 //
@@ -41,17 +38,20 @@
 //  - Requirements code generator is not implemented (only hard-coded requirements for the ad-hoc signing is supported).
 //  - RFC5652/CMS blob generation is not implemented, supports ad-hoc signing only.
 
-#include "plist.h"
+#ifndef OSX_CODESIGN_H
+#define OSX_CODESIGN_H
 
+#include "core/crypto/crypto.h"
 #include "core/crypto/crypto_core.h"
-#include "core/io/dir_access.h"
-#include "core/io/file_access.h"
-#include "core/object/ref_counted.h"
-
+#include "core/os/dir_access.h"
+#include "core/os/file_access.h"
+#include "core/reference.h"
 #include "modules/modules_enabled.gen.h" // For regex.
 #ifdef MODULE_REGEX_ENABLED
 #include "modules/regex/regex.h"
 #endif
+
+#include "plist.h"
 
 #ifdef MODULE_REGEX_ENABLED
 
@@ -124,15 +124,15 @@ public:
 /* CodeSignBlob                                                          */
 /*************************************************************************/
 
-class CodeSignBlob : public RefCounted {
+class CodeSignBlob : public Reference {
 public:
-	virtual PackedByteArray get_hash_sha1() const = 0;
-	virtual PackedByteArray get_hash_sha256() const = 0;
+	virtual PoolByteArray get_hash_sha1() const = 0;
+	virtual PoolByteArray get_hash_sha256() const = 0;
 
 	virtual int get_size() const = 0;
 	virtual uint32_t get_index_type() const = 0;
 
-	virtual void write_to_file(Ref<FileAccess> p_file) const = 0;
+	virtual void write_to_file(FileAccess *p_file) const = 0;
 };
 
 /*************************************************************************/
@@ -142,7 +142,7 @@ public:
 // Note: Proper code generator is not implemented (any we probably won't ever need it), just a hardcoded bytecode for the limited set of cases.
 
 class CodeSignRequirements : public CodeSignBlob {
-	PackedByteArray blob;
+	PoolByteArray blob;
 
 	static inline size_t PAD(size_t s, size_t a) {
 		return (s % a == 0) ? 0 : (a - s % a);
@@ -158,17 +158,17 @@ class CodeSignRequirements : public CodeSignBlob {
 
 public:
 	CodeSignRequirements();
-	CodeSignRequirements(const PackedByteArray &p_data);
+	CodeSignRequirements(const PoolByteArray &p_data);
 
 	Vector<String> parse_requirements() const;
 
-	virtual PackedByteArray get_hash_sha1() const override;
-	virtual PackedByteArray get_hash_sha256() const override;
+	virtual PoolByteArray get_hash_sha1() const override;
+	virtual PoolByteArray get_hash_sha256() const override;
 
 	virtual int get_size() const override;
 
 	virtual uint32_t get_index_type() const override { return 0x00000002; };
-	virtual void write_to_file(Ref<FileAccess> p_file) const override;
+	virtual void write_to_file(FileAccess *p_file) const override;
 };
 
 /*************************************************************************/
@@ -178,19 +178,19 @@ public:
 // PList formatted entitlements.
 
 class CodeSignEntitlementsText : public CodeSignBlob {
-	PackedByteArray blob;
+	PoolByteArray blob;
 
 public:
 	CodeSignEntitlementsText();
 	CodeSignEntitlementsText(const String &p_string);
 
-	virtual PackedByteArray get_hash_sha1() const override;
-	virtual PackedByteArray get_hash_sha256() const override;
+	virtual PoolByteArray get_hash_sha1() const override;
+	virtual PoolByteArray get_hash_sha256() const override;
 
 	virtual int get_size() const override;
 
 	virtual uint32_t get_index_type() const override { return 0x00000005; };
-	virtual void write_to_file(Ref<FileAccess> p_file) const override;
+	virtual void write_to_file(FileAccess *p_file) const override;
 };
 
 /*************************************************************************/
@@ -200,19 +200,19 @@ public:
 // ASN.1 serialized entitlements.
 
 class CodeSignEntitlementsBinary : public CodeSignBlob {
-	PackedByteArray blob;
+	PoolByteArray blob;
 
 public:
 	CodeSignEntitlementsBinary();
 	CodeSignEntitlementsBinary(const String &p_string);
 
-	virtual PackedByteArray get_hash_sha1() const override;
-	virtual PackedByteArray get_hash_sha256() const override;
+	virtual PoolByteArray get_hash_sha1() const override;
+	virtual PoolByteArray get_hash_sha256() const override;
 
 	virtual int get_size() const override;
 
 	virtual uint32_t get_index_type() const override { return 0x00000007; };
-	virtual void write_to_file(Ref<FileAccess> p_file) const override;
+	virtual void write_to_file(FileAccess *p_file) const override;
 };
 
 /*************************************************************************/
@@ -263,7 +263,7 @@ public:
 	};
 
 private:
-	PackedByteArray blob;
+	PoolByteArray blob;
 
 	struct CodeDirectoryHeader {
 		uint32_t version; // Using version 0x0020500.
@@ -306,15 +306,15 @@ public:
 	int32_t get_page_count();
 	int32_t get_page_remainder();
 
-	bool set_hash_in_slot(const PackedByteArray &p_hash, int p_slot);
+	bool set_hash_in_slot(const PoolByteArray &p_hash, int p_slot);
 
-	virtual PackedByteArray get_hash_sha1() const override;
-	virtual PackedByteArray get_hash_sha256() const override;
+	virtual PoolByteArray get_hash_sha1() const override;
+	virtual PoolByteArray get_hash_sha256() const override;
 
 	virtual int get_size() const override;
 	virtual uint32_t get_index_type() const override { return 0x00000000; };
 
-	virtual void write_to_file(Ref<FileAccess> p_file) const override;
+	virtual void write_to_file(FileAccess *p_file) const override;
 };
 
 /*************************************************************************/
@@ -322,18 +322,18 @@ public:
 /*************************************************************************/
 
 class CodeSignSignature : public CodeSignBlob {
-	PackedByteArray blob;
+	PoolByteArray blob;
 
 public:
 	CodeSignSignature();
 
-	virtual PackedByteArray get_hash_sha1() const override;
-	virtual PackedByteArray get_hash_sha256() const override;
+	virtual PoolByteArray get_hash_sha1() const override;
+	virtual PoolByteArray get_hash_sha256() const override;
 
 	virtual int get_size() const override;
 	virtual uint32_t get_index_type() const override { return 0x00010000; };
 
-	virtual void write_to_file(Ref<FileAccess> p_file) const override;
+	virtual void write_to_file(FileAccess *p_file) const override;
 };
 
 /*************************************************************************/
@@ -347,7 +347,7 @@ public:
 	bool add_blob(const Ref<CodeSignBlob> &p_blob);
 
 	int get_size() const;
-	void write_to_file(Ref<FileAccess> p_file) const;
+	void write_to_file(FileAccess *p_file) const;
 };
 
 /*************************************************************************/
@@ -355,8 +355,8 @@ public:
 /*************************************************************************/
 
 class CodeSign {
-	static PackedByteArray file_hash_sha1(const String &p_path);
-	static PackedByteArray file_hash_sha256(const String &p_path);
+	static PoolByteArray file_hash_sha1(const String &p_path);
+	static PoolByteArray file_hash_sha256(const String &p_path);
 	static Error _codesign_file(bool p_use_hardened_runtime, bool p_force, const String &p_info, const String &p_exe_path, const String &p_bundle_path, const String &p_ent_path, bool p_ios_bundle, String &r_error_msg);
 
 public:
@@ -365,4 +365,4 @@ public:
 
 #endif // MODULE_REGEX_ENABLED
 
-#endif // MACOS_CODESIGN_H
+#endif // OSX_CODESIGN_H

@@ -1,46 +1,56 @@
-/**************************************************************************/
-/*  abstract_polygon_2d_editor.cpp                                        */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  abstract_polygon_2d_editor.cpp                                       */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "abstract_polygon_2d_editor.h"
 
 #include "canvas_item_editor_plugin.h"
-#include "core/math/geometry_2d.h"
 #include "core/os/keyboard.h"
-#include "editor/editor_node.h"
 #include "editor/editor_scale.h"
-#include "editor/editor_settings.h"
-#include "editor/editor_string_names.h"
-#include "editor/editor_undo_redo_manager.h"
-#include "scene/gui/button.h"
-#include "scene/gui/dialogs.h"
-#include "scene/gui/separator.h"
+
+AbstractPolygon2DEditor::Vertex::Vertex() :
+		polygon(-1),
+		vertex(-1) {
+	// invalid vertex
+}
+
+AbstractPolygon2DEditor::Vertex::Vertex(int p_vertex) :
+		polygon(-1),
+		vertex(p_vertex) {
+	// vertex p_vertex of current wip polygon
+}
+
+AbstractPolygon2DEditor::Vertex::Vertex(int p_polygon, int p_vertex) :
+		polygon(p_polygon),
+		vertex(p_vertex) {
+	// vertex p_vertex of polygon p_polygon
+}
 
 bool AbstractPolygon2DEditor::Vertex::operator==(const AbstractPolygon2DEditor::Vertex &p_vertex) const {
 	return polygon == p_vertex.polygon && vertex == p_vertex.vertex;
@@ -52,6 +62,20 @@ bool AbstractPolygon2DEditor::Vertex::operator!=(const AbstractPolygon2DEditor::
 
 bool AbstractPolygon2DEditor::Vertex::valid() const {
 	return vertex >= 0;
+}
+
+AbstractPolygon2DEditor::PosVertex::PosVertex() {
+	// invalid vertex
+}
+
+AbstractPolygon2DEditor::PosVertex::PosVertex(const Vertex &p_vertex, const Vector2 &p_pos) :
+		Vertex(p_vertex.polygon, p_vertex.vertex),
+		pos(p_pos) {
+}
+
+AbstractPolygon2DEditor::PosVertex::PosVertex(int p_polygon, int p_vertex, const Vector2 &p_pos) :
+		Vertex(p_polygon, p_vertex),
+		pos(p_pos) {
 }
 
 bool AbstractPolygon2DEditor::_is_empty() const {
@@ -94,7 +118,6 @@ void AbstractPolygon2DEditor::_set_polygon(int p_idx, const Variant &p_polygon) 
 
 void AbstractPolygon2DEditor::_action_set_polygon(int p_idx, const Variant &p_previous, const Variant &p_polygon) {
 	Node2D *node = _get_node();
-	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->add_do_method(node, "set_polygon", p_polygon);
 	undo_redo->add_undo_method(node, "set_polygon", p_previous);
 }
@@ -104,7 +127,6 @@ Vector2 AbstractPolygon2DEditor::_get_offset(int p_idx) const {
 }
 
 void AbstractPolygon2DEditor::_commit_action() {
-	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->add_do_method(canvas_item_editor, "update_viewport");
 	undo_redo->add_undo_method(canvas_item_editor, "update_viewport");
 	undo_redo->commit_action();
@@ -115,7 +137,7 @@ void AbstractPolygon2DEditor::_action_add_polygon(const Variant &p_polygon) {
 }
 
 void AbstractPolygon2DEditor::_action_remove_polygon(int p_idx) {
-	_action_set_polygon(p_idx, _get_polygon(p_idx), Vector<Vector2>());
+	_action_set_polygon(p_idx, _get_polygon(p_idx), PoolVector<Vector2>());
 }
 
 void AbstractPolygon2DEditor::_action_set_polygon(int p_idx, const Variant &p_polygon) {
@@ -156,20 +178,16 @@ void AbstractPolygon2DEditor::_menu_option(int p_option) {
 
 void AbstractPolygon2DEditor::_notification(int p_what) {
 	switch (p_what) {
-		case NOTIFICATION_ENTER_TREE:
-		case NOTIFICATION_THEME_CHANGED: {
-			button_create->set_icon(get_editor_theme_icon(SNAME("CurveCreate")));
-			button_edit->set_icon(get_editor_theme_icon(SNAME("CurveEdit")));
-			button_delete->set_icon(get_editor_theme_icon(SNAME("CurveDelete")));
-		} break;
-
 		case NOTIFICATION_READY: {
 			disable_polygon_editing(false, String());
 
+			button_create->set_icon(EditorNode::get_singleton()->get_gui_base()->get_icon("CurveCreate", "EditorIcons"));
+			button_edit->set_icon(EditorNode::get_singleton()->get_gui_base()->get_icon("CurveEdit", "EditorIcons"));
+			button_delete->set_icon(EditorNode::get_singleton()->get_gui_base()->get_icon("CurveDelete", "EditorIcons"));
 			button_edit->set_pressed(true);
 
-			get_tree()->connect("node_removed", callable_mp(this, &AbstractPolygon2DEditor::_node_removed));
-			create_resource->connect("confirmed", callable_mp(this, &AbstractPolygon2DEditor::_create_resource));
+			get_tree()->connect("node_removed", this, "_node_removed");
+			create_resource->connect("confirmed", this, "_create_resource");
 		} break;
 	}
 }
@@ -208,11 +226,10 @@ void AbstractPolygon2DEditor::_wip_close() {
 	if (_is_line()) {
 		_set_polygon(0, wip);
 	} else if (wip.size() >= (_is_line() ? 2 : 3)) {
-		EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 		undo_redo->create_action(TTR("Create Polygon"));
 		_action_add_polygon(wip);
 		if (_has_uv()) {
-			undo_redo->add_do_method(_get_node(), "set_uv", Vector<Vector2>());
+			undo_redo->add_do_method(_get_node(), "set_uv", PoolVector<Vector2>());
 			undo_redo->add_undo_method(_get_node(), "set_uv", _get_node()->get("uv"));
 		}
 		_commit_action();
@@ -241,13 +258,13 @@ void AbstractPolygon2DEditor::disable_polygon_editing(bool p_disable, String p_r
 	button_delete->set_disabled(p_disable);
 
 	if (p_disable) {
-		button_create->set_tooltip_text(p_reason);
-		button_edit->set_tooltip_text(p_reason);
-		button_delete->set_tooltip_text(p_reason);
+		button_create->set_tooltip(p_reason);
+		button_edit->set_tooltip(p_reason);
+		button_delete->set_tooltip(p_reason);
 	} else {
-		button_create->set_tooltip_text(TTR("Create points."));
-		button_edit->set_tooltip_text(TTR("Edit points.\nLMB: Move Point\nRMB: Erase Point"));
-		button_delete->set_tooltip_text(TTR("Erase points."));
+		button_create->set_tooltip(TTR("Create points."));
+		button_edit->set_tooltip(TTR("Edit points.\nLMB: Move Point\nRMB: Erase Point"));
+		button_delete->set_tooltip(TTR("Erase points."));
 	}
 }
 
@@ -260,15 +277,14 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 		return false;
 	}
 
-	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	Ref<InputEventMouseButton> mb = p_event;
 
 	if (!_has_resource()) {
-		if (mb.is_valid() && mb->get_button_index() == MouseButton::LEFT && mb->is_pressed()) {
+		if (mb.is_valid() && mb->get_button_index() == 1 && mb->is_pressed()) {
 			create_resource->set_text(String("No polygon resource on this node.\nCreate and assign one?"));
-			create_resource->popup_centered();
+			create_resource->popup_centered_minsize();
 		}
-		return (mb.is_valid() && mb->get_button_index() == MouseButton::LEFT);
+		return (mb.is_valid() && mb->get_button_index() == 1);
 	}
 
 	CanvasItemEditor::Tool tool = CanvasItemEditor::get_singleton()->get_current_tool();
@@ -280,12 +296,12 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 		Transform2D xform = canvas_item_editor->get_canvas_transform() * _get_node()->get_global_transform();
 
 		Vector2 gpoint = mb->get_position();
-		Vector2 cpoint = _get_node()->to_local(canvas_item_editor->snap_point(canvas_item_editor->get_canvas_transform().affine_inverse().xform(mb->get_position())));
+		Vector2 cpoint = _get_node()->get_global_transform().affine_inverse().xform(canvas_item_editor->snap_point(canvas_item_editor->get_canvas_transform().affine_inverse().xform(mb->get_position())));
 
 		if (mode == MODE_EDIT || (_is_line() && mode == MODE_CREATE)) {
-			if (mb->get_button_index() == MouseButton::LEFT) {
+			if (mb->get_button_index() == BUTTON_LEFT) {
 				if (mb->is_pressed()) {
-					if (mb->is_ctrl_pressed() || mb->is_shift_pressed() || mb->is_alt_pressed()) {
+					if (mb->get_control() || mb->get_shift() || mb->get_alt()) {
 						return false;
 					}
 
@@ -302,14 +318,15 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 							_commit_action();
 							return true;
 						} else {
+							Vector<Vector2> vertices2 = _get_polygon(insert.polygon);
 							edited_point = PosVertex(insert.polygon, insert.vertex + 1, xform.affine_inverse().xform(insert.pos));
-							vertices.insert(edited_point.vertex, edited_point.pos);
-							pre_move_edit = vertices;
-							selected_point = Vertex(edited_point.polygon, edited_point.vertex);
+							vertices2.insert(edited_point.vertex, edited_point.pos);
+							pre_move_edit = vertices2;
+							selected_point = edited_point;
 							edge_point = PosVertex();
 
 							undo_redo->create_action(TTR("Insert Point"));
-							_action_set_polygon(insert.polygon, vertices);
+							_action_set_polygon(insert.polygon, vertices2);
 							_commit_action();
 							return true;
 						}
@@ -344,7 +361,7 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 						return true;
 					}
 				}
-			} else if (mb->get_button_index() == MouseButton::RIGHT && mb->is_pressed() && !edited_point.valid()) {
+			} else if (mb->get_button_index() == BUTTON_RIGHT && mb->is_pressed() && !edited_point.valid()) {
 				const PosVertex closest = closest_point(gpoint);
 
 				if (closest.valid()) {
@@ -353,7 +370,7 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 				}
 			}
 		} else if (mode == MODE_DELETE) {
-			if (mb->get_button_index() == MouseButton::LEFT && mb->is_pressed()) {
+			if (mb->get_button_index() == BUTTON_LEFT && mb->is_pressed()) {
 				const PosVertex closest = closest_point(gpoint);
 
 				if (closest.valid()) {
@@ -364,7 +381,7 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 		}
 
 		if (mode == MODE_CREATE) {
-			if (mb->get_button_index() == MouseButton::LEFT && mb->is_pressed()) {
+			if (mb->get_button_index() == BUTTON_LEFT && mb->is_pressed()) {
 				if (_is_line()) {
 					// for lines, we don't have a wip mode, and we can undo each single add point.
 					Vector<Vector2> vertices = _get_polygon(0);
@@ -385,7 +402,7 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 					edge_point = PosVertex();
 					return true;
 				} else {
-					const real_t grab_threshold = EDITOR_GET("editors/polygon_editor/point_grab_radius");
+					const real_t grab_threshold = EDITOR_GET("editors/poly_editor/point_grab_radius");
 
 					if (!_is_line() && wip.size() > 1 && xform.xform(wip[0]).distance_to(xform.xform(cpoint)) < grab_threshold) {
 						//wip closed
@@ -402,7 +419,7 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 						return true;
 					}
 				}
-			} else if (mb->get_button_index() == MouseButton::RIGHT && mb->is_pressed() && wip_active) {
+			} else if (mb->get_button_index() == BUTTON_RIGHT && mb->is_pressed() && wip_active) {
 				_wip_cancel();
 			}
 		}
@@ -413,11 +430,11 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 	if (mm.is_valid()) {
 		Vector2 gpoint = mm->get_position();
 
-		if (edited_point.valid() && (wip_active || mm->get_button_mask().has_flag(MouseButtonMask::LEFT))) {
-			Vector2 cpoint = _get_node()->to_local(canvas_item_editor->snap_point(canvas_item_editor->get_canvas_transform().affine_inverse().xform(gpoint)));
+		if (edited_point.valid() && (wip_active || (mm->get_button_mask() & BUTTON_MASK_LEFT))) {
+			Vector2 cpoint = _get_node()->get_global_transform().affine_inverse().xform(canvas_item_editor->snap_point(canvas_item_editor->get_canvas_transform().affine_inverse().xform(gpoint)));
 
 			//Move the point in a single axis. Should only work when editing a polygon and while holding shift.
-			if (mode == MODE_EDIT && mm->is_shift_pressed()) {
+			if (mode == MODE_EDIT && mm->get_shift()) {
 				Vector2 old_point = pre_move_edit.get(selected_point.vertex);
 				if (ABS(cpoint.x - old_point.x) > ABS(cpoint.y - old_point.y)) {
 					cpoint.y = old_point.y;
@@ -461,10 +478,10 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 	Ref<InputEventKey> k = p_event;
 
 	if (k.is_valid() && k->is_pressed()) {
-		if (k->get_keycode() == Key::KEY_DELETE || k->get_keycode() == Key::BACKSPACE) {
+		if (k->get_scancode() == KEY_DELETE || k->get_scancode() == KEY_BACKSPACE) {
 			if (wip_active && selected_point.polygon == -1) {
 				if (wip.size() > selected_point.vertex) {
-					wip.remove_at(selected_point.vertex);
+					wip.remove(selected_point.vertex);
 					_wip_changed();
 					selected_point = wip.size() - 1;
 					canvas_item_editor->update_viewport();
@@ -478,9 +495,9 @@ bool AbstractPolygon2DEditor::forward_gui_input(const Ref<InputEvent> &p_event) 
 					return true;
 				}
 			}
-		} else if (wip_active && k->get_keycode() == Key::ENTER) {
+		} else if (wip_active && k->get_scancode() == KEY_ENTER) {
 			_wip_close();
-		} else if (wip_active && k->get_keycode() == Key::ESCAPE) {
+		} else if (wip_active && k->get_scancode() == KEY_ESCAPE) {
 			_wip_cancel();
 		}
 	}
@@ -499,7 +516,7 @@ void AbstractPolygon2DEditor::forward_canvas_draw_over_viewport(Control *p_overl
 
 	Transform2D xform = canvas_item_editor->get_canvas_transform() * _get_node()->get_global_transform();
 	// All polygon points are sharp, so use the sharp handle icon
-	const Ref<Texture2D> handle = get_editor_theme_icon(SNAME("EditorPathSharpHandle"));
+	const Ref<Texture> handle = get_icon("EditorPathSharpHandle", "EditorIcons");
 
 	const Vertex active_point = get_active_point();
 	const int n_polygons = _get_polygon_count();
@@ -510,7 +527,7 @@ void AbstractPolygon2DEditor::forward_canvas_draw_over_viewport(Control *p_overl
 			continue;
 		}
 
-		Vector<Vector2> points;
+		PoolVector<Vector2> points;
 		Vector2 offset;
 
 		if (wip_active && j == edited_point.polygon) {
@@ -524,7 +541,7 @@ void AbstractPolygon2DEditor::forward_canvas_draw_over_viewport(Control *p_overl
 			offset = _get_offset(j);
 		}
 
-		if (!wip_active && j == edited_point.polygon && EDITOR_GET("editors/polygon_editor/show_previous_outline")) {
+		if (!wip_active && j == edited_point.polygon && EDITOR_GET("editors/poly_editor/show_previous_outline")) {
 			const Color col = Color(0.5, 0.5, 0.5); // FIXME polygon->get_outline_color();
 			const int n = pre_move_edit.size();
 			for (int i = 0; i < n - (is_closed ? 0 : 1); i++) {
@@ -535,7 +552,7 @@ void AbstractPolygon2DEditor::forward_canvas_draw_over_viewport(Control *p_overl
 				Vector2 point = xform.xform(p);
 				Vector2 next_point = xform.xform(p2);
 
-				p_overlay->draw_line(point, next_point, col, Math::round(2 * EDSCALE));
+				p_overlay->draw_line(point, next_point, col, Math::round(2 * EDSCALE), true);
 			}
 		}
 
@@ -558,7 +575,7 @@ void AbstractPolygon2DEditor::forward_canvas_draw_over_viewport(Control *p_overl
 				}
 
 				const Vector2 next_point = xform.xform(p2);
-				p_overlay->draw_line(point, next_point, col, Math::round(2 * EDSCALE));
+				p_overlay->draw_line(point, next_point, col, Math::round(2 * EDSCALE), true);
 			}
 		}
 
@@ -568,25 +585,20 @@ void AbstractPolygon2DEditor::forward_canvas_draw_over_viewport(Control *p_overl
 			const Vector2 p = (vertex == edited_point) ? edited_point.pos : (points[i] + offset);
 			const Vector2 point = xform.xform(p);
 
-			const Color overlay_modulate = vertex == active_point ? Color(0.5, 1, 2) : Color(1, 1, 1);
-			p_overlay->draw_texture(handle, point - handle->get_size() * 0.5, overlay_modulate);
+			const Color modulate = vertex == active_point ? Color(0.5, 1, 2) : Color(1, 1, 1);
+			p_overlay->draw_texture(handle, point - handle->get_size() * 0.5, modulate);
 
 			if (vertex == hover_point) {
-				Ref<Font> font = get_theme_font(SNAME("bold"), EditorStringName(EditorFonts));
-				int font_size = 1.3 * get_theme_font_size(SNAME("bold_size"), EditorStringName(EditorFonts));
+				Ref<Font> font = get_font("font", "Label");
 				String num = String::num(vertex.vertex);
-				Size2 num_size = font->get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size);
-				const float outline_size = 4;
-				Color font_color = get_theme_color(SNAME("font_color"), EditorStringName(Editor));
-				Color outline_color = font_color.inverted();
-				p_overlay->draw_string_outline(font, point - num_size * 0.5, num, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, outline_size, outline_color);
-				p_overlay->draw_string(font, point - num_size * 0.5, num, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, font_color);
+				Size2 num_size = font->get_string_size(num);
+				p_overlay->draw_string(font, point - num_size * 0.5, num, Color(1.0, 1.0, 1.0, 0.5));
 			}
 		}
 	}
 
 	if (edge_point.valid()) {
-		Ref<Texture2D> add_handle = get_editor_theme_icon(SNAME("EditorHandleAdd"));
+		Ref<Texture> add_handle = get_icon("EditorHandleAdd", "EditorIcons");
 		p_overlay->draw_texture(add_handle, edge_point.pos - add_handle->get_size() * 0.5);
 	}
 }
@@ -619,14 +631,16 @@ void AbstractPolygon2DEditor::edit(Node *p_polygon) {
 }
 
 void AbstractPolygon2DEditor::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("_node_removed"), &AbstractPolygon2DEditor::_node_removed);
+	ClassDB::bind_method(D_METHOD("_menu_option"), &AbstractPolygon2DEditor::_menu_option);
+	ClassDB::bind_method(D_METHOD("_create_resource"), &AbstractPolygon2DEditor::_create_resource);
 }
 
 void AbstractPolygon2DEditor::remove_point(const Vertex &p_vertex) {
-	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
-	Vector<Vector2> vertices = _get_polygon(p_vertex.polygon);
+	PoolVector<Vector2> vertices = _get_polygon(p_vertex.polygon);
 
 	if (vertices.size() > (_is_line() ? 2 : 3)) {
-		vertices.remove_at(p_vertex.vertex);
+		vertices.remove(p_vertex.vertex);
 
 		undo_redo->create_action(TTR("Edit Polygon (Remove Point)"));
 		_action_set_polygon(p_vertex.polygon, vertices);
@@ -652,7 +666,7 @@ AbstractPolygon2DEditor::Vertex AbstractPolygon2DEditor::get_active_point() cons
 }
 
 AbstractPolygon2DEditor::PosVertex AbstractPolygon2DEditor::closest_point(const Vector2 &p_pos) const {
-	const real_t grab_threshold = EDITOR_GET("editors/polygon_editor/point_grab_radius");
+	const real_t grab_threshold = EDITOR_GET("editors/poly_editor/point_grab_radius");
 
 	const int n_polygons = _get_polygon_count();
 	const Transform2D xform = canvas_item_editor->get_canvas_transform() * _get_node()->get_global_transform();
@@ -661,7 +675,7 @@ AbstractPolygon2DEditor::PosVertex AbstractPolygon2DEditor::closest_point(const 
 	real_t closest_dist = 1e10;
 
 	for (int j = 0; j < n_polygons; j++) {
-		Vector<Vector2> points = _get_polygon(j);
+		PoolVector<Vector2> points = _get_polygon(j);
 		const Vector2 offset = _get_offset(j);
 		const int n_points = points.size();
 
@@ -680,7 +694,7 @@ AbstractPolygon2DEditor::PosVertex AbstractPolygon2DEditor::closest_point(const 
 }
 
 AbstractPolygon2DEditor::PosVertex AbstractPolygon2DEditor::closest_edge_point(const Vector2 &p_pos) const {
-	const real_t grab_threshold = EDITOR_GET("editors/polygon_editor/point_grab_radius");
+	const real_t grab_threshold = EDITOR_GET("editors/poly_editor/point_grab_radius");
 	const real_t eps = grab_threshold * 2;
 	const real_t eps2 = eps * eps;
 
@@ -691,7 +705,7 @@ AbstractPolygon2DEditor::PosVertex AbstractPolygon2DEditor::closest_edge_point(c
 	real_t closest_dist = 1e10;
 
 	for (int j = 0; j < n_polygons; j++) {
-		Vector<Vector2> points = _get_polygon(j);
+		PoolVector<Vector2> points = _get_polygon(j);
 		const Vector2 offset = _get_offset(j);
 		const int n_points = points.size();
 		const int n_segments = n_points - (_is_line() ? 1 : 0);
@@ -700,7 +714,7 @@ AbstractPolygon2DEditor::PosVertex AbstractPolygon2DEditor::closest_edge_point(c
 			Vector2 segment[2] = { xform.xform(points[i] + offset),
 				xform.xform(points[(i + 1) % n_points] + offset) };
 
-			Vector2 cp = Geometry2D::get_closest_point_to_segment(p_pos, segment);
+			Vector2 cp = Geometry::get_closest_point_to_segment_2d(p_pos, segment);
 
 			if (cp.distance_squared_to(segment[0]) < eps2 || cp.distance_squared_to(segment[1]) < eps2) {
 				continue; //not valid to reuse point
@@ -717,7 +731,12 @@ AbstractPolygon2DEditor::PosVertex AbstractPolygon2DEditor::closest_edge_point(c
 	return closest;
 }
 
-AbstractPolygon2DEditor::AbstractPolygon2DEditor(bool p_wip_destructive) {
+AbstractPolygon2DEditor::AbstractPolygon2DEditor(EditorNode *p_editor, bool p_wip_destructive) {
+	canvas_item_editor = nullptr;
+	editor = p_editor;
+	undo_redo = EditorNode::get_undo_redo();
+
+	wip_active = false;
 	edited_point = PosVertex();
 	wip_destructive = p_wip_destructive;
 
@@ -726,27 +745,26 @@ AbstractPolygon2DEditor::AbstractPolygon2DEditor(bool p_wip_destructive) {
 	edge_point = PosVertex();
 
 	add_child(memnew(VSeparator));
-	button_create = memnew(Button);
-	button_create->set_flat(true);
+	button_create = memnew(ToolButton);
 	add_child(button_create);
-	button_create->connect("pressed", callable_mp(this, &AbstractPolygon2DEditor::_menu_option).bind(MODE_CREATE));
+	button_create->connect("pressed", this, "_menu_option", varray(MODE_CREATE));
 	button_create->set_toggle_mode(true);
 
-	button_edit = memnew(Button);
-	button_edit->set_flat(true);
+	button_edit = memnew(ToolButton);
 	add_child(button_edit);
-	button_edit->connect("pressed", callable_mp(this, &AbstractPolygon2DEditor::_menu_option).bind(MODE_EDIT));
+	button_edit->connect("pressed", this, "_menu_option", varray(MODE_EDIT));
 	button_edit->set_toggle_mode(true);
 
-	button_delete = memnew(Button);
-	button_delete->set_flat(true);
+	button_delete = memnew(ToolButton);
 	add_child(button_delete);
-	button_delete->connect("pressed", callable_mp(this, &AbstractPolygon2DEditor::_menu_option).bind(MODE_DELETE));
+	button_delete->connect("pressed", this, "_menu_option", varray(MODE_DELETE));
 	button_delete->set_toggle_mode(true);
 
 	create_resource = memnew(ConfirmationDialog);
 	add_child(create_resource);
-	create_resource->set_ok_button_text(TTR("Create"));
+	create_resource->get_ok()->set_text(TTR("Create"));
+
+	mode = MODE_EDIT;
 }
 
 void AbstractPolygon2DEditorPlugin::edit(Object *p_object) {
@@ -766,8 +784,9 @@ void AbstractPolygon2DEditorPlugin::make_visible(bool p_visible) {
 	}
 }
 
-AbstractPolygon2DEditorPlugin::AbstractPolygon2DEditorPlugin(AbstractPolygon2DEditor *p_polygon_editor, String p_class) :
+AbstractPolygon2DEditorPlugin::AbstractPolygon2DEditorPlugin(EditorNode *p_node, AbstractPolygon2DEditor *p_polygon_editor, String p_class) :
 		polygon_editor(p_polygon_editor),
+		editor(p_node),
 		klass(p_class) {
 	CanvasItemEditor::get_singleton()->add_control_to_menu_panel(polygon_editor);
 	polygon_editor->hide();

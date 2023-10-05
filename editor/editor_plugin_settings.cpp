@@ -1,55 +1,49 @@
-/**************************************************************************/
-/*  editor_plugin_settings.cpp                                            */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  editor_plugin_settings.cpp                                           */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "editor_plugin_settings.h"
 
-#include "core/config/project_settings.h"
 #include "core/io/config_file.h"
-#include "core/io/dir_access.h"
-#include "core/io/file_access.h"
+#include "core/os/file_access.h"
 #include "core/os/main_loop.h"
-#include "editor/editor_node.h"
-#include "editor/editor_scale.h"
+#include "core/project_settings.h"
+#include "editor_node.h"
+#include "editor_scale.h"
 #include "scene/gui/margin_container.h"
-#include "scene/gui/tree.h"
 
 void EditorPluginSettings::_notification(int p_what) {
-	switch (p_what) {
-		case NOTIFICATION_WM_WINDOW_FOCUS_IN: {
-			update_plugins();
-		} break;
-
-		case Node::NOTIFICATION_READY: {
-			plugin_config_dialog->connect("plugin_ready", callable_mp(EditorNode::get_singleton(), &EditorNode::_on_plugin_ready));
-			plugin_list->connect("button_clicked", callable_mp(this, &EditorPluginSettings::_cell_button_pressed));
-		} break;
+	if (p_what == MainLoop::NOTIFICATION_WM_FOCUS_IN) {
+		update_plugins();
+	} else if (p_what == Node::NOTIFICATION_READY) {
+		plugin_config_dialog->connect("plugin_ready", EditorNode::get_singleton(), "_on_plugin_ready");
+		plugin_list->connect("button_pressed", this, "_cell_button_pressed");
 	}
 }
 
@@ -63,7 +57,7 @@ void EditorPluginSettings::update_plugins() {
 
 	for (int i = 0; i < plugins.size(); i++) {
 		Ref<ConfigFile> cf;
-		cf.instantiate();
+		cf.instance();
 		const String path = plugins[i];
 
 		Error err2 = cf->load(path);
@@ -99,23 +93,14 @@ void EditorPluginSettings::update_plugins() {
 				String author = cf->get_value("plugin", "author");
 				String version = cf->get_value("plugin", "version");
 				String description = cf->get_value("plugin", "description");
-				String scr = cf->get_value("plugin", "script");
-
-				const PackedInt32Array boundaries = TS->string_get_word_breaks(description, "", 80);
-				String wrapped_description;
-
-				for (int j = 0; j < boundaries.size(); j += 2) {
-					const int start = boundaries[j];
-					const int end = boundaries[j + 1];
-					wrapped_description += "\n" + description.substr(start, end - start + 1).rstrip("\n");
-				}
+				String script = cf->get_value("plugin", "script");
 
 				TreeItem *item = plugin_list->create_item(root);
 				item->set_text(0, name);
-				item->set_tooltip_text(0, TTR("Name:") + " " + name + "\n" + TTR("Path:") + " " + path + "\n" + TTR("Main Script:") + " " + scr + "\n" + TTR("Description:") + " " + wrapped_description);
+				item->set_tooltip(0, TTR("Name:") + " " + name + "\n" + TTR("Path:") + " " + path + "\n" + TTR("Main Script:") + " " + script + "\n" + TTR("Description:") + " " + description);
 				item->set_metadata(0, path);
 				item->set_text(1, version);
-				item->set_metadata(1, scr);
+				item->set_metadata(1, script);
 				item->set_text(2, author);
 				item->set_metadata(2, description);
 				item->set_cell_mode(3, TreeItem::CELL_MODE_CHECK);
@@ -123,7 +108,7 @@ void EditorPluginSettings::update_plugins() {
 				bool is_active = EditorNode::get_singleton()->is_addon_plugin_enabled(path);
 				item->set_checked(3, is_active);
 				item->set_editable(3, true);
-				item->add_button(4, get_editor_theme_icon(SNAME("Edit")), BUTTON_PLUGIN_EDIT, false, TTR("Edit Plugin"));
+				item->add_button(4, get_icon("Edit", "EditorIcons"), BUTTON_PLUGIN_EDIT, false, TTR("Edit Plugin"));
 			}
 		}
 	}
@@ -157,10 +142,7 @@ void EditorPluginSettings::_create_clicked() {
 	plugin_config_dialog->popup_centered();
 }
 
-void EditorPluginSettings::_cell_button_pressed(Object *p_item, int p_column, int p_id, MouseButton p_button) {
-	if (p_button != MouseButton::LEFT) {
-		return;
-	}
+void EditorPluginSettings::_cell_button_pressed(Object *p_item, int p_column, int p_id) {
 	TreeItem *item = Object::cast_to<TreeItem>(p_item);
 	if (!item) {
 		return;
@@ -175,7 +157,7 @@ void EditorPluginSettings::_cell_button_pressed(Object *p_item, int p_column, in
 }
 
 Vector<String> EditorPluginSettings::_get_plugins(const String &p_dir) {
-	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_RESOURCES);
+	DirAccessRef da = DirAccess::create(DirAccess::ACCESS_RESOURCES);
 	Error err = da->change_dir(p_dir);
 	if (err != OK) {
 		return Vector<String>();
@@ -183,13 +165,13 @@ Vector<String> EditorPluginSettings::_get_plugins(const String &p_dir) {
 
 	Vector<String> plugins;
 	da->list_dir_begin();
-	for (String path = da->get_next(); !path.is_empty(); path = da->get_next()) {
+	for (String path = da->get_next(); path != String(); path = da->get_next()) {
 		if (path[0] == '.' || !da->current_is_dir()) {
 			continue;
 		}
 
-		const String full_path = p_dir.path_join(path);
-		const String plugin_config = full_path.path_join("plugin.cfg");
+		const String full_path = p_dir.plus_file(path);
+		const String plugin_config = full_path.plus_file("plugin.cfg");
 		if (FileAccess::exists(plugin_config)) {
 			plugins.push_back(plugin_config);
 		} else {
@@ -202,23 +184,26 @@ Vector<String> EditorPluginSettings::_get_plugins(const String &p_dir) {
 }
 
 void EditorPluginSettings::_bind_methods() {
+	ClassDB::bind_method("update_plugins", &EditorPluginSettings::update_plugins);
+	ClassDB::bind_method("_create_clicked", &EditorPluginSettings::_create_clicked);
+	ClassDB::bind_method("_plugin_activity_changed", &EditorPluginSettings::_plugin_activity_changed);
+	ClassDB::bind_method("_cell_button_pressed", &EditorPluginSettings::_cell_button_pressed);
 }
 
 EditorPluginSettings::EditorPluginSettings() {
-	ProjectSettings::get_singleton()->add_hidden_prefix("editor_plugins/");
-
 	plugin_config_dialog = memnew(PluginConfigDialog);
 	plugin_config_dialog->config("");
 	add_child(plugin_config_dialog);
 
 	HBoxContainer *title_hb = memnew(HBoxContainer);
-	Label *l = memnew(Label(TTR("Installed Plugins:")));
-	l->set_theme_type_variation("HeaderSmall");
-	title_hb->add_child(l);
+	title_hb->add_child(memnew(Label(TTR("Installed Plugins:"))));
 	title_hb->add_spacer();
-	Button *create_plugin = memnew(Button(TTR("Create New Plugin")));
-	create_plugin->connect("pressed", callable_mp(this, &EditorPluginSettings::_create_clicked));
+	create_plugin = memnew(Button(TTR("Create")));
+	create_plugin->connect("pressed", this, "_create_clicked");
 	title_hb->add_child(create_plugin);
+	update_list = memnew(Button(TTR("Update")));
+	update_list->connect("pressed", this, "update_plugins");
+	title_hb->add_child(update_list);
 	add_child(title_hb);
 
 	plugin_list = memnew(Tree);
@@ -231,21 +216,16 @@ EditorPluginSettings::EditorPluginSettings() {
 	plugin_list->set_column_title(3, TTR("Status"));
 	plugin_list->set_column_title(4, TTR("Edit"));
 	plugin_list->set_column_expand(0, true);
-	plugin_list->set_column_clip_content(0, true);
 	plugin_list->set_column_expand(1, false);
-	plugin_list->set_column_clip_content(1, true);
 	plugin_list->set_column_expand(2, false);
-	plugin_list->set_column_clip_content(2, true);
 	plugin_list->set_column_expand(3, false);
-	plugin_list->set_column_clip_content(3, true);
 	plugin_list->set_column_expand(4, false);
-	plugin_list->set_column_clip_content(4, true);
-	plugin_list->set_column_custom_minimum_width(1, 100 * EDSCALE);
-	plugin_list->set_column_custom_minimum_width(2, 250 * EDSCALE);
-	plugin_list->set_column_custom_minimum_width(3, 80 * EDSCALE);
-	plugin_list->set_column_custom_minimum_width(4, 40 * EDSCALE);
+	plugin_list->set_column_min_width(1, 100 * EDSCALE);
+	plugin_list->set_column_min_width(2, 250 * EDSCALE);
+	plugin_list->set_column_min_width(3, 80 * EDSCALE);
+	plugin_list->set_column_min_width(4, 40 * EDSCALE);
 	plugin_list->set_hide_root(true);
-	plugin_list->connect("item_edited", callable_mp(this, &EditorPluginSettings::_plugin_activity_changed), CONNECT_DEFERRED);
+	plugin_list->connect("item_edited", this, "_plugin_activity_changed");
 
 	VBoxContainer *mc = memnew(VBoxContainer);
 	mc->add_child(plugin_list);
@@ -253,4 +233,6 @@ EditorPluginSettings::EditorPluginSettings() {
 	mc->set_h_size_flags(SIZE_EXPAND_FILL);
 
 	add_child(mc);
+
+	updating = false;
 }

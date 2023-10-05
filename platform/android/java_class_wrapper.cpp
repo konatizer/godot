@@ -1,40 +1,39 @@
-/**************************************************************************/
-/*  java_class_wrapper.cpp                                                */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  java_class_wrapper.cpp                                               */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "api/java_class_wrapper.h"
-
 #include "string_android.h"
 #include "thread_jandroid.h"
 
-bool JavaClass::_call_method(JavaObject *p_instance, const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error, Variant &ret) {
-	HashMap<StringName, List<MethodInfo>>::Iterator M = methods.find(p_method);
+bool JavaClass::_call_method(JavaObject *p_instance, const StringName &p_method, const Variant **p_args, int p_argcount, Variant::CallError &r_error, Variant &ret) {
+	Map<StringName, List<MethodInfo>>::Element *M = methods.find(p_method);
 	if (!M) {
 		return false;
 	}
@@ -43,24 +42,24 @@ bool JavaClass::_call_method(JavaObject *p_instance, const StringName &p_method,
 	ERR_FAIL_NULL_V(env, false);
 
 	MethodInfo *method = nullptr;
-	for (MethodInfo &E : M->value) {
-		if (!p_instance && !E._static) {
-			r_error.error = Callable::CallError::CALL_ERROR_INSTANCE_IS_NULL;
+	for (List<MethodInfo>::Element *E = M->get().front(); E; E = E->next()) {
+		if (!p_instance && !E->get()._static) {
+			r_error.error = Variant::CallError::CALL_ERROR_INSTANCE_IS_NULL;
 			continue;
 		}
 
-		int pc = E.param_types.size();
+		int pc = E->get().param_types.size();
 		if (pc > p_argcount) {
-			r_error.error = Callable::CallError::CALL_ERROR_TOO_FEW_ARGUMENTS;
+			r_error.error = Variant::CallError::CALL_ERROR_TOO_FEW_ARGUMENTS;
 			r_error.argument = pc;
 			continue;
 		}
 		if (pc < p_argcount) {
-			r_error.error = Callable::CallError::CALL_ERROR_TOO_MANY_ARGUMENTS;
+			r_error.error = Variant::CallError::CALL_ERROR_TOO_MANY_ARGUMENTS;
 			r_error.argument = pc;
 			continue;
 		}
-		uint32_t *ptypes = E.param_types.ptrw();
+		uint32_t *ptypes = E->get().param_types.ptrw();
 		bool valid = true;
 
 		for (int i = 0; i < pc; i++) {
@@ -93,7 +92,7 @@ bool JavaClass::_call_method(JavaObject *p_instance, const StringName &p_method,
 				case ARG_TYPE_FLOAT:
 				case ARG_TYPE_DOUBLE: {
 					if (!p_args[i]->is_num()) {
-						arg_expected = Variant::FLOAT;
+						arg_expected = Variant::REAL;
 					}
 				} break;
 				case ARG_TYPE_STRING: {
@@ -105,12 +104,12 @@ bool JavaClass::_call_method(JavaObject *p_instance, const StringName &p_method,
 					if (p_args[i]->get_type() != Variant::OBJECT) {
 						arg_expected = Variant::OBJECT;
 					} else {
-						Ref<RefCounted> ref = *p_args[i];
+						Ref<Reference> ref = *p_args[i];
 						if (!ref.is_null()) {
 							if (Object::cast_to<JavaObject>(ref.ptr())) {
 								Ref<JavaObject> jo = ref;
 								//could be faster
-								jclass c = env->FindClass(E.param_sigs[i].operator String().utf8().get_data());
+								jclass c = env->FindClass(E->get().param_sigs[i].operator String().utf8().get_data());
 								if (!c || !env->IsInstanceOf(jo->instance, c)) {
 									arg_expected = Variant::OBJECT;
 								} else {
@@ -121,6 +120,7 @@ bool JavaClass::_call_method(JavaObject *p_instance, const StringName &p_method,
 							}
 						}
 					}
+
 				} break;
 				default: {
 					if (p_args[i]->get_type() != Variant::ARRAY) {
@@ -130,7 +130,7 @@ bool JavaClass::_call_method(JavaObject *p_instance, const StringName &p_method,
 			}
 
 			if (arg_expected != Variant::NIL) {
-				r_error.error = Callable::CallError::CALL_ERROR_INVALID_ARGUMENT;
+				r_error.error = Variant::CallError::CALL_ERROR_INVALID_ARGUMENT;
 				r_error.argument = i;
 				r_error.expected = arg_expected;
 				valid = false;
@@ -141,7 +141,7 @@ bool JavaClass::_call_method(JavaObject *p_instance, const StringName &p_method,
 			continue;
 		}
 
-		method = &E;
+		method = &E->get();
 		break;
 	}
 
@@ -149,7 +149,7 @@ bool JavaClass::_call_method(JavaObject *p_instance, const StringName &p_method,
 		return true; //no version convinces
 	}
 
-	r_error.error = Callable::CallError::CALL_OK;
+	r_error.error = Variant::CallError::CALL_OK;
 
 	jvalue *argv = nullptr;
 
@@ -382,7 +382,7 @@ bool JavaClass::_call_method(JavaObject *p_instance, const StringName &p_method,
 		}
 	}
 
-	r_error.error = Callable::CallError::CALL_OK;
+	r_error.error = Variant::CallError::CALL_OK;
 	bool success = true;
 
 	switch (method->return_type) {
@@ -469,7 +469,7 @@ bool JavaClass::_call_method(JavaObject *p_instance, const StringName &p_method,
 			} else {
 				if (!_convert_object_to_variant(env, obj, ret, method->return_type)) {
 					ret = Variant();
-					r_error.error = Callable::CallError::CALL_ERROR_INVALID_METHOD;
+					r_error.error = Variant::CallError::CALL_ERROR_INVALID_METHOD;
 					success = false;
 				}
 				env->DeleteLocalRef(obj);
@@ -478,21 +478,21 @@ bool JavaClass::_call_method(JavaObject *p_instance, const StringName &p_method,
 		} break;
 	}
 
-	for (jobject &E : to_free) {
-		env->DeleteLocalRef(E);
+	for (List<jobject>::Element *E = to_free.front(); E; E = E->next()) {
+		env->DeleteLocalRef(E->get());
 	}
 
 	return success;
 }
 
-Variant JavaClass::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+Variant JavaClass::call(const StringName &p_method, const Variant **p_args, int p_argcount, Variant::CallError &r_error) {
 	Variant ret;
 	bool found = _call_method(nullptr, p_method, p_args, p_argcount, r_error, ret);
 	if (found) {
 		return ret;
 	}
 
-	return RefCounted::callp(p_method, p_args, p_argcount, r_error);
+	return Reference::call(p_method, p_args, p_argcount, r_error);
 }
 
 JavaClass::JavaClass() {
@@ -500,7 +500,7 @@ JavaClass::JavaClass() {
 
 /////////////////////
 
-Variant JavaObject::callp(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+Variant JavaObject::call(const StringName &p_method, const Variant **p_args, int p_argcount, Variant::CallError &r_error) {
 	return Variant();
 }
 

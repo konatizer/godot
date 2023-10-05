@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  codesign.cpp                                                          */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  codesign.cpp                                                         */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "codesign.h"
 
@@ -35,9 +35,7 @@
 #include "plist.h"
 
 #include "core/os/os.h"
-#include "editor/editor_paths.h"
 #include "editor/editor_settings.h"
-
 #include "modules/modules_enabled.gen.h" // For regex.
 
 #include <ctime>
@@ -49,8 +47,8 @@
 /*************************************************************************/
 
 String CodeSignCodeResources::hash_sha1_base64(const String &p_path) {
-	Ref<FileAccess> fa = FileAccess::open(p_path, FileAccess::READ);
-	ERR_FAIL_COND_V_MSG(fa.is_null(), String(), vformat("CodeSign/CodeResources: Can't open file: \"%s\".", p_path));
+	FileAccessRef fa = FileAccess::open(p_path, FileAccess::READ);
+	ERR_FAIL_COND_V_MSG(!fa, String(), vformat("CodeSign/CodeResources: Can't open file: \"%s\".", p_path));
 
 	CryptoCore::SHA1Context ctx;
 	ctx.start();
@@ -68,13 +66,14 @@ String CodeSignCodeResources::hash_sha1_base64(const String &p_path) {
 
 	unsigned char hash[0x14];
 	ctx.finish(hash);
+	fa->close();
 
 	return CryptoCore::b64_encode_str(hash, 0x14);
 }
 
 String CodeSignCodeResources::hash_sha256_base64(const String &p_path) {
-	Ref<FileAccess> fa = FileAccess::open(p_path, FileAccess::READ);
-	ERR_FAIL_COND_V_MSG(fa.is_null(), String(), vformat("CodeSign/CodeResources: Can't open file: \"%s\".", p_path));
+	FileAccessRef fa = FileAccess::open(p_path, FileAccess::READ);
+	ERR_FAIL_COND_V_MSG(!fa, String(), vformat("CodeSign/CodeResources: Can't open file: \"%s\".", p_path));
 
 	CryptoCore::SHA256Context ctx;
 	ctx.start();
@@ -92,6 +91,7 @@ String CodeSignCodeResources::hash_sha256_base64(const String &p_path) {
 
 	unsigned char hash[0x20];
 	ctx.finish(hash);
+	fa->close();
 
 	return CryptoCore::b64_encode_str(hash, 0x20);
 }
@@ -108,7 +108,7 @@ CodeSignCodeResources::CRMatch CodeSignCodeResources::match_rules1(const String 
 	CRMatch found = CRMatch::CR_MATCH_NO;
 	int weight = 0;
 	for (int i = 0; i < rules1.size(); i++) {
-		RegEx regex = RegEx(rules1[i].file_pattern);
+		RegEx regex(rules1[i].file_pattern);
 		if (regex.search(p_path).is_valid()) {
 			if (rules1[i].key == "omit") {
 				return CRMatch::CR_MATCH_NO;
@@ -137,7 +137,7 @@ CodeSignCodeResources::CRMatch CodeSignCodeResources::match_rules2(const String 
 	CRMatch found = CRMatch::CR_MATCH_NO;
 	int weight = 0;
 	for (int i = 0; i < rules2.size(); i++) {
-		RegEx regex = RegEx(rules2[i].file_pattern);
+		RegEx regex(rules2[i].file_pattern);
 		if (regex.search(p_path).is_valid()) {
 			if (rules2[i].key == "omit") {
 				return CRMatch::CR_MATCH_NO;
@@ -172,7 +172,7 @@ bool CodeSignCodeResources::add_file1(const String &p_root, const String &p_path
 	f.name = p_path;
 	f.optional = (found == CRMatch::CR_MATCH_OPTIONAL);
 	f.nested = false;
-	f.hash = hash_sha1_base64(p_root.path_join(p_path));
+	f.hash = hash_sha1_base64(p_root.plus_file(p_path));
 	print_verbose(vformat("CodeSign/CodeResources: File(V1) %s hash1:%s", f.name, f.hash));
 
 	files1.push_back(f);
@@ -182,7 +182,7 @@ bool CodeSignCodeResources::add_file1(const String &p_root, const String &p_path
 bool CodeSignCodeResources::add_file2(const String &p_root, const String &p_path) {
 	CRMatch found = match_rules2(p_path);
 	if (found == CRMatch::CR_MATCH_NESTED) {
-		return add_nested_file(p_root, p_path, p_root.path_join(p_path));
+		return add_nested_file(p_root, p_path, p_root.plus_file(p_path));
 	}
 	if (found != CRMatch::CR_MATCH_YES && found != CRMatch::CR_MATCH_OPTIONAL) {
 		return true; // No match.
@@ -192,8 +192,8 @@ bool CodeSignCodeResources::add_file2(const String &p_root, const String &p_path
 	f.name = p_path;
 	f.optional = (found == CRMatch::CR_MATCH_OPTIONAL);
 	f.nested = false;
-	f.hash = hash_sha1_base64(p_root.path_join(p_path));
-	f.hash2 = hash_sha256_base64(p_root.path_join(p_path));
+	f.hash = hash_sha1_base64(p_root.plus_file(p_path));
+	f.hash2 = hash_sha256_base64(p_root.plus_file(p_path));
 
 	print_verbose(vformat("CodeSign/CodeResources: File(V2) %s hash1:%s hash2:%s", f.name, f.hash, f.hash2));
 
@@ -209,22 +209,24 @@ bool CodeSignCodeResources::add_nested_file(const String &p_root, const String &
 		}                                               \
 	}
 
-	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
-	ERR_FAIL_COND_V(da.is_null(), false);
+	DirAccessRef da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	ERR_FAIL_COND_V(!da, false);
 
 	Vector<String> files_to_add;
 	if (LipO::is_lipo(p_exepath)) {
-		String tmp_path_name = EditorPaths::get_singleton()->get_cache_dir().path_join("_lipo");
+		String tmp_path_name = EditorSettings::get_singleton()->get_cache_dir().plus_file("_lipo");
 		Error err = da->make_dir_recursive(tmp_path_name);
-		ERR_FAIL_COND_V_MSG(err != OK, false, vformat("CodeSign/CodeResources: Failed to create \"%s\" subfolder.", tmp_path_name));
+		if (err != OK) {
+			ERR_FAIL_V_MSG(false, vformat("CodeSign/CodeResources: Failed to create \"%s\" subfolder.", tmp_path_name));
+		}
 		LipO lip;
 		if (lip.open_file(p_exepath)) {
 			for (int i = 0; i < lip.get_arch_count(); i++) {
-				if (!lip.extract_arch(i, tmp_path_name.path_join("_rqexe_" + itos(i)))) {
+				if (!lip.extract_arch(i, tmp_path_name.plus_file("_rqexe_" + itos(i)))) {
 					CLEANUP();
 					ERR_FAIL_V_MSG(false, "CodeSign/CodeResources: Failed to extract thin binary.");
 				}
-				files_to_add.push_back(tmp_path_name.path_join("_rqexe_" + itos(i)));
+				files_to_add.push_back(tmp_path_name.plus_file("_rqexe_" + itos(i)));
 			}
 		}
 	} else if (MachO::is_macho(p_exepath)) {
@@ -241,7 +243,7 @@ bool CodeSignCodeResources::add_nested_file(const String &p_root, const String &
 			CLEANUP();
 			ERR_FAIL_V_MSG(false, "CodeSign/CodeResources: Invalid executable file.");
 		}
-		PackedByteArray hash = mh.get_cdhash_sha256(); // Use SHA-256 variant, if available.
+		PoolByteArray hash = mh.get_cdhash_sha256(); // Use SHA-256 variant, if available.
 		if (hash.size() != 0x20) {
 			hash = mh.get_cdhash_sha1(); // Use SHA-1 instead.
 			if (hash.size() != 0x14) {
@@ -250,12 +252,12 @@ bool CodeSignCodeResources::add_nested_file(const String &p_root, const String &
 			}
 		}
 		hash.resize(0x14); // Always clamp to 0x14 size.
-		f.hash = CryptoCore::b64_encode_str(hash.ptr(), hash.size());
+		f.hash = CryptoCore::b64_encode_str(hash.read().ptr(), hash.size());
 
-		PackedByteArray rq_blob = mh.get_requirements();
+		PoolByteArray rq_blob = mh.get_requirements();
 		String req_string;
 		if (rq_blob.size() > 8) {
-			CodeSignRequirements rq = CodeSignRequirements(rq_blob);
+			CodeSignRequirements rq(rq_blob);
 			Vector<String> rqs = rq.parse_requirements();
 			for (int j = 0; j < rqs.size(); j++) {
 				if (rqs[j].begins_with("designated => ")) {
@@ -263,8 +265,8 @@ bool CodeSignCodeResources::add_nested_file(const String &p_root, const String &
 				}
 			}
 		}
-		if (req_string.is_empty()) {
-			req_string = "cdhash H\"" + String::hex_encode_buffer(hash.ptr(), hash.size()) + "\"";
+		if (req_string.empty()) {
+			req_string = "cdhash H\"" + String::hex_encode_buffer(hash.read().ptr(), hash.size()) + "\"";
 		}
 		print_verbose(vformat("CodeSign/CodeResources: Nested object %s (cputype: %d) cdhash:%s designated rq:%s", f.name, mh.get_cputype(), f.hash, req_string));
 		if (f.requirements != req_string) {
@@ -283,9 +285,9 @@ bool CodeSignCodeResources::add_nested_file(const String &p_root, const String &
 }
 
 bool CodeSignCodeResources::add_folder_recursive(const String &p_root, const String &p_path, const String &p_main_exe_path) {
-	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
-	ERR_FAIL_COND_V(da.is_null(), false);
-	Error err = da->change_dir(p_root.path_join(p_path));
+	DirAccessRef da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	ERR_FAIL_COND_V(!da, false);
+	Error err = da->change_dir(p_root.plus_file(p_path));
 	ERR_FAIL_COND_V(err != OK, false);
 
 	bool ret = true;
@@ -293,49 +295,50 @@ bool CodeSignCodeResources::add_folder_recursive(const String &p_root, const Str
 	String n = da->get_next();
 	while (n != String()) {
 		if (n != "." && n != "..") {
-			String path = p_root.path_join(p_path).path_join(n);
+			String path = p_root.plus_file(p_path).plus_file(n);
 			if (path == p_main_exe_path) {
 				n = da->get_next();
 				continue; // Skip main executable.
 			}
 			if (da->current_is_dir()) {
-				CRMatch found = match_rules2(p_path.path_join(n));
+				CRMatch found = match_rules2(p_path.plus_file(n));
 				String fmw_ver = "Current"; // Framework version (default).
 				String info_path;
 				String main_exe;
+				String bundle_path;
 				bool bundle = false;
-				if (da->file_exists(path.path_join("Contents/Info.plist"))) {
-					info_path = path.path_join("Contents/Info.plist");
-					main_exe = path.path_join("Contents/MacOS");
+				if (da->file_exists(path.plus_file("Contents/Info.plist"))) {
+					info_path = path.plus_file("Contents/Info.plist");
+					main_exe = path.plus_file("Contents/MacOS");
 					bundle = true;
-				} else if (da->file_exists(path.path_join(vformat("Versions/%s/Resources/Info.plist", fmw_ver)))) {
-					info_path = path.path_join(vformat("Versions/%s/Resources/Info.plist", fmw_ver));
-					main_exe = path.path_join(vformat("Versions/%s", fmw_ver));
+				} else if (da->file_exists(path.plus_file(vformat("Versions/%s/Resources/Info.plist", fmw_ver)))) {
+					info_path = path.plus_file(vformat("Versions/%s/Resources/Info.plist", fmw_ver));
+					main_exe = path.plus_file(vformat("Versions/%s", fmw_ver));
 					bundle = true;
-				} else if (da->file_exists(path.path_join("Info.plist"))) {
-					info_path = path.path_join("Info.plist");
+				} else if (da->file_exists(path.plus_file("Info.plist"))) {
+					info_path = path.plus_file("Info.plist");
 					main_exe = path;
 					bundle = true;
 				}
-				if (bundle && found == CRMatch::CR_MATCH_NESTED && !info_path.is_empty()) {
+				if (bundle && found == CRMatch::CR_MATCH_NESTED && !info_path.empty()) {
 					// Read Info.plist.
 					PList info_plist;
 					if (info_plist.load_file(info_path)) {
 						if (info_plist.get_root()->data_type == PList::PLNodeType::PL_NODE_TYPE_DICT && info_plist.get_root()->data_dict.has("CFBundleExecutable")) {
-							main_exe = main_exe.path_join(String::utf8(info_plist.get_root()->data_dict["CFBundleExecutable"]->data_string.get_data()));
+							main_exe = main_exe.plus_file(String::utf8(info_plist.get_root()->data_dict["CFBundleExecutable"]->data_string.get_data()));
 						} else {
 							ERR_FAIL_V_MSG(false, "CodeSign/CodeResources: Invalid Info.plist, no exe name.");
 						}
 					} else {
 						ERR_FAIL_V_MSG(false, "CodeSign/CodeResources: Invalid Info.plist, can't load.");
 					}
-					ret = ret && add_nested_file(p_root, p_path.path_join(n), main_exe);
+					ret = ret && add_nested_file(p_root, p_path.plus_file(n), main_exe);
 				} else {
-					ret = ret && add_folder_recursive(p_root, p_path.path_join(n), p_main_exe_path);
+					ret = ret && add_folder_recursive(p_root, p_path.plus_file(n), p_main_exe_path);
 				}
 			} else {
-				ret = ret && add_file1(p_root, p_path.path_join(n));
-				ret = ret && add_file2(p_root, p_path.path_join(n));
+				ret = ret && add_file1(p_root, p_path.plus_file(n));
+				ret = ret && add_file2(p_root, p_path.plus_file(n));
 			}
 		}
 
@@ -390,12 +393,12 @@ bool CodeSignCodeResources::save_to_file(const String &p_path) {
 	pl.get_root()->push_subnode(rules1_dict, "rules");
 	for (int i = 0; i < rules1.size(); i++) {
 		if (rules1[i].store) {
-			if (rules1[i].key.is_empty() && rules1[i].weight <= 0) {
+			if (rules1[i].key.empty() && rules1[i].weight <= 0) {
 				rules1_dict->push_subnode(PListNode::new_bool(true), rules1[i].file_pattern);
 			} else {
 				Ref<PListNode> rule_dict = PListNode::new_dict();
 				rules1_dict->push_subnode(rule_dict, rules1[i].file_pattern);
-				if (!rules1[i].key.is_empty()) {
+				if (!rules1[i].key.empty()) {
 					rule_dict->push_subnode(PListNode::new_bool(true), rules1[i].key);
 				}
 				if (rules1[i].weight != 1) {
@@ -410,12 +413,12 @@ bool CodeSignCodeResources::save_to_file(const String &p_path) {
 	pl.get_root()->push_subnode(rules2_dict, "rules2");
 	for (int i = 0; i < rules2.size(); i++) {
 		if (rules2[i].store) {
-			if (rules2[i].key.is_empty() && rules2[i].weight <= 0) {
+			if (rules2[i].key.empty() && rules2[i].weight <= 0) {
 				rules2_dict->push_subnode(PListNode::new_bool(true), rules2[i].file_pattern);
 			} else {
 				Ref<PListNode> rule_dict = PListNode::new_dict();
 				rules2_dict->push_subnode(rule_dict, rules2[i].file_pattern);
-				if (!rules2[i].key.is_empty()) {
+				if (!rules2[i].key.empty()) {
 					rule_dict->push_subnode(PListNode::new_bool(true), rules2[i].key);
 				}
 				if (rules2[i].weight != 1) {
@@ -425,13 +428,14 @@ bool CodeSignCodeResources::save_to_file(const String &p_path) {
 		}
 	}
 	String text = pl.save_text();
-	ERR_FAIL_COND_V_MSG(text.is_empty(), false, "CodeSign/CodeResources: Generating resources PList failed.");
+	ERR_FAIL_COND_V_MSG(text.empty(), false, "CodeSign/CodeResources: Generating resources PList failed.");
 
-	Ref<FileAccess> fa = FileAccess::open(p_path, FileAccess::WRITE);
-	ERR_FAIL_COND_V_MSG(fa.is_null(), false, vformat("CodeSign/CodeResources: Can't open file: \"%s\".", p_path));
+	FileAccessRef fa = FileAccess::open(p_path, FileAccess::WRITE);
+	ERR_FAIL_COND_V_MSG(!fa, false, vformat("CodeSign/CodeResources: Can't open file: \"%s\".", p_path));
 
 	CharString cs = text.utf8();
 	fa->store_buffer((const uint8_t *)cs.ptr(), cs.length());
+	fa->close();
 	return true;
 }
 
@@ -440,17 +444,24 @@ bool CodeSignCodeResources::save_to_file(const String &p_path) {
 /*************************************************************************/
 
 CodeSignRequirements::CodeSignRequirements() {
-	blob.append_array({ 0xFA, 0xDE, 0x0C, 0x01 }); // Requirement set magic.
-	blob.append_array({ 0x00, 0x00, 0x00, 0x0C }); // Length of requirements set (12 bytes).
-	blob.append_array({ 0x00, 0x00, 0x00, 0x00 }); // Empty.
+#define _W(a, b, c, d) \
+	blob.push_back(a); \
+	blob.push_back(b); \
+	blob.push_back(c); \
+	blob.push_back(d);
+	_W(0xFA, 0xDE, 0x0C, 0x01); // Requirement set magic.
+	_W(0x00, 0x00, 0x00, 0x0C); // Length of requirements set (12 bytes).
+	_W(0x00, 0x00, 0x00, 0x00); // Empty.
+#undef _W
 }
 
-CodeSignRequirements::CodeSignRequirements(const PackedByteArray &p_data) {
+CodeSignRequirements::CodeSignRequirements(const PoolByteArray &p_data) {
 	blob = p_data;
 }
 
 _FORCE_INLINE_ void CodeSignRequirements::_parse_certificate_slot(uint32_t &r_pos, String &r_out, uint32_t p_rq_size) const {
-#define _R(x) BSWAP32(*(uint32_t *)(blob.ptr() + x))
+#define _R(x) BSWAP32(*(uint32_t *)(r.ptr() + x))
+	PoolByteArray::Read r = blob.read();
 	ERR_FAIL_COND_MSG(r_pos >= p_rq_size, "CodeSign/Requirements: Out of bounds.");
 	r_out += "certificate ";
 	uint32_t tag_slot = _R(r_pos);
@@ -466,20 +477,22 @@ _FORCE_INLINE_ void CodeSignRequirements::_parse_certificate_slot(uint32_t &r_po
 }
 
 _FORCE_INLINE_ void CodeSignRequirements::_parse_key(uint32_t &r_pos, String &r_out, uint32_t p_rq_size) const {
-#define _R(x) BSWAP32(*(uint32_t *)(blob.ptr() + x))
+#define _R(x) BSWAP32(*(uint32_t *)(r.ptr() + x))
+	PoolByteArray::Read r = blob.read();
 	ERR_FAIL_COND_MSG(r_pos >= p_rq_size, "CodeSign/Requirements: Out of bounds.");
 	uint32_t key_size = _R(r_pos);
 	ERR_FAIL_COND_MSG(r_pos + key_size > p_rq_size, "CodeSign/Requirements: Out of bounds.");
 	CharString key;
 	key.resize(key_size);
-	memcpy(key.ptrw(), blob.ptr() + r_pos + 4, key_size);
+	memcpy((void *)key.ptrw(), blob.read().ptr() + r_pos + 4, key_size);
 	r_pos += 4 + key_size + PAD(key_size, 4);
 	r_out += "[" + String::utf8(key, key_size) + "]";
 #undef _R
 }
 
 _FORCE_INLINE_ void CodeSignRequirements::_parse_oid_key(uint32_t &r_pos, String &r_out, uint32_t p_rq_size) const {
-#define _R(x) BSWAP32(*(uint32_t *)(blob.ptr() + x))
+#define _R(x) BSWAP32(*(uint32_t *)(r.ptr() + x))
+	PoolByteArray::Read r = blob.read();
 	ERR_FAIL_COND_MSG(r_pos >= p_rq_size, "CodeSign/Requirements: Out of bounds.");
 	uint32_t key_size = _R(r_pos);
 	ERR_FAIL_COND_MSG(r_pos + key_size > p_rq_size, "CodeSign/Requirements: Out of bounds.");
@@ -510,33 +523,36 @@ _FORCE_INLINE_ void CodeSignRequirements::_parse_oid_key(uint32_t &r_pos, String
 }
 
 _FORCE_INLINE_ void CodeSignRequirements::_parse_hash_string(uint32_t &r_pos, String &r_out, uint32_t p_rq_size) const {
-#define _R(x) BSWAP32(*(uint32_t *)(blob.ptr() + x))
+#define _R(x) BSWAP32(*(uint32_t *)(r.ptr() + x))
+	PoolByteArray::Read r = blob.read();
 	ERR_FAIL_COND_MSG(r_pos >= p_rq_size, "CodeSign/Requirements: Out of bounds.");
 	uint32_t tag_size = _R(r_pos);
 	ERR_FAIL_COND_MSG(r_pos + tag_size > p_rq_size, "CodeSign/Requirements: Out of bounds.");
-	PackedByteArray data;
+	PoolByteArray data;
 	data.resize(tag_size);
-	memcpy(data.ptrw(), blob.ptr() + r_pos + 4, tag_size);
-	r_out += "H\"" + String::hex_encode_buffer(data.ptr(), data.size()) + "\"";
+	memcpy(data.write().ptr(), blob.read().ptr() + r_pos + 4, tag_size);
+	r_out += "H\"" + String::hex_encode_buffer(data.read().ptr(), data.size()) + "\"";
 	r_pos += 4 + tag_size + PAD(tag_size, 4);
 #undef _R
 }
 
 _FORCE_INLINE_ void CodeSignRequirements::_parse_value(uint32_t &r_pos, String &r_out, uint32_t p_rq_size) const {
-#define _R(x) BSWAP32(*(uint32_t *)(blob.ptr() + x))
+#define _R(x) BSWAP32(*(uint32_t *)(r.ptr() + x))
+	PoolByteArray::Read r = blob.read();
 	ERR_FAIL_COND_MSG(r_pos >= p_rq_size, "CodeSign/Requirements: Out of bounds.");
 	uint32_t key_size = _R(r_pos);
 	ERR_FAIL_COND_MSG(r_pos + key_size > p_rq_size, "CodeSign/Requirements: Out of bounds.");
 	CharString key;
 	key.resize(key_size);
-	memcpy(key.ptrw(), blob.ptr() + r_pos + 4, key_size);
+	memcpy((void *)key.ptrw(), blob.read().ptr() + r_pos + 4, key_size);
 	r_pos += 4 + key_size + PAD(key_size, 4);
 	r_out += "\"" + String::utf8(key, key_size) + "\"";
 #undef _R
 }
 
 _FORCE_INLINE_ void CodeSignRequirements::_parse_date(uint32_t &r_pos, String &r_out, uint32_t p_rq_size) const {
-#define _R(x) BSWAP32(*(uint32_t *)(blob.ptr() + x))
+#define _R(x) BSWAP32(*(uint32_t *)(r.ptr() + x))
+	PoolByteArray::Read r = blob.read();
 	ERR_FAIL_COND_MSG(r_pos >= p_rq_size, "CodeSign/Requirements: Out of bounds.");
 	uint32_t date = _R(r_pos);
 	time_t t = 978307200 + date;
@@ -551,7 +567,8 @@ _FORCE_INLINE_ void CodeSignRequirements::_parse_date(uint32_t &r_pos, String &r
 }
 
 _FORCE_INLINE_ bool CodeSignRequirements::_parse_match(uint32_t &r_pos, String &r_out, uint32_t p_rq_size) const {
-#define _R(x) BSWAP32(*(uint32_t *)(blob.ptr() + x))
+#define _R(x) BSWAP32(*(uint32_t *)(r.ptr() + x))
+	PoolByteArray::Read r = blob.read();
 	ERR_FAIL_COND_V_MSG(r_pos >= p_rq_size, false, "CodeSign/Requirements: Out of bounds.");
 	uint32_t match = _R(r_pos);
 	r_pos += 4;
@@ -624,7 +641,8 @@ _FORCE_INLINE_ bool CodeSignRequirements::_parse_match(uint32_t &r_pos, String &
 }
 
 Vector<String> CodeSignRequirements::parse_requirements() const {
-#define _R(x) BSWAP32(*(uint32_t *)(blob.ptr() + x))
+#define _R(x) BSWAP32(*(uint32_t *)(r.ptr() + x))
+	PoolByteArray::Read r = blob.read();
 	Vector<String> list;
 
 	// Read requirements set header.
@@ -776,26 +794,26 @@ Vector<String> CodeSignRequirements::parse_requirements() const {
 #undef _R
 }
 
-PackedByteArray CodeSignRequirements::get_hash_sha1() const {
-	PackedByteArray hash;
+PoolByteArray CodeSignRequirements::get_hash_sha1() const {
+	PoolByteArray hash;
 	hash.resize(0x14);
 
 	CryptoCore::SHA1Context ctx;
 	ctx.start();
-	ctx.update(blob.ptr(), blob.size());
-	ctx.finish(hash.ptrw());
+	ctx.update(blob.read().ptr(), blob.size());
+	ctx.finish(hash.write().ptr());
 
 	return hash;
 }
 
-PackedByteArray CodeSignRequirements::get_hash_sha256() const {
-	PackedByteArray hash;
+PoolByteArray CodeSignRequirements::get_hash_sha256() const {
+	PoolByteArray hash;
 	hash.resize(0x20);
 
 	CryptoCore::SHA256Context ctx;
 	ctx.start();
-	ctx.update(blob.ptr(), blob.size());
-	ctx.finish(hash.ptrw());
+	ctx.update(blob.read().ptr(), blob.size());
+	ctx.finish(hash.write().ptr());
 
 	return hash;
 }
@@ -804,9 +822,9 @@ int CodeSignRequirements::get_size() const {
 	return blob.size();
 }
 
-void CodeSignRequirements::write_to_file(Ref<FileAccess> p_file) const {
-	ERR_FAIL_COND_MSG(p_file.is_null(), "CodeSign/Requirements: Invalid file handle.");
-	p_file->store_buffer(blob.ptr(), blob.size());
+void CodeSignRequirements::write_to_file(FileAccess *p_file) const {
+	ERR_FAIL_COND_MSG(!p_file, "CodeSign/Requirements: Invalid file handle.");
+	p_file->store_buffer(blob.read().ptr(), blob.size());
 }
 
 /*************************************************************************/
@@ -814,13 +832,24 @@ void CodeSignRequirements::write_to_file(Ref<FileAccess> p_file) const {
 /*************************************************************************/
 
 CodeSignEntitlementsText::CodeSignEntitlementsText() {
-	blob.append_array({ 0xFA, 0xDE, 0x71, 0x71 }); // Text Entitlements set magic.
-	blob.append_array({ 0x00, 0x00, 0x00, 0x08 }); // Length (8 bytes).
+#define _W(a, b, c, d) \
+	blob.push_back(a); \
+	blob.push_back(b); \
+	blob.push_back(c); \
+	blob.push_back(d);
+	_W(0xFA, 0xDE, 0x71, 0x71); // Text Entitlements set magic.
+	_W(0x00, 0x00, 0x00, 0x08); // Length (8 bytes).
+#undef _W
 }
 
 CodeSignEntitlementsText::CodeSignEntitlementsText(const String &p_string) {
 	CharString utf8 = p_string.utf8();
-	blob.append_array({ 0xFA, 0xDE, 0x71, 0x71 }); // Text Entitlements set magic.
+#define _W(a, b, c, d) \
+	blob.push_back(a); \
+	blob.push_back(b); \
+	blob.push_back(c); \
+	blob.push_back(d);
+	_W(0xFA, 0xDE, 0x71, 0x71); // Text Entitlements set magic.
 	for (int i = 3; i >= 0; i--) {
 		uint8_t x = ((utf8.length() + 8) >> i * 8) & 0xFF; // Size.
 		blob.push_back(x);
@@ -828,28 +857,29 @@ CodeSignEntitlementsText::CodeSignEntitlementsText(const String &p_string) {
 	for (int i = 0; i < utf8.length(); i++) { // Write data.
 		blob.push_back(utf8[i]);
 	}
+#undef _W
 }
 
-PackedByteArray CodeSignEntitlementsText::get_hash_sha1() const {
-	PackedByteArray hash;
+PoolByteArray CodeSignEntitlementsText::get_hash_sha1() const {
+	PoolByteArray hash;
 	hash.resize(0x14);
 
 	CryptoCore::SHA1Context ctx;
 	ctx.start();
-	ctx.update(blob.ptr(), blob.size());
-	ctx.finish(hash.ptrw());
+	ctx.update(blob.read().ptr(), blob.size());
+	ctx.finish(hash.write().ptr());
 
 	return hash;
 }
 
-PackedByteArray CodeSignEntitlementsText::get_hash_sha256() const {
-	PackedByteArray hash;
+PoolByteArray CodeSignEntitlementsText::get_hash_sha256() const {
+	PoolByteArray hash;
 	hash.resize(0x20);
 
 	CryptoCore::SHA256Context ctx;
 	ctx.start();
-	ctx.update(blob.ptr(), blob.size());
-	ctx.finish(hash.ptrw());
+	ctx.update(blob.read().ptr(), blob.size());
+	ctx.finish(hash.write().ptr());
 
 	return hash;
 }
@@ -858,9 +888,9 @@ int CodeSignEntitlementsText::get_size() const {
 	return blob.size();
 }
 
-void CodeSignEntitlementsText::write_to_file(Ref<FileAccess> p_file) const {
-	ERR_FAIL_COND_MSG(p_file.is_null(), "CodeSign/EntitlementsText: Invalid file handle.");
-	p_file->store_buffer(blob.ptr(), blob.size());
+void CodeSignEntitlementsText::write_to_file(FileAccess *p_file) const {
+	ERR_FAIL_COND_MSG(!p_file, "CodeSign/EntitlementsText: Invalid file handle.");
+	p_file->store_buffer(blob.read().ptr(), blob.size());
 }
 
 /*************************************************************************/
@@ -868,43 +898,55 @@ void CodeSignEntitlementsText::write_to_file(Ref<FileAccess> p_file) const {
 /*************************************************************************/
 
 CodeSignEntitlementsBinary::CodeSignEntitlementsBinary() {
-	blob.append_array({ 0xFA, 0xDE, 0x71, 0x72 }); // Binary Entitlements magic.
-	blob.append_array({ 0x00, 0x00, 0x00, 0x08 }); // Length (8 bytes).
+#define _W(a, b, c, d) \
+	blob.push_back(a); \
+	blob.push_back(b); \
+	blob.push_back(c); \
+	blob.push_back(d);
+	_W(0xFA, 0xDE, 0x71, 0x72); // Binary Entitlements magic.
+	_W(0x00, 0x00, 0x00, 0x08); // Length (8 bytes).
+#undef _W
 }
 
 CodeSignEntitlementsBinary::CodeSignEntitlementsBinary(const String &p_string) {
-	PList pl = PList(p_string);
+	PList pl(p_string);
 
-	PackedByteArray asn1 = pl.save_asn1();
-	blob.append_array({ 0xFA, 0xDE, 0x71, 0x72 }); // Binary Entitlements magic.
+	PoolByteArray asn1 = pl.save_asn1();
+#define _W(a, b, c, d) \
+	blob.push_back(a); \
+	blob.push_back(b); \
+	blob.push_back(c); \
+	blob.push_back(d);
+	_W(0xFA, 0xDE, 0x71, 0x72); // Binary Entitlements magic.
 	uint32_t size = asn1.size() + 8;
 	for (int i = 3; i >= 0; i--) {
 		uint8_t x = (size >> i * 8) & 0xFF; // Size.
 		blob.push_back(x);
 	}
 	blob.append_array(asn1); // Write data.
+#undef _W
 }
 
-PackedByteArray CodeSignEntitlementsBinary::get_hash_sha1() const {
-	PackedByteArray hash;
+PoolByteArray CodeSignEntitlementsBinary::get_hash_sha1() const {
+	PoolByteArray hash;
 	hash.resize(0x14);
 
 	CryptoCore::SHA1Context ctx;
 	ctx.start();
-	ctx.update(blob.ptr(), blob.size());
-	ctx.finish(hash.ptrw());
+	ctx.update(blob.read().ptr(), blob.size());
+	ctx.finish(hash.write().ptr());
 
 	return hash;
 }
 
-PackedByteArray CodeSignEntitlementsBinary::get_hash_sha256() const {
-	PackedByteArray hash;
+PoolByteArray CodeSignEntitlementsBinary::get_hash_sha256() const {
+	PoolByteArray hash;
 	hash.resize(0x20);
 
 	CryptoCore::SHA256Context ctx;
 	ctx.start();
-	ctx.update(blob.ptr(), blob.size());
-	ctx.finish(hash.ptrw());
+	ctx.update(blob.read().ptr(), blob.size());
+	ctx.finish(hash.write().ptr());
 
 	return hash;
 }
@@ -913,9 +955,9 @@ int CodeSignEntitlementsBinary::get_size() const {
 	return blob.size();
 }
 
-void CodeSignEntitlementsBinary::write_to_file(Ref<FileAccess> p_file) const {
-	ERR_FAIL_COND_MSG(p_file.is_null(), "CodeSign/EntitlementsBinary: Invalid file handle.");
-	p_file->store_buffer(blob.ptr(), blob.size());
+void CodeSignEntitlementsBinary::write_to_file(FileAccess *p_file) const {
+	ERR_FAIL_COND_MSG(!p_file, "CodeSign/EntitlementsBinary: Invalid file handle.");
+	p_file->store_buffer(blob.read().ptr(), blob.size());
 }
 
 /*************************************************************************/
@@ -923,8 +965,14 @@ void CodeSignEntitlementsBinary::write_to_file(Ref<FileAccess> p_file) const {
 /*************************************************************************/
 
 CodeSignCodeDirectory::CodeSignCodeDirectory() {
-	blob.append_array({ 0xFA, 0xDE, 0x0C, 0x02 }); // Code Directory magic.
-	blob.append_array({ 0x00, 0x00, 0x00, 0x00 }); // Size (8 bytes).
+#define _W(a, b, c, d) \
+	blob.push_back(a); \
+	blob.push_back(b); \
+	blob.push_back(c); \
+	blob.push_back(d);
+	_W(0xFA, 0xDE, 0x0C, 0x02); // Code Directory magic.
+	_W(0x00, 0x00, 0x00, 0x00); // Size (8 bytes).
+#undef _W
 }
 
 CodeSignCodeDirectory::CodeSignCodeDirectory(uint8_t p_hash_size, uint8_t p_hash_type, bool p_main, const CharString &p_id, const CharString &p_team_id, uint32_t p_page_size, uint64_t p_exe_limit, uint64_t p_code_limit) {
@@ -935,14 +983,20 @@ CodeSignCodeDirectory::CodeSignCodeDirectory(uint8_t p_hash_size, uint8_t p_hash
 
 	int cd_size = 8 + sizeof(CodeDirectoryHeader) + (code_slots + special_slots) * p_hash_size + p_id.size() + p_team_id.size();
 	int cd_off = 8 + sizeof(CodeDirectoryHeader);
-	blob.append_array({ 0xFA, 0xDE, 0x0C, 0x02 }); // Code Directory magic.
+#define _W(a, b, c, d) \
+	blob.push_back(a); \
+	blob.push_back(b); \
+	blob.push_back(c); \
+	blob.push_back(d);
+	_W(0xFA, 0xDE, 0x0C, 0x02); // Code Directory magic.
 	for (int i = 3; i >= 0; i--) {
 		uint8_t x = (cd_size >> i * 8) & 0xFF; // Size.
 		blob.push_back(x);
 	}
+#undef _W
 	blob.resize(cd_size);
-	memset(blob.ptrw() + 8, 0x00, cd_size - 8);
-	CodeDirectoryHeader *cd = reinterpret_cast<CodeDirectoryHeader *>(blob.ptrw() + 8);
+	memset(blob.write().ptr() + 8, 0x00, cd_size - 8);
+	CodeDirectoryHeader *cd = (CodeDirectoryHeader *)(blob.write().ptr() + 8);
 
 	bool is_64_cl = (p_code_limit >= std::numeric_limits<uint32_t>::max());
 
@@ -971,13 +1025,13 @@ CodeSignCodeDirectory::CodeSignCodeDirectory(uint8_t p_hash_size, uint8_t p_hash
 
 	// Copy ID.
 	cd->ident_offset = BSWAP32(cd_off);
-	memcpy(blob.ptrw() + cd_off, p_id.get_data(), p_id.size());
+	memcpy(blob.write().ptr() + cd_off, p_id.get_data(), p_id.size());
 	cd_off += p_id.size();
 
 	// Copy Team ID.
 	if (p_team_id.length() > 0) {
 		cd->team_offset = BSWAP32(cd_off);
-		memcpy(blob.ptrw() + cd_off, p_team_id.get_data(), p_team_id.size());
+		memcpy(blob.write().ptr() + cd_off, p_team_id.get_data(), p_team_id.size());
 		cd_off += p_team_id.size();
 	} else {
 		cd->team_offset = 0;
@@ -990,11 +1044,11 @@ CodeSignCodeDirectory::CodeSignCodeDirectory(uint8_t p_hash_size, uint8_t p_hash
 	cd->hash_offset = BSWAP32(cd_off + special_slots * cd->hash_size);
 }
 
-bool CodeSignCodeDirectory::set_hash_in_slot(const PackedByteArray &p_hash, int p_slot) {
+bool CodeSignCodeDirectory::set_hash_in_slot(const PoolByteArray &p_hash, int p_slot) {
 	ERR_FAIL_COND_V_MSG((p_slot < -special_slots) || (p_slot >= code_slots), false, vformat("CodeSign/CodeDirectory: Invalid hash slot index: %d.", p_slot));
-	CodeDirectoryHeader *cd = reinterpret_cast<CodeDirectoryHeader *>(blob.ptrw() + 8);
+	CodeDirectoryHeader *cd = reinterpret_cast<CodeDirectoryHeader *>(blob.write().ptr() + 8);
 	for (int i = 0; i < cd->hash_size; i++) {
-		blob.write[BSWAP32(cd->hash_offset) + p_slot * cd->hash_size + i] = p_hash[i];
+		blob.write()[BSWAP32(cd->hash_offset) + p_slot * cd->hash_size + i] = p_hash[i];
 	}
 	return true;
 }
@@ -1007,26 +1061,26 @@ int32_t CodeSignCodeDirectory::get_page_remainder() {
 	return remain;
 }
 
-PackedByteArray CodeSignCodeDirectory::get_hash_sha1() const {
-	PackedByteArray hash;
+PoolByteArray CodeSignCodeDirectory::get_hash_sha1() const {
+	PoolByteArray hash;
 	hash.resize(0x14);
 
 	CryptoCore::SHA1Context ctx;
 	ctx.start();
-	ctx.update(blob.ptr(), blob.size());
-	ctx.finish(hash.ptrw());
+	ctx.update(blob.read().ptr(), blob.size());
+	ctx.finish(hash.write().ptr());
 
 	return hash;
 }
 
-PackedByteArray CodeSignCodeDirectory::get_hash_sha256() const {
-	PackedByteArray hash;
+PoolByteArray CodeSignCodeDirectory::get_hash_sha256() const {
+	PoolByteArray hash;
 	hash.resize(0x20);
 
 	CryptoCore::SHA256Context ctx;
 	ctx.start();
-	ctx.update(blob.ptr(), blob.size());
-	ctx.finish(hash.ptrw());
+	ctx.update(blob.read().ptr(), blob.size());
+	ctx.finish(hash.write().ptr());
 
 	return hash;
 }
@@ -1035,9 +1089,9 @@ int CodeSignCodeDirectory::get_size() const {
 	return blob.size();
 }
 
-void CodeSignCodeDirectory::write_to_file(Ref<FileAccess> p_file) const {
-	ERR_FAIL_COND_MSG(p_file.is_null(), "CodeSign/CodeDirectory: Invalid file handle.");
-	p_file->store_buffer(blob.ptr(), blob.size());
+void CodeSignCodeDirectory::write_to_file(FileAccess *p_file) const {
+	ERR_FAIL_COND_MSG(!p_file, "CodeSign/CodeDirectory: Invalid file handle.");
+	p_file->store_buffer(blob.read().ptr(), blob.size());
 }
 
 /*************************************************************************/
@@ -1045,34 +1099,40 @@ void CodeSignCodeDirectory::write_to_file(Ref<FileAccess> p_file) const {
 /*************************************************************************/
 
 CodeSignSignature::CodeSignSignature() {
-	blob.append_array({ 0xFA, 0xDE, 0x0B, 0x01 }); // Signature magic.
+#define _W(a, b, c, d) \
+	blob.push_back(a); \
+	blob.push_back(b); \
+	blob.push_back(c); \
+	blob.push_back(d);
+	_W(0xFA, 0xDE, 0x0B, 0x01); // Signature magic.
 	uint32_t sign_size = 8; // Ad-hoc signature is empty.
 	for (int i = 3; i >= 0; i--) {
 		uint8_t x = (sign_size >> i * 8) & 0xFF; // Size.
 		blob.push_back(x);
 	}
+#undef _W
 }
 
-PackedByteArray CodeSignSignature::get_hash_sha1() const {
-	PackedByteArray hash;
+PoolByteArray CodeSignSignature::get_hash_sha1() const {
+	PoolByteArray hash;
 	hash.resize(0x14);
 
 	CryptoCore::SHA1Context ctx;
 	ctx.start();
-	ctx.update(blob.ptr(), blob.size());
-	ctx.finish(hash.ptrw());
+	ctx.update(blob.read().ptr(), blob.size());
+	ctx.finish(hash.write().ptr());
 
 	return hash;
 }
 
-PackedByteArray CodeSignSignature::get_hash_sha256() const {
-	PackedByteArray hash;
+PoolByteArray CodeSignSignature::get_hash_sha256() const {
+	PoolByteArray hash;
 	hash.resize(0x20);
 
 	CryptoCore::SHA256Context ctx;
 	ctx.start();
-	ctx.update(blob.ptr(), blob.size());
-	ctx.finish(hash.ptrw());
+	ctx.update(blob.read().ptr(), blob.size());
+	ctx.finish(hash.write().ptr());
 
 	return hash;
 }
@@ -1081,9 +1141,9 @@ int CodeSignSignature::get_size() const {
 	return blob.size();
 }
 
-void CodeSignSignature::write_to_file(Ref<FileAccess> p_file) const {
-	ERR_FAIL_COND_MSG(p_file.is_null(), "CodeSign/Signature: Invalid file handle.");
-	p_file->store_buffer(blob.ptr(), blob.size());
+void CodeSignSignature::write_to_file(FileAccess *p_file) const {
+	ERR_FAIL_COND_MSG(!p_file, "CodeSign/Signature: Invalid file handle.");
+	p_file->store_buffer(blob.read().ptr(), blob.size());
 }
 
 /*************************************************************************/
@@ -1110,8 +1170,8 @@ int CodeSignSuperBlob::get_size() const {
 	return size;
 }
 
-void CodeSignSuperBlob::write_to_file(Ref<FileAccess> p_file) const {
-	ERR_FAIL_COND_MSG(p_file.is_null(), "CodeSign/SuperBlob: Invalid file handle.");
+void CodeSignSuperBlob::write_to_file(FileAccess *p_file) const {
+	ERR_FAIL_COND_MSG(!p_file, "CodeSign/SuperBlob: Invalid file handle.");
 	uint32_t size = get_size();
 	uint32_t data_offset = 12 + blobs.size() * 8;
 
@@ -1140,10 +1200,10 @@ void CodeSignSuperBlob::write_to_file(Ref<FileAccess> p_file) const {
 /* CodeSign                                                              */
 /*************************************************************************/
 
-PackedByteArray CodeSign::file_hash_sha1(const String &p_path) {
-	PackedByteArray file_hash;
-	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
-	ERR_FAIL_COND_V_MSG(f.is_null(), PackedByteArray(), vformat("CodeSign: Can't open file: \"%s\".", p_path));
+PoolByteArray CodeSign::file_hash_sha1(const String &p_path) {
+	PoolByteArray file_hash;
+	FileAccessRef f = FileAccess::open(p_path, FileAccess::READ);
+	ERR_FAIL_COND_V_MSG(!f, PoolByteArray(), vformat("CodeSign: Can't open file: \"%s\".", p_path));
 
 	CryptoCore::SHA1Context ctx;
 	ctx.start();
@@ -1160,14 +1220,14 @@ PackedByteArray CodeSign::file_hash_sha1(const String &p_path) {
 	}
 
 	file_hash.resize(0x14);
-	ctx.finish(file_hash.ptrw());
+	ctx.finish(file_hash.write().ptr());
 	return file_hash;
 }
 
-PackedByteArray CodeSign::file_hash_sha256(const String &p_path) {
-	PackedByteArray file_hash;
-	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ);
-	ERR_FAIL_COND_V_MSG(f.is_null(), PackedByteArray(), vformat("CodeSign: Can't open file: \"%s\".", p_path));
+PoolByteArray CodeSign::file_hash_sha256(const String &p_path) {
+	PoolByteArray file_hash;
+	FileAccessRef f = FileAccess::open(p_path, FileAccess::READ);
+	ERR_FAIL_COND_V_MSG(!f, PoolByteArray(), vformat("CodeSign: Can't open file: \"%s\".", p_path));
 
 	CryptoCore::SHA256Context ctx;
 	ctx.start();
@@ -1184,7 +1244,7 @@ PackedByteArray CodeSign::file_hash_sha256(const String &p_path) {
 	}
 
 	file_hash.resize(0x20);
-	ctx.finish(file_hash.ptrw());
+	ctx.finish(file_hash.write().ptr());
 	return file_hash;
 }
 
@@ -1198,31 +1258,31 @@ Error CodeSign::_codesign_file(bool p_use_hardened_runtime, bool p_force, const 
 
 	print_verbose(vformat("CodeSign: Signing executable: %s, bundle: %s with entitlements %s", p_exe_path, p_bundle_path, p_ent_path));
 
-	PackedByteArray info_hash1, info_hash2;
-	PackedByteArray res_hash1, res_hash2;
+	PoolByteArray info_hash1, info_hash2;
+	PoolByteArray res_hash1, res_hash2;
 	String id;
 	String main_exe = p_exe_path;
 
-	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
-	if (da.is_null()) {
+	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	if (!da) {
 		r_error_msg = TTR("Can't get filesystem access.");
 		ERR_FAIL_V_MSG(ERR_CANT_CREATE, "CodeSign: Can't get filesystem access.");
 	}
 
 	// Read Info.plist.
-	if (!p_info.is_empty()) {
-		print_verbose("CodeSign: Reading bundle info...");
+	if (!p_info.empty()) {
+		print_verbose(vformat("CodeSign: Reading bundle info..."));
 		PList info_plist;
 		if (info_plist.load_file(p_info)) {
 			info_hash1 = file_hash_sha1(p_info);
 			info_hash2 = file_hash_sha256(p_info);
-			if (info_hash1.is_empty() || info_hash2.is_empty()) {
+			if (info_hash1.empty() || info_hash2.empty()) {
 				r_error_msg = TTR("Failed to get Info.plist hash.");
 				ERR_FAIL_V_MSG(FAILED, "CodeSign: Failed to get Info.plist hash.");
 			}
 
 			if (info_plist.get_root()->data_type == PList::PLNodeType::PL_NODE_TYPE_DICT && info_plist.get_root()->data_dict.has("CFBundleExecutable")) {
-				main_exe = p_exe_path.path_join(String::utf8(info_plist.get_root()->data_dict["CFBundleExecutable"]->data_string.get_data()));
+				main_exe = p_exe_path.plus_file(String::utf8(info_plist.get_root()->data_dict["CFBundleExecutable"]->data_string.get_data()));
 			} else {
 				r_error_msg = TTR("Invalid Info.plist, no exe name.");
 				ERR_FAIL_V_MSG(FAILED, "CodeSign: Invalid Info.plist, no exe name.");
@@ -1241,10 +1301,10 @@ Error CodeSign::_codesign_file(bool p_use_hardened_runtime, bool p_force, const 
 	}
 
 	// Extract fat binary.
-	Vector<String> files_to_sign;
+	PoolStringArray files_to_sign;
 	if (LipO::is_lipo(main_exe)) {
 		print_verbose(vformat("CodeSign: Executable is fat, extracting..."));
-		String tmp_path_name = EditorPaths::get_singleton()->get_cache_dir().path_join("_lipo");
+		String tmp_path_name = EditorSettings::get_singleton()->get_cache_dir().plus_file("_lipo");
 		Error err = da->make_dir_recursive(tmp_path_name);
 		if (err != OK) {
 			r_error_msg = vformat(TTR("Failed to create \"%s\" subfolder."), tmp_path_name);
@@ -1253,16 +1313,16 @@ Error CodeSign::_codesign_file(bool p_use_hardened_runtime, bool p_force, const 
 		LipO lip;
 		if (lip.open_file(main_exe)) {
 			for (int i = 0; i < lip.get_arch_count(); i++) {
-				if (!lip.extract_arch(i, tmp_path_name.path_join("_exe_" + itos(i)))) {
+				if (!lip.extract_arch(i, tmp_path_name.plus_file("_exe_" + itos(i)))) {
 					CLEANUP();
 					r_error_msg = TTR("Failed to extract thin binary.");
 					ERR_FAIL_V_MSG(FAILED, "CodeSign: Failed to extract thin binary.");
 				}
-				files_to_sign.push_back(tmp_path_name.path_join("_exe_" + itos(i)));
+				files_to_sign.push_back(tmp_path_name.plus_file("_exe_" + itos(i)));
 			}
 		}
 	} else if (MachO::is_macho(main_exe)) {
-		print_verbose("CodeSign: Executable is thin...");
+		print_verbose(vformat("CodeSign: Executable is thin..."));
 		files_to_sign.push_back(main_exe);
 	} else {
 		r_error_msg = TTR("Invalid binary format.");
@@ -1283,8 +1343,8 @@ Error CodeSign::_codesign_file(bool p_use_hardened_runtime, bool p_force, const 
 	}
 
 	// Generate core resources.
-	if (!p_bundle_path.is_empty()) {
-		print_verbose("CodeSign: Generating bundle CodeResources...");
+	if (!p_bundle_path.empty()) {
+		print_verbose(vformat("CodeSign: Generating bundle CodeResources..."));
 		CodeSignCodeResources cr;
 
 		if (p_ios_bundle) {
@@ -1338,16 +1398,16 @@ Error CodeSign::_codesign_file(bool p_use_hardened_runtime, bool p_force, const 
 			r_error_msg = TTR("Failed to process nested resources.");
 			ERR_FAIL_V_MSG(FAILED, "CodeSign: Failed to process nested resources.");
 		}
-		Error err = da->make_dir_recursive(p_bundle_path.path_join("_CodeSignature"));
+		Error err = da->make_dir_recursive(p_bundle_path.plus_file("_CodeSignature"));
 		if (err != OK) {
 			CLEANUP();
 			r_error_msg = TTR("Failed to create _CodeSignature subfolder.");
 			ERR_FAIL_V_MSG(FAILED, "CodeSign: Failed to create _CodeSignature subfolder.");
 		}
-		cr.save_to_file(p_bundle_path.path_join("_CodeSignature").path_join("CodeResources"));
-		res_hash1 = file_hash_sha1(p_bundle_path.path_join("_CodeSignature").path_join("CodeResources"));
-		res_hash2 = file_hash_sha256(p_bundle_path.path_join("_CodeSignature").path_join("CodeResources"));
-		if (res_hash1.is_empty() || res_hash2.is_empty()) {
+		cr.save_to_file(p_bundle_path.plus_file("_CodeSignature").plus_file("CodeResources"));
+		res_hash1 = file_hash_sha1(p_bundle_path.plus_file("_CodeSignature").plus_file("CodeResources"));
+		res_hash2 = file_hash_sha256(p_bundle_path.plus_file("_CodeSignature").plus_file("CodeResources"));
+		if (res_hash1.empty() || res_hash2.empty()) {
 			CLEANUP();
 			r_error_msg = TTR("Failed to get CodeResources hash.");
 			ERR_FAIL_V_MSG(FAILED, "CodeSign: Failed to get CodeResources hash.");
@@ -1355,24 +1415,21 @@ Error CodeSign::_codesign_file(bool p_use_hardened_runtime, bool p_force, const 
 	}
 
 	// Generate common signature structures.
-	if (id.is_empty()) {
-		CryptoCore::RandomGenerator rng;
-		ERR_FAIL_COND_V_MSG(rng.init(), FAILED, "Failed to initialize random number generator.");
-		uint8_t uuid[16];
-		Error err = rng.get_random_bytes(uuid, 16);
-		ERR_FAIL_COND_V_MSG(err, err, "Failed to generate UUID.");
-		id = (String("a-55554944") /*a-UUID*/ + String::hex_encode_buffer(uuid, 16));
+	if (id.empty()) {
+		Ref<Crypto> crypto = Ref<Crypto>(Crypto::create());
+		PoolByteArray uuid = crypto->generate_random_bytes(16);
+		id = (String("a-55554944") /*a-UUID*/ + String::hex_encode_buffer(uuid.read().ptr(), 16));
 	}
 	CharString uuid_str = id.utf8();
 	print_verbose(vformat("CodeSign: Used bundle ID: %s", id));
 
-	print_verbose("CodeSign: Processing entitlements...");
+	print_verbose(vformat("CodeSign: Processing entitlements..."));
 
 	Ref<CodeSignEntitlementsText> cet;
 	Ref<CodeSignEntitlementsBinary> ceb;
-	if (!p_ent_path.is_empty()) {
+	if (!p_ent_path.empty()) {
 		String entitlements = FileAccess::get_file_as_string(p_ent_path);
-		if (entitlements.is_empty()) {
+		if (entitlements.empty()) {
 			CLEANUP();
 			r_error_msg = TTR("Invalid entitlements file.");
 			ERR_FAIL_V_MSG(FAILED, "CodeSign: Invalid entitlements file.");
@@ -1381,7 +1438,7 @@ Error CodeSign::_codesign_file(bool p_use_hardened_runtime, bool p_force, const 
 		ceb = Ref<CodeSignEntitlementsBinary>(memnew(CodeSignEntitlementsBinary(entitlements)));
 	}
 
-	print_verbose("CodeSign: Generating requirements...");
+	print_verbose(vformat("CodeSign: Generating requirements..."));
 	Ref<CodeSignRequirements> rq;
 	String team_id = "";
 	rq = Ref<CodeSignRequirements>(memnew(CodeSignRequirements()));
@@ -1396,10 +1453,10 @@ Error CodeSign::_codesign_file(bool p_use_hardened_runtime, bool p_force, const 
 		}
 		print_verbose(vformat("CodeSign: Signing executable for cputype: %d ...", mh.get_cputype()));
 
-		print_verbose("CodeSign: Generating CodeDirectory...");
+		print_verbose(vformat("CodeSign: Generating CodeDirectory..."));
 		Ref<CodeSignCodeDirectory> cd1 = memnew(CodeSignCodeDirectory(0x14, 0x01, true, uuid_str, team_id.utf8(), 12, mh.get_exe_limit(), mh.get_code_limit()));
 		Ref<CodeSignCodeDirectory> cd2 = memnew(CodeSignCodeDirectory(0x20, 0x02, true, uuid_str, team_id.utf8(), 12, mh.get_exe_limit(), mh.get_code_limit()));
-		print_verbose("CodeSign: Calculating special slot hashes...");
+		print_verbose(vformat("CodeSign: Calculating special slot hashes..."));
 		if (info_hash2.size() == 0x20) {
 			cd2->set_hash_in_slot(info_hash2, CodeSignCodeDirectory::SLOT_INFO_PLIST);
 		}
@@ -1444,48 +1501,48 @@ Error CodeSign::_codesign_file(bool p_use_hardened_runtime, bool p_force, const 
 			ERR_FAIL_V_MSG(FAILED, "CodeSign: Can't resize signature load command.");
 		}
 
-		print_verbose("CodeSign: Calculating executable code hashes...");
+		print_verbose(vformat("CodeSign: Calculating executable code hashes..."));
 		// Calculate executable code hashes.
-		PackedByteArray buffer;
-		PackedByteArray hash1, hash2;
+		PoolByteArray buffer;
+		PoolByteArray hash1, hash2;
 		hash1.resize(0x14);
 		hash2.resize(0x20);
 		buffer.resize(1 << 12);
 		mh.get_file()->seek(0);
 		for (int32_t j = 0; j < cd2->get_page_count(); j++) {
-			mh.get_file()->get_buffer(buffer.ptrw(), (1 << 12));
+			mh.get_file()->get_buffer(buffer.write().ptr(), (1 << 12));
 			CryptoCore::SHA256Context ctx2;
 			ctx2.start();
-			ctx2.update(buffer.ptr(), (1 << 12));
-			ctx2.finish(hash2.ptrw());
+			ctx2.update(buffer.read().ptr(), (1 << 12));
+			ctx2.finish(hash2.write().ptr());
 			cd2->set_hash_in_slot(hash2, j);
 
 			CryptoCore::SHA1Context ctx1;
 			ctx1.start();
-			ctx1.update(buffer.ptr(), (1 << 12));
-			ctx1.finish(hash1.ptrw());
+			ctx1.update(buffer.read().ptr(), (1 << 12));
+			ctx1.finish(hash1.write().ptr());
 			cd1->set_hash_in_slot(hash1, j);
 		}
 		if (cd2->get_page_remainder() > 0) {
-			mh.get_file()->get_buffer(buffer.ptrw(), cd2->get_page_remainder());
+			mh.get_file()->get_buffer(buffer.write().ptr(), cd2->get_page_remainder());
 			CryptoCore::SHA256Context ctx2;
 			ctx2.start();
-			ctx2.update(buffer.ptr(), cd2->get_page_remainder());
-			ctx2.finish(hash2.ptrw());
+			ctx2.update(buffer.read().ptr(), cd2->get_page_remainder());
+			ctx2.finish(hash2.write().ptr());
 			cd2->set_hash_in_slot(hash2, cd2->get_page_count());
 
 			CryptoCore::SHA1Context ctx1;
 			ctx1.start();
-			ctx1.update(buffer.ptr(), cd1->get_page_remainder());
-			ctx1.finish(hash1.ptrw());
+			ctx1.update(buffer.read().ptr(), cd1->get_page_remainder());
+			ctx1.finish(hash1.write().ptr());
 			cd1->set_hash_in_slot(hash1, cd1->get_page_count());
 		}
 
-		print_verbose("CodeSign: Generating signature...");
+		print_verbose(vformat("CodeSign: Generating signature..."));
 		Ref<CodeSignSignature> cs;
 		cs = Ref<CodeSignSignature>(memnew(CodeSignSignature()));
 
-		print_verbose("CodeSign: Writing signature superblob...");
+		print_verbose(vformat("CodeSign: Writing signature superblob..."));
 		// Write signature data to the executable.
 		CodeSignSuperBlob sb = CodeSignSuperBlob();
 		sb.add_blob(cd2);
@@ -1502,7 +1559,7 @@ Error CodeSign::_codesign_file(bool p_use_hardened_runtime, bool p_force, const 
 		sb.write_to_file(mh.get_file());
 	}
 	if (files_to_sign.size() > 1) {
-		print_verbose("CodeSign: Rebuilding fat executable...");
+		print_verbose(vformat("CodeSign: Rebuilding fat executable..."));
 		LipO lip;
 		if (!lip.create_file(main_exe, files_to_sign)) {
 			CLEANUP();
@@ -1517,8 +1574,8 @@ Error CodeSign::_codesign_file(bool p_use_hardened_runtime, bool p_force, const 
 }
 
 Error CodeSign::codesign(bool p_use_hardened_runtime, bool p_force, const String &p_path, const String &p_ent_path, String &r_error_msg) {
-	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
-	if (da.is_null()) {
+	DirAccess *da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+	if (!da) {
 		r_error_msg = TTR("Can't get filesystem access.");
 		ERR_FAIL_V_MSG(ERR_CANT_CREATE, "CodeSign: Can't get filesystem access.");
 	}
@@ -1530,18 +1587,18 @@ Error CodeSign::codesign(bool p_use_hardened_runtime, bool p_force, const String
 		String bundle_path;
 		bool bundle = false;
 		bool ios_bundle = false;
-		if (da->file_exists(p_path.path_join("Contents/Info.plist"))) {
-			info_path = p_path.path_join("Contents/Info.plist");
-			main_exe = p_path.path_join("Contents/MacOS");
-			bundle_path = p_path.path_join("Contents");
+		if (da->file_exists(p_path.plus_file("Contents/Info.plist"))) {
+			info_path = p_path.plus_file("Contents/Info.plist");
+			main_exe = p_path.plus_file("Contents/MacOS");
+			bundle_path = p_path.plus_file("Contents");
 			bundle = true;
-		} else if (da->file_exists(p_path.path_join(vformat("Versions/%s/Resources/Info.plist", fmw_ver)))) {
-			info_path = p_path.path_join(vformat("Versions/%s/Resources/Info.plist", fmw_ver));
-			main_exe = p_path.path_join(vformat("Versions/%s", fmw_ver));
-			bundle_path = p_path.path_join(vformat("Versions/%s", fmw_ver));
+		} else if (da->file_exists(p_path.plus_file(vformat("Versions/%s/Resources/Info.plist", fmw_ver)))) {
+			info_path = p_path.plus_file(vformat("Versions/%s/Resources/Info.plist", fmw_ver));
+			main_exe = p_path.plus_file(vformat("Versions/%s", fmw_ver));
+			bundle_path = p_path.plus_file(vformat("Versions/%s", fmw_ver));
 			bundle = true;
-		} else if (da->file_exists(p_path.path_join("Info.plist"))) {
-			info_path = p_path.path_join("Info.plist");
+		} else if (da->file_exists(p_path.plus_file("Info.plist"))) {
+			info_path = p_path.plus_file("Info.plist");
 			main_exe = p_path;
 			bundle_path = p_path;
 			bundle = true;

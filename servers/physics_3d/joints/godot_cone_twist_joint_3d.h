@@ -1,35 +1,32 @@
-/**************************************************************************/
-/*  godot_cone_twist_joint_3d.h                                           */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
-
-#ifndef GODOT_CONE_TWIST_JOINT_3D_H
-#define GODOT_CONE_TWIST_JOINT_3D_H
+/*************************************************************************/
+/*  cone_twist_joint_sw.h                                                */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 /*
 Adapted to Godot from the Bullet library.
@@ -37,7 +34,7 @@ Adapted to Godot from the Bullet library.
 
 /*
 Bullet Continuous Collision Detection and Physics Library
-GodotConeTwistJoint3D is Copyright (c) 2007 Starbreeze Studios
+ConeTwistJointSW is Copyright (c) 2007 Starbreeze Studios
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the use of this software.
@@ -52,62 +49,65 @@ subject to the following restrictions:
 Written by: Marcus Hennix
 */
 
-#include "servers/physics_3d/godot_joint_3d.h"
-#include "servers/physics_3d/joints/godot_jacobian_entry_3d.h"
+#ifndef CONE_TWIST_JOINT_SW_H
+#define CONE_TWIST_JOINT_SW_H
 
-// GodotConeTwistJoint3D can be used to simulate ragdoll joints (upper arm, leg etc).
-class GodotConeTwistJoint3D : public GodotJoint3D {
+#include "servers/physics/joints/jacobian_entry_sw.h"
+#include "servers/physics/joints_sw.h"
+
+///ConeTwistJointSW can be used to simulate ragdoll joints (upper arm, leg etc)
+class ConeTwistJointSW : public JointSW {
 #ifdef IN_PARALLELL_SOLVER
 public:
 #endif
 
 	union {
 		struct {
-			GodotBody3D *A;
-			GodotBody3D *B;
+			BodySW *A;
+			BodySW *B;
 		};
 
-		GodotBody3D *_arr[2] = { nullptr, nullptr };
+		BodySW *_arr[2];
 	};
 
-	GodotJacobianEntry3D m_jac[3] = {}; //3 orthogonal linear constraints
+	JacobianEntrySW m_jac[3]; //3 orthogonal linear constraints
 
-	real_t m_appliedImpulse = 0.0;
-	Transform3D m_rbAFrame;
-	Transform3D m_rbBFrame;
+	real_t m_appliedImpulse;
+	Transform m_rbAFrame;
+	Transform m_rbBFrame;
 
-	real_t m_limitSoftness = 0.0;
-	real_t m_biasFactor = 0.3;
-	real_t m_relaxationFactor = 1.0;
+	real_t m_limitSoftness;
+	real_t m_biasFactor;
+	real_t m_relaxationFactor;
 
-	real_t m_swingSpan1 = Math_TAU / 8.0;
-	real_t m_swingSpan2 = 0.0;
-	real_t m_twistSpan = 0.0;
+	real_t m_swingSpan1;
+	real_t m_swingSpan2;
+	real_t m_twistSpan;
 
 	Vector3 m_swingAxis;
 	Vector3 m_twistAxis;
 
-	real_t m_kSwing = 0.0;
-	real_t m_kTwist = 0.0;
+	real_t m_kSwing;
+	real_t m_kTwist;
 
-	real_t m_twistLimitSign = 0.0;
-	real_t m_swingCorrection = 0.0;
-	real_t m_twistCorrection = 0.0;
+	real_t m_twistLimitSign;
+	real_t m_swingCorrection;
+	real_t m_twistCorrection;
 
-	real_t m_accSwingLimitImpulse = 0.0;
-	real_t m_accTwistLimitImpulse = 0.0;
+	real_t m_accSwingLimitImpulse;
+	real_t m_accTwistLimitImpulse;
 
-	bool m_angularOnly = false;
-	bool m_solveTwistLimit = false;
-	bool m_solveSwingLimit = false;
+	bool m_angularOnly;
+	bool m_solveTwistLimit;
+	bool m_solveSwingLimit;
 
 public:
-	virtual PhysicsServer3D::JointType get_type() const override { return PhysicsServer3D::JOINT_TYPE_CONE_TWIST; }
+	virtual PhysicsServer::JointType get_type() const { return PhysicsServer::JOINT_CONE_TWIST; }
 
-	virtual bool setup(real_t p_step) override;
-	virtual void solve(real_t p_step) override;
+	virtual bool setup(real_t p_timestep);
+	virtual void solve(real_t p_timestep);
 
-	GodotConeTwistJoint3D(GodotBody3D *rbA, GodotBody3D *rbB, const Transform3D &rbAFrame, const Transform3D &rbBFrame);
+	ConeTwistJointSW(BodySW *rbA, BodySW *rbB, const Transform &rbAFrame, const Transform &rbBFrame);
 
 	void setAngularOnly(bool angularOnly) {
 		m_angularOnly = angularOnly;
@@ -135,8 +135,8 @@ public:
 		return m_twistLimitSign;
 	}
 
-	void set_param(PhysicsServer3D::ConeTwistJointParam p_param, real_t p_value);
-	real_t get_param(PhysicsServer3D::ConeTwistJointParam p_param) const;
+	void set_param(PhysicsServer::ConeTwistJointParam p_param, real_t p_value);
+	real_t get_param(PhysicsServer::ConeTwistJointParam p_param) const;
 };
 
-#endif // GODOT_CONE_TWIST_JOINT_3D_H
+#endif // CONE_TWIST_JOINT_SW_H

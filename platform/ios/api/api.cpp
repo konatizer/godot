@@ -1,5 +1,6 @@
+<<<<<<<< HEAD:scene/3d/lightmap_probe.h
 /**************************************************************************/
-/*  api.cpp                                                               */
+/*  lightmap_probe.h                                                      */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,21 +29,63 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
+#ifndef LIGHTMAP_PROBE_H
+#define LIGHTMAP_PROBE_H
+
+#include "scene/3d/node_3d.h"
+
+class LightmapProbe : public Node3D {
+	GDCLASS(LightmapProbe, Node3D)
+public:
+	LightmapProbe();
+};
+========
+/*************************************************************************/
+/*  api.cpp                                                              */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
+
 #include "api.h"
 
-#if defined(IOS_ENABLED)
+#if defined(IPHONE_ENABLED)
 
-void register_ios_api() {
+void register_iphone_api() {
 	godot_ios_plugins_initialize();
 }
 
-void unregister_ios_api() {
+void unregister_iphone_api() {
 	godot_ios_plugins_deinitialize();
 }
 
 #else
 
-void register_ios_api() {}
-void unregister_ios_api() {}
+void register_iphone_api() {}
+void unregister_iphone_api() {}
+>>>>>>>> 6fed1ffa313c6760fa88b368ae580378daaef0f0:platform/ios/api/api.cpp
 
-#endif // IOS_ENABLED
+#endif // LIGHTMAP_PROBE_H

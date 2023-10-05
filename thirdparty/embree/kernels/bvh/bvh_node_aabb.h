@@ -46,14 +46,6 @@ namespace embree
       template<typename BuildRecord>
       __forceinline NodeRef operator() (const BuildRecord& precord, const BuildRecord* crecords, NodeRef ref, NodeRef* children, const size_t num) const
       {
-#if defined(DEBUG)
-        // check that empty children are only at the end of the child list
-        bool emptyChild = false;
-        for (size_t i=0; i<num; i++) {
-          emptyChild |= (children[i] == NodeRef::emptyNode);
-          assert(emptyChild == (children[i] == NodeRef::emptyNode));
-        }
-#endif
         AABBNode_t* node = ref.getAABBNode();
         for (size_t i=0; i<num; i++) node->setRef(i,children[i]);
         return ref;
@@ -68,14 +60,6 @@ namespace embree
       template<typename BuildRecord>
       __forceinline NodeRef operator() (const BuildRecord& precord, const BuildRecord* crecords, NodeRef ref, NodeRef* children, const size_t num) const
       {
-#if defined(DEBUG)
-        // check that empty children are only at the end of the child list
-        bool emptyChild = false;
-        for (size_t i=0; i<num; i++) {
-          emptyChild |= (children[i] == NodeRef::emptyNode);
-          assert(emptyChild == (children[i] == NodeRef::emptyNode));
-        }
-#endif
         AABBNode_t* node = ref.getAABBNode();
         for (size_t i=0; i<num; i++) node->setRef(i,children[i]);
         

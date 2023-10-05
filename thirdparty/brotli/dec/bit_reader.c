@@ -8,9 +8,8 @@
 
 #include "bit_reader.h"
 
-#include <brotli/types.h>
-
 #include "../common/platform.h"
+#include <brotli/types.h>
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
@@ -37,7 +36,7 @@ BROTLI_BOOL BrotliWarmupBitReader(BrotliBitReader* const br) {
   /* Fixing alignment after unaligned BrotliFillWindow would result accumulator
      overflow. If unalignment is caused by BrotliSafeReadBits, then there is
      enough space in accumulator to fix alignment. */
-  if (BROTLI_UNALIGNED_READ_FAST) {
+  if (!BROTLI_ALIGNED_READ) {
     aligned_read_mask = 0;
   }
   if (BrotliGetAvailableBits(br) == 0) {

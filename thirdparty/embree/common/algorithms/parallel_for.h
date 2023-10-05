@@ -26,6 +26,7 @@ namespace embree
         abort();
         // -- GODOT end --
     }
+    
 #elif defined(TASKING_TBB)
   #if TBB_INTERFACE_VERSION >= 12002
     tbb::task_group_context context;

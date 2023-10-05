@@ -2,26 +2,33 @@
 
 Import("env")
 
-if env["platform"] in ["haiku", "macos", "windows", "linuxbsd"]:
+thirdparty_obj = []
+
+if env["platform"] in ["haiku", "osx", "windows", "x11"]:
     # Thirdparty source files
     thirdparty_dir = "#thirdparty/glad/"
     thirdparty_sources = [
-        "gl.c",
+        "glad.c",
     ]
     thirdparty_sources = [thirdparty_dir + file for file in thirdparty_sources]
 
-    # Treat glad headers as system headers to avoid raising warnings. Not supported on MSVC.
-    if not env.msvc:
-        env.Append(CPPFLAGS=["-isystem", Dir(thirdparty_dir).path])
-    else:
-        env.Prepend(CPPPATH=[thirdparty_dir])
+    env.Prepend(CPPPATH=[thirdparty_dir])
 
     env.Append(CPPDEFINES=["GLAD_ENABLED"])
     env.Append(CPPDEFINES=["GLES_OVER_GL"])
 
     env_thirdparty = env.Clone()
     env_thirdparty.disable_warnings()
-    env_thirdparty.add_source_files(env.drivers_sources, thirdparty_sources)
+    env_thirdparty.add_source_files(thirdparty_obj, thirdparty_sources)
+    env.drivers_sources += thirdparty_obj
+
 
 # Godot source files
-env.add_source_files(env.drivers_sources, "*.cpp")
+
+driver_obj = []
+
+env.add_source_files(driver_obj, "*.cpp")
+env.drivers_sources += driver_obj
+
+# Needed to force rebuilding the driver files when the thirdparty code is updated.
+env.Depends(driver_obj, thirdparty_obj)

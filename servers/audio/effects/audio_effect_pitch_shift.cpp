@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  audio_effect_pitch_shift.cpp                                          */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  audio_effect_pitch_shift.cpp                                         */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "audio_effect_pitch_shift.h"
 
@@ -40,7 +40,7 @@
 *
 * NAME: smbPitchShift.cpp
 * VERSION: 1.2
-* HOME URL: https://blogs.zynaptiq.com/bernsee
+* HOME URL: http://blogs.zynaptiq.com/bernsee
 * KNOWN BUGS: none
 *
 * SYNOPSIS: Routine for doing pitch shifting while maintaining
@@ -101,6 +101,7 @@ void SMBPitchShift::PitchShift(float pitchShift, long numSampsToProcess, long ff
 
 	/* main processing loop */
 	for (i = 0; i < numSampsToProcess; i++){
+
 		/* As long as we have not yet collected enough data just read in */
 		gInFIFO[gRover] = indata[i*stride];
 		outdata[i*stride] = gOutFIFO[gRover-inFifoLatency];
@@ -173,6 +174,7 @@ void SMBPitchShift::PitchShift(float pitchShift, long numSampsToProcess, long ff
 			/* ***************** SYNTHESIS ******************* */
 			/* this is the synthesis step */
 			for (k = 0; k <= fftFrameSize2; k++) {
+
 				/* get magnitude and true frequency from synthesis arrays */
 				magn = gSynMagn[k];
 				tmp = gSynFreq[k];
@@ -281,7 +283,6 @@ void SMBPitchShift::smbFft(float *fftBuffer, long fftFrameSize, long sign)
 	}
 }
 
-
 /* Godot code again */
 /* clang-format on */
 
@@ -298,9 +299,9 @@ void AudioEffectPitchShiftInstance::process(const AudioFrame *p_src_frames, Audi
 	shift_r.PitchShift(base->pitch_scale, p_frame_count, fft_size, base->oversampling, sample_rate, in_r, out_r, 2);
 }
 
-Ref<AudioEffectInstance> AudioEffectPitchShift::instantiate() {
+Ref<AudioEffectInstance> AudioEffectPitchShift::instance() {
 	Ref<AudioEffectPitchShiftInstance> ins;
-	ins.instantiate();
+	ins.instance();
 	ins->base = Ref<AudioEffectPitchShift>(this);
 	static const int fft_sizes[FFT_SIZE_MAX] = { 256, 512, 1024, 2048, 4096 };
 	ins->fft_size = fft_sizes[fft_size];
@@ -309,7 +310,7 @@ Ref<AudioEffectInstance> AudioEffectPitchShift::instantiate() {
 }
 
 void AudioEffectPitchShift::set_pitch_scale(float p_pitch_scale) {
-	ERR_FAIL_COND(!(p_pitch_scale > 0.0));
+	ERR_FAIL_COND(p_pitch_scale <= 0.0);
 	pitch_scale = p_pitch_scale;
 }
 
@@ -326,12 +327,12 @@ int AudioEffectPitchShift::get_oversampling() const {
 	return oversampling;
 }
 
-void AudioEffectPitchShift::set_fft_size(FFTSize p_fft_size) {
+void AudioEffectPitchShift::set_fft_size(FFT_Size p_fft_size) {
 	ERR_FAIL_INDEX(p_fft_size, FFT_SIZE_MAX);
 	fft_size = p_fft_size;
 }
 
-AudioEffectPitchShift::FFTSize AudioEffectPitchShift::get_fft_size() const {
+AudioEffectPitchShift::FFT_Size AudioEffectPitchShift::get_fft_size() const {
 	return fft_size;
 }
 
@@ -345,8 +346,8 @@ void AudioEffectPitchShift::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_fft_size", "size"), &AudioEffectPitchShift::set_fft_size);
 	ClassDB::bind_method(D_METHOD("get_fft_size"), &AudioEffectPitchShift::get_fft_size);
 
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "pitch_scale", PROPERTY_HINT_RANGE, "0.01,16,0.01"), "set_pitch_scale", "get_pitch_scale");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "oversampling", PROPERTY_HINT_RANGE, "4,32,1"), "set_oversampling", "get_oversampling");
+	ADD_PROPERTY(PropertyInfo(Variant::REAL, "pitch_scale", PROPERTY_HINT_RANGE, "0.01,16,0.01"), "set_pitch_scale", "get_pitch_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::REAL, "oversampling", PROPERTY_HINT_RANGE, "4,32,1"), "set_oversampling", "get_oversampling");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "fft_size", PROPERTY_HINT_ENUM, "256,512,1024,2048,4096"), "set_fft_size", "get_fft_size");
 
 	BIND_ENUM_CONSTANT(FFT_SIZE_256);

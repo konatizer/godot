@@ -6,7 +6,7 @@
  * of `Promises <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises>`__.
  *
  * @module Engine
- * @header Web export JavaScript reference
+ * @header HTML5 shell class reference
  */
 const Engine = (function () {
 	const preloader = new Preloader();
@@ -58,6 +58,20 @@ const Engine = (function () {
 	 */
 	Engine.unload = function () {
 		loadPromise = null;
+	};
+
+	/**
+	 * Check whether WebGL is available. Optionally, specify a particular version of WebGL to check for.
+	 *
+	 * @param {number=} [majorVersion=1] The major WebGL version to check for.
+	 * @returns {boolean} If the given major version of WebGL is available.
+	 * @function Engine.isWebGLAvailable
+	 */
+	Engine.isWebGLAvailable = function (majorVersion = 1) {
+		try {
+			return !!document.createElement('canvas').getContext(['webgl', 'webgl2'][majorVersion - 1]);
+		} catch (e) { /* Not available */ }
+		return false;
 	};
 
 	/**
@@ -162,9 +176,9 @@ const Engine = (function () {
 					// Godot configuration.
 					me.rtenv['initConfig'](config);
 
-					// Preload GDExtension libraries.
+					// Preload GDNative libraries.
 					const libs = [];
-					me.config.gdextensionLibs.forEach(function (lib) {
+					me.config.gdnativeLibs.forEach(function (lib) {
 						libs.push(me.rtenv['loadDynamicLibrary'](lib, { 'loadAsync': true }));
 					});
 					return Promise.all(libs).then(function () {
@@ -251,21 +265,14 @@ const Engine = (function () {
 		// Also expose static methods as instance methods
 		Engine.prototype['load'] = Engine.load;
 		Engine.prototype['unload'] = Engine.unload;
+		Engine.prototype['isWebGLAvailable'] = Engine.isWebGLAvailable;
 		return new Engine(initConfig);
 	}
 
 	// Closure compiler exported static methods.
 	SafeEngine['load'] = Engine.load;
 	SafeEngine['unload'] = Engine.unload;
-
-	// Feature-detection utilities.
-	SafeEngine['isWebGLAvailable'] = Features.isWebGLAvailable;
-	SafeEngine['isFetchAvailable'] = Features.isFetchAvailable;
-	SafeEngine['isSecureContext'] = Features.isSecureContext;
-	SafeEngine['isCrossOriginIsolated'] = Features.isCrossOriginIsolated;
-	SafeEngine['isSharedArrayBufferAvailable'] = Features.isSharedArrayBufferAvailable;
-	SafeEngine['isAudioWorkletAvailable'] = Features.isAudioWorkletAvailable;
-	SafeEngine['getMissingFeatures'] = Features.getMissingFeatures;
+	SafeEngine['isWebGLAvailable'] = Engine.isWebGLAvailable;
 
 	return SafeEngine;
 }());

@@ -1,40 +1,46 @@
-/**************************************************************************/
-/*  file_access_compressed.cpp                                            */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  file_access_compressed.cpp                                           */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "file_access_compressed.h"
 
-#include "core/string/print_string.h"
+#include "core/print_string.h"
 
 void FileAccessCompressed::configure(const String &p_magic, Compression::Mode p_mode, uint32_t p_block_size) {
 	magic = p_magic.ascii().get_data();
-	magic = (magic + "    ").substr(0, 4);
+	if (magic.length() > 4) {
+		magic = magic.substr(0, 4);
+	} else {
+		while (magic.length() < 4) {
+			magic += " ";
+		}
+	}
 
 	cmode = p_mode;
 	block_size = p_block_size;
@@ -52,12 +58,12 @@ void FileAccessCompressed::configure(const String &p_magic, Compression::Mode p_
 		}                                                   \
 	}
 
-Error FileAccessCompressed::open_after_magic(Ref<FileAccess> p_base) {
+Error FileAccessCompressed::open_after_magic(FileAccess *p_base) {
 	f = p_base;
 	cmode = (Compression::Mode)f->get_32();
 	block_size = f->get_32();
 	if (block_size == 0) {
-		f.unref();
+		f = nullptr; // Let the caller to handle the FileAccess object if failed to open as compressed file.
 		ERR_FAIL_V_MSG(ERR_FILE_CORRUPT, "Can't open compressed file '" + p_base->get_path() + "' with block size 0, it is corrupted.");
 	}
 	read_total = f->get_32();
@@ -89,15 +95,19 @@ Error FileAccessCompressed::open_after_magic(Ref<FileAccess> p_base) {
 	return ret == -1 ? ERR_FILE_CORRUPT : OK;
 }
 
-Error FileAccessCompressed::open_internal(const String &p_path, int p_mode_flags) {
+Error FileAccessCompressed::_open(const String &p_path, int p_mode_flags) {
 	ERR_FAIL_COND_V(p_mode_flags == READ_WRITE, ERR_UNAVAILABLE);
-	_close();
+
+	if (f) {
+		close();
+	}
 
 	Error err;
 	f = FileAccess::open(p_path, p_mode_flags, &err);
 	if (err != OK) {
 		//not openable
-		f.unref();
+
+		f = nullptr;
 		return err;
 	}
 
@@ -117,16 +127,16 @@ Error FileAccessCompressed::open_internal(const String &p_path, int p_mode_flags
 		rmagic[4] = 0;
 		err = ERR_FILE_UNRECOGNIZED;
 		if (magic != rmagic || (err = open_after_magic(f)) != OK) {
-			f.unref();
+			memdelete(f);
+			f = nullptr;
 			return err;
 		}
 	}
 
 	return OK;
 }
-
-void FileAccessCompressed::_close() {
-	if (f.is_null()) {
+void FileAccessCompressed::close() {
+	if (!f) {
 		return;
 	}
 
@@ -171,31 +181,17 @@ void FileAccessCompressed::_close() {
 		buffer.clear();
 		read_blocks.clear();
 	}
-	f.unref();
+
+	memdelete(f);
+	f = nullptr;
 }
 
 bool FileAccessCompressed::is_open() const {
-	return f.is_valid();
-}
-
-String FileAccessCompressed::get_path() const {
-	if (f.is_valid()) {
-		return f->get_path();
-	} else {
-		return "";
-	}
-}
-
-String FileAccessCompressed::get_path_absolute() const {
-	if (f.is_valid()) {
-		return f->get_path_absolute();
-	} else {
-		return "";
-	}
+	return f != nullptr;
 }
 
 void FileAccessCompressed::seek(uint64_t p_position) {
-	ERR_FAIL_COND_MSG(f.is_null(), "File must be opened before use.");
+	ERR_FAIL_COND_MSG(!f, "File must be opened before use.");
 
 	if (writing) {
 		ERR_FAIL_COND(p_position > write_max);
@@ -225,7 +221,7 @@ void FileAccessCompressed::seek(uint64_t p_position) {
 }
 
 void FileAccessCompressed::seek_end(int64_t p_position) {
-	ERR_FAIL_COND_MSG(f.is_null(), "File must be opened before use.");
+	ERR_FAIL_COND_MSG(!f, "File must be opened before use.");
 	if (writing) {
 		seek(write_max + p_position);
 	} else {
@@ -234,16 +230,16 @@ void FileAccessCompressed::seek_end(int64_t p_position) {
 }
 
 uint64_t FileAccessCompressed::get_position() const {
-	ERR_FAIL_COND_V_MSG(f.is_null(), 0, "File must be opened before use.");
+	ERR_FAIL_COND_V_MSG(!f, 0, "File must be opened before use.");
 	if (writing) {
 		return write_pos;
 	} else {
-		return (uint64_t)read_block * block_size + read_pos;
+		return read_block * block_size + read_pos;
 	}
 }
 
-uint64_t FileAccessCompressed::get_length() const {
-	ERR_FAIL_COND_V_MSG(f.is_null(), 0, "File must be opened before use.");
+uint64_t FileAccessCompressed::get_len() const {
+	ERR_FAIL_COND_V_MSG(!f, 0, "File must be opened before use.");
 	if (writing) {
 		return write_max;
 	} else {
@@ -252,7 +248,7 @@ uint64_t FileAccessCompressed::get_length() const {
 }
 
 bool FileAccessCompressed::eof_reached() const {
-	ERR_FAIL_COND_V_MSG(f.is_null(), false, "File must be opened before use.");
+	ERR_FAIL_COND_V_MSG(!f, false, "File must be opened before use.");
 	if (writing) {
 		return false;
 	} else {
@@ -261,7 +257,7 @@ bool FileAccessCompressed::eof_reached() const {
 }
 
 uint8_t FileAccessCompressed::get_8() const {
-	ERR_FAIL_COND_V_MSG(f.is_null(), 0, "File must be opened before use.");
+	ERR_FAIL_COND_V_MSG(!f, 0, "File must be opened before use.");
 	ERR_FAIL_COND_V_MSG(writing, 0, "File has not been opened in read mode.");
 
 	if (at_end) {
@@ -294,7 +290,7 @@ uint8_t FileAccessCompressed::get_8() const {
 
 uint64_t FileAccessCompressed::get_buffer(uint8_t *p_dst, uint64_t p_length) const {
 	ERR_FAIL_COND_V(!p_dst && p_length > 0, -1);
-	ERR_FAIL_COND_V_MSG(f.is_null(), -1, "File must be opened before use.");
+	ERR_FAIL_COND_V_MSG(!f, -1, "File must be opened before use.");
 	ERR_FAIL_COND_V_MSG(writing, -1, "File has not been opened in read mode.");
 
 	if (at_end) {
@@ -335,14 +331,14 @@ Error FileAccessCompressed::get_error() const {
 }
 
 void FileAccessCompressed::flush() {
-	ERR_FAIL_COND_MSG(f.is_null(), "File must be opened before use.");
+	ERR_FAIL_COND_MSG(!f, "File must be opened before use.");
 	ERR_FAIL_COND_MSG(!writing, "File has not been opened in write mode.");
 
 	// compressed files keep data in memory till close()
 }
 
 void FileAccessCompressed::store_8(uint8_t p_dest) {
-	ERR_FAIL_COND_MSG(f.is_null(), "File must be opened before use.");
+	ERR_FAIL_COND_MSG(!f, "File must be opened before use.");
 	ERR_FAIL_COND_MSG(!writing, "File has not been opened in write mode.");
 
 	WRITE_FIT(1);
@@ -350,67 +346,57 @@ void FileAccessCompressed::store_8(uint8_t p_dest) {
 }
 
 bool FileAccessCompressed::file_exists(const String &p_name) {
-	Ref<FileAccess> fa = FileAccess::open(p_name, FileAccess::READ);
-	if (fa.is_null()) {
+	FileAccess *fa = FileAccess::open(p_name, FileAccess::READ);
+	if (!fa) {
 		return false;
 	}
+	memdelete(fa);
 	return true;
 }
 
 uint64_t FileAccessCompressed::_get_modified_time(const String &p_file) {
-	if (f.is_valid()) {
+	if (f) {
 		return f->get_modified_time(p_file);
 	} else {
 		return 0;
 	}
 }
 
-BitField<FileAccess::UnixPermissionFlags> FileAccessCompressed::_get_unix_permissions(const String &p_file) {
-	if (f.is_valid()) {
+uint32_t FileAccessCompressed::_get_unix_permissions(const String &p_file) {
+	if (f) {
 		return f->_get_unix_permissions(p_file);
 	}
 	return 0;
 }
 
-Error FileAccessCompressed::_set_unix_permissions(const String &p_file, BitField<FileAccess::UnixPermissionFlags> p_permissions) {
-	if (f.is_valid()) {
+Error FileAccessCompressed::_set_unix_permissions(const String &p_file, uint32_t p_permissions) {
+	if (f) {
 		return f->_set_unix_permissions(p_file, p_permissions);
 	}
 	return FAILED;
 }
 
-bool FileAccessCompressed::_get_hidden_attribute(const String &p_file) {
-	if (f.is_valid()) {
-		return f->_get_hidden_attribute(p_file);
-	}
-	return false;
-}
-
-Error FileAccessCompressed::_set_hidden_attribute(const String &p_file, bool p_hidden) {
-	if (f.is_valid()) {
-		return f->_set_hidden_attribute(p_file, p_hidden);
-	}
-	return FAILED;
-}
-
-bool FileAccessCompressed::_get_read_only_attribute(const String &p_file) {
-	if (f.is_valid()) {
-		return f->_get_read_only_attribute(p_file);
-	}
-	return false;
-}
-
-Error FileAccessCompressed::_set_read_only_attribute(const String &p_file, bool p_ro) {
-	if (f.is_valid()) {
-		return f->_set_read_only_attribute(p_file, p_ro);
-	}
-	return FAILED;
-}
-
-void FileAccessCompressed::close() {
-	_close();
+FileAccessCompressed::FileAccessCompressed() :
+		cmode(Compression::MODE_ZSTD),
+		writing(false),
+		write_ptr(nullptr),
+		write_buffer_size(0),
+		write_max(0),
+		block_size(0),
+		read_eof(false),
+		at_end(false),
+		read_ptr(nullptr),
+		read_block(0),
+		read_block_count(0),
+		read_block_size(0),
+		read_pos(0),
+		read_total(0),
+		magic("GCMP"),
+		f(nullptr) {
 }
 
 FileAccessCompressed::~FileAccessCompressed() {
-	_close();
+	if (f) {
+		close();
+	}
 }

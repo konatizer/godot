@@ -1,60 +1,59 @@
-/**************************************************************************/
-/*  audio_driver_alsa.cpp                                                 */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  audio_driver_alsa.cpp                                                */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "audio_driver_alsa.h"
 
 #ifdef ALSA_ENABLED
 
-#include "core/config/project_settings.h"
 #include "core/os/os.h"
+#include "core/project_settings.h"
 
 #include <errno.h>
 
-#if defined(PULSEAUDIO_ENABLED) && defined(SOWRAP_ENABLED)
+#ifdef PULSEAUDIO_ENABLED
 extern "C" {
 extern int initialize_pulse(int verbose);
 }
 #endif
 
-Error AudioDriverALSA::init_output_device() {
-	mix_rate = _get_configured_mix_rate();
-
+Error AudioDriverALSA::init_device() {
+	mix_rate = GLOBAL_GET("audio/mix_rate");
 	speaker_mode = SPEAKER_MODE_STEREO;
 	channels = 2;
 
-	// If there is a specified output device check that it is really present
-	if (output_device_name != "Default") {
-		PackedStringArray list = get_output_device_list();
-		if (list.find(output_device_name) == -1) {
-			output_device_name = "Default";
-			new_output_device = "Default";
+	// If there is a specified device check that it is really present
+	if (device_name != "Default") {
+		Array list = get_device_list();
+		if (list.find(device_name) == -1) {
+			device_name = "Default";
+			new_device = "Default";
 		}
 	}
 
@@ -67,7 +66,7 @@ Error AudioDriverALSA::init_output_device() {
 		fprintf(stderr, "ALSA ERR: %s\n", snd_strerror(status)); \
 		if (pcm_handle) {                                        \
 			snd_pcm_close(pcm_handle);                           \
-			pcm_handle = nullptr;                                \
+			pcm_handle = NULL;                                   \
 		}                                                        \
 		ERR_FAIL_COND_V(m_cond, ERR_CANT_OPEN);                  \
 	}
@@ -76,10 +75,10 @@ Error AudioDriverALSA::init_output_device() {
 	//6 chans - "plug:surround51"
 	//4 chans - "plug:surround40";
 
-	if (output_device_name == "Default") {
+	if (device_name == "Default") {
 		status = snd_pcm_open(&pcm_handle, "default", SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
 	} else {
-		String device = output_device_name;
+		String device = device_name;
 		int pos = device.find(";");
 		if (pos != -1) {
 			device = device.substr(0, pos);
@@ -111,7 +110,7 @@ Error AudioDriverALSA::init_output_device() {
 	// In ALSA the period size seems to be the one that will determine the actual latency
 	// Ref: https://www.alsa-project.org/main/index.php/FramesPeriods
 	unsigned int periods = 2;
-	int latency = Engine::get_singleton()->get_audio_output_latency();
+	int latency = GLOBAL_GET("audio/output_latency");
 	buffer_frames = closest_power_of_2(latency * mix_rate / 1000);
 	buffer_size = buffer_frames * periods;
 	period_size = buffer_frames;
@@ -154,7 +153,6 @@ Error AudioDriverALSA::init_output_device() {
 }
 
 Error AudioDriverALSA::init() {
-#ifdef SOWRAP_ENABLED
 #ifdef DEBUG_ENABLED
 	int dylibloader_verbose = 1;
 #else
@@ -169,23 +167,11 @@ Error AudioDriverALSA::init() {
 	if (initialize_asound(dylibloader_verbose)) {
 		return ERR_CANT_OPEN;
 	}
-#endif
-	bool ver_ok = false;
-	String version = String::utf8(snd_asoundlib_version());
-	Vector<String> ver_parts = version.split(".");
-	if (ver_parts.size() >= 2) {
-		ver_ok = ((ver_parts[0].to_int() == 1 && ver_parts[1].to_int() >= 1)) || (ver_parts[0].to_int() > 1); // 1.1.0
-	}
-	print_verbose(vformat("ALSA %s detected.", version));
-	if (!ver_ok) {
-		print_verbose("Unsupported ALSA library version!");
-		return ERR_CANT_OPEN;
-	}
 
 	active.clear();
 	exit_thread.clear();
 
-	Error err = init_output_device();
+	Error err = init_device();
 	if (err == OK) {
 		thread.start(AudioDriverALSA::thread_func, this);
 	}
@@ -194,7 +180,7 @@ Error AudioDriverALSA::init() {
 }
 
 void AudioDriverALSA::thread_func(void *p_udata) {
-	AudioDriverALSA *ad = static_cast<AudioDriverALSA *>(p_udata);
+	AudioDriverALSA *ad = (AudioDriverALSA *)p_udata;
 
 	while (!ad->exit_thread.is_set()) {
 		ad->lock();
@@ -241,18 +227,18 @@ void AudioDriverALSA::thread_func(void *p_udata) {
 			}
 		}
 
-		// User selected a new output device, finish the current one so we'll init the new device.
-		if (ad->output_device_name != ad->new_output_device) {
-			ad->output_device_name = ad->new_output_device;
-			ad->finish_output_device();
+		// User selected a new device, finish the current one so we'll init the new device
+		if (ad->device_name != ad->new_device) {
+			ad->device_name = ad->new_device;
+			ad->finish_device();
 
-			Error err = ad->init_output_device();
+			Error err = ad->init_device();
 			if (err != OK) {
-				ERR_PRINT("ALSA: init_output_device error");
-				ad->output_device_name = "Default";
-				ad->new_output_device = "Default";
+				ERR_PRINT("ALSA: init_device error");
+				ad->device_name = "Default";
+				ad->new_device = "Default";
 
-				err = ad->init_output_device();
+				err = ad->init_device();
 				if (err != OK) {
 					ad->active.clear();
 					ad->exit_thread.set();
@@ -277,8 +263,8 @@ AudioDriver::SpeakerMode AudioDriverALSA::get_speaker_mode() const {
 	return speaker_mode;
 }
 
-PackedStringArray AudioDriverALSA::get_output_device_list() {
-	PackedStringArray list;
+Array AudioDriverALSA::get_device_list() {
+	Array list;
 
 	list.push_back("Default");
 
@@ -312,13 +298,13 @@ PackedStringArray AudioDriverALSA::get_output_device_list() {
 	return list;
 }
 
-String AudioDriverALSA::get_output_device() {
-	return output_device_name;
+String AudioDriverALSA::get_device() {
+	return device_name;
 }
 
-void AudioDriverALSA::set_output_device(const String &p_name) {
+void AudioDriverALSA::set_device(String device) {
 	lock();
-	new_output_device = p_name;
+	new_device = device;
 	unlock();
 }
 
@@ -330,7 +316,7 @@ void AudioDriverALSA::unlock() {
 	mutex.unlock();
 }
 
-void AudioDriverALSA::finish_output_device() {
+void AudioDriverALSA::finish_device() {
 	if (pcm_handle) {
 		snd_pcm_close(pcm_handle);
 		pcm_handle = nullptr;
@@ -339,11 +325,18 @@ void AudioDriverALSA::finish_output_device() {
 
 void AudioDriverALSA::finish() {
 	exit_thread.set();
-	if (thread.is_started()) {
-		thread.wait_to_finish();
-	}
+	thread.wait_to_finish();
 
-	finish_output_device();
+	finish_device();
 }
 
-#endif // ALSA_ENABLED
+AudioDriverALSA::AudioDriverALSA() :
+		pcm_handle(nullptr),
+		device_name("Default"),
+		new_device("Default") {
+}
+
+AudioDriverALSA::~AudioDriverALSA() {
+}
+
+#endif

@@ -1,101 +1,77 @@
-/**************************************************************************/
-/*  material_editor_plugin.h                                              */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  material_editor_plugin.h                                             */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef MATERIAL_EDITOR_PLUGIN_H
 #define MATERIAL_EDITOR_PLUGIN_H
 
-#include "editor/editor_inspector.h"
-#include "editor/editor_plugin.h"
-#include "editor/plugins/editor_resource_conversion_plugin.h"
-#include "scene/resources/material.h"
+#include "editor/property_editor.h"
 #include "scene/resources/primitive_meshes.h"
 
-class Camera3D;
-class ColorRect;
-class DirectionalLight3D;
-class HBoxContainer;
-class MeshInstance3D;
-class SubViewport;
-class SubViewportContainer;
-class Button;
+#include "editor/editor_node.h"
+#include "editor/editor_plugin.h"
+#include "scene/3d/camera.h"
+#include "scene/3d/light.h"
+#include "scene/3d/mesh_instance.h"
+#include "scene/resources/material.h"
+
+class ViewportContainer;
 
 class MaterialEditor : public Control {
 	GDCLASS(MaterialEditor, Control);
 
-	Vector2 rot;
-
-	SubViewportContainer *vc_2d = nullptr;
-	SubViewport *viewport_2d = nullptr;
-	HBoxContainer *layout_2d = nullptr;
-	ColorRect *rect_instance = nullptr;
-
-	SubViewportContainer *vc = nullptr;
-	SubViewport *viewport = nullptr;
-	Node3D *rotation = nullptr;
-	MeshInstance3D *sphere_instance = nullptr;
-	MeshInstance3D *box_instance = nullptr;
-	DirectionalLight3D *light1 = nullptr;
-	DirectionalLight3D *light2 = nullptr;
-	Camera3D *camera = nullptr;
-	Ref<CameraAttributesPractical> camera_attributes;
+	ViewportContainer *vc;
+	Viewport *viewport;
+	MeshInstance *sphere_instance;
+	MeshInstance *box_instance;
+	DirectionalLight *light1;
+	DirectionalLight *light2;
+	Camera *camera;
 
 	Ref<SphereMesh> sphere_mesh;
-	Ref<BoxMesh> box_mesh;
+	Ref<CubeMesh> box_mesh;
 
-	HBoxContainer *layout_3d = nullptr;
+	TextureButton *sphere_switch;
+	TextureButton *box_switch;
+
+	TextureButton *light_1_switch;
+	TextureButton *light_2_switch;
 
 	Ref<Material> material;
 
-	Button *sphere_switch = nullptr;
-	Button *box_switch = nullptr;
-	Button *light_1_switch = nullptr;
-	Button *light_2_switch = nullptr;
-
-	struct ThemeCache {
-		Ref<Texture2D> light_1_icon;
-		Ref<Texture2D> light_2_icon;
-		Ref<Texture2D> sphere_icon;
-		Ref<Texture2D> box_icon;
-		Ref<Texture2D> checkerboard;
-	} theme_cache;
-
-	void _on_light_1_switch_pressed();
-	void _on_light_2_switch_pressed();
-	void _on_sphere_switch_pressed();
-	void _on_box_switch_pressed();
+	void _button_pressed(Node *p_button);
+	bool first_enter;
 
 protected:
-	virtual void _update_theme_item_cache() override;
 	void _notification(int p_what);
-	void gui_input(const Ref<InputEvent> &p_event) override;
-	void _update_rotation();
+
+	static void _bind_methods();
 
 public:
 	void edit(Ref<Material> p_material, const Ref<Environment> &p_env);
@@ -107,10 +83,8 @@ class EditorInspectorPluginMaterial : public EditorInspectorPlugin {
 	Ref<Environment> env;
 
 public:
-	virtual bool can_handle(Object *p_object) override;
-	virtual void parse_begin(Object *p_object) override;
-
-	void _undo_redo_inspector_callback(Object *p_undo_redo, Object *p_edited, String p_property, Variant p_new_value);
+	virtual bool can_handle(Object *p_object);
+	virtual void parse_begin(Object *p_object);
 
 	EditorInspectorPluginMaterial();
 };
@@ -119,81 +93,36 @@ class MaterialEditorPlugin : public EditorPlugin {
 	GDCLASS(MaterialEditorPlugin, EditorPlugin);
 
 public:
-	virtual String get_name() const override { return "Material"; }
+	virtual String get_name() const { return "Material"; }
 
-	MaterialEditorPlugin();
+	MaterialEditorPlugin(EditorNode *p_node);
 };
 
-class StandardMaterial3DConversionPlugin : public EditorResourceConversionPlugin {
-	GDCLASS(StandardMaterial3DConversionPlugin, EditorResourceConversionPlugin);
+class SpatialMaterialConversionPlugin : public EditorResourceConversionPlugin {
+	GDCLASS(SpatialMaterialConversionPlugin, EditorResourceConversionPlugin);
 
 public:
-	virtual String converts_to() const override;
-	virtual bool handles(const Ref<Resource> &p_resource) const override;
-	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
+	virtual String converts_to() const;
+	virtual bool handles(const Ref<Resource> &p_resource) const;
+	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const;
 };
 
-class ORMMaterial3DConversionPlugin : public EditorResourceConversionPlugin {
-	GDCLASS(ORMMaterial3DConversionPlugin, EditorResourceConversionPlugin);
+class ParticlesMaterialConversionPlugin : public EditorResourceConversionPlugin {
+	GDCLASS(ParticlesMaterialConversionPlugin, EditorResourceConversionPlugin);
 
 public:
-	virtual String converts_to() const override;
-	virtual bool handles(const Ref<Resource> &p_resource) const override;
-	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
-};
-
-class ParticleProcessMaterialConversionPlugin : public EditorResourceConversionPlugin {
-	GDCLASS(ParticleProcessMaterialConversionPlugin, EditorResourceConversionPlugin);
-
-public:
-	virtual String converts_to() const override;
-	virtual bool handles(const Ref<Resource> &p_resource) const override;
-	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
+	virtual String converts_to() const;
+	virtual bool handles(const Ref<Resource> &p_resource) const;
+	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const;
 };
 
 class CanvasItemMaterialConversionPlugin : public EditorResourceConversionPlugin {
 	GDCLASS(CanvasItemMaterialConversionPlugin, EditorResourceConversionPlugin);
 
 public:
-	virtual String converts_to() const override;
-	virtual bool handles(const Ref<Resource> &p_resource) const override;
-	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
-};
-
-class ProceduralSkyMaterialConversionPlugin : public EditorResourceConversionPlugin {
-	GDCLASS(ProceduralSkyMaterialConversionPlugin, EditorResourceConversionPlugin);
-
-public:
-	virtual String converts_to() const override;
-	virtual bool handles(const Ref<Resource> &p_resource) const override;
-	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
-};
-
-class PanoramaSkyMaterialConversionPlugin : public EditorResourceConversionPlugin {
-	GDCLASS(PanoramaSkyMaterialConversionPlugin, EditorResourceConversionPlugin);
-
-public:
-	virtual String converts_to() const override;
-	virtual bool handles(const Ref<Resource> &p_resource) const override;
-	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
-};
-
-class PhysicalSkyMaterialConversionPlugin : public EditorResourceConversionPlugin {
-	GDCLASS(PhysicalSkyMaterialConversionPlugin, EditorResourceConversionPlugin);
-
-public:
-	virtual String converts_to() const override;
-	virtual bool handles(const Ref<Resource> &p_resource) const override;
-	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
-};
-
-class FogMaterialConversionPlugin : public EditorResourceConversionPlugin {
-	GDCLASS(FogMaterialConversionPlugin, EditorResourceConversionPlugin);
-
-public:
-	virtual String converts_to() const override;
-	virtual bool handles(const Ref<Resource> &p_resource) const override;
-	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
+	virtual String converts_to() const;
+	virtual bool handles(const Ref<Resource> &p_resource) const;
+	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const;
 };
 
 #endif // MATERIAL_EDITOR_PLUGIN_H

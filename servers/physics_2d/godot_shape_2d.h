@@ -1,73 +1,80 @@
-/**************************************************************************/
-/*  godot_shape_2d.h                                                      */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  shape_2d_sw.h                                                        */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
-#ifndef GODOT_SHAPE_2D_H
-#define GODOT_SHAPE_2D_H
+#ifndef SHAPE_2D_SW_H
+#define SHAPE_2D_SW_H
 
-#include "servers/physics_server_2d.h"
+#include "servers/physics_2d_server.h"
+#define _SEGMENT_IS_VALID_SUPPORT_THRESHOLD 0.99998
 
-class GodotShape2D;
+/*
 
-class GodotShapeOwner2D {
+SHAPE_LINE, ///< plane:"plane"
+SHAPE_SEGMENT, ///< real_t:"length"
+SHAPE_CIRCLE, ///< real_t:"radius"
+SHAPE_RECTANGLE, ///< vec3:"extents"
+SHAPE_CONVEX_POLYGON, ///< array of planes:"planes"
+SHAPE_CONCAVE_POLYGON, ///< Vector2 array:"triangles" , or Dictionary with "indices" (int array) and "triangles" (Vector2 array)
+SHAPE_CUSTOM, ///< Server-Implementation based custom shape, calling shape_create() with this value will result in an error
+
+*/
+
+class Shape2DSW;
+
+class ShapeOwner2DSW : public RID_Data {
 public:
 	virtual void _shape_changed() = 0;
-	virtual void remove_shape(GodotShape2D *p_shape) = 0;
+	virtual void remove_shape(Shape2DSW *p_shape) = 0;
 
-	virtual ~GodotShapeOwner2D() {}
+	virtual ~ShapeOwner2DSW() {}
 };
 
-class GodotShape2D {
+class Shape2DSW : public RID_Data {
 	RID self;
 	Rect2 aabb;
-	bool configured = false;
-	real_t custom_bias = 0.0;
+	bool configured;
+	real_t custom_bias;
 
-	HashMap<GodotShapeOwner2D *, int> owners;
+	Map<ShapeOwner2DSW *, int> owners;
 
 protected:
-	const double segment_is_valid_support_threshold = 0.99998;
-	const double segment_is_valid_support_threshold_lower =
-			Math::sqrt(1.0 - segment_is_valid_support_threshold * segment_is_valid_support_threshold);
-
 	void configure(const Rect2 &p_aabb);
 
 public:
 	_FORCE_INLINE_ void set_self(const RID &p_self) { self = p_self; }
 	_FORCE_INLINE_ RID get_self() const { return self; }
 
-	virtual PhysicsServer2D::ShapeType get_type() const = 0;
+	virtual Physics2DServer::ShapeType get_type() const = 0;
 
 	_FORCE_INLINE_ Rect2 get_aabb() const { return aabb; }
 	_FORCE_INLINE_ bool is_configured() const { return configured; }
-
-	virtual bool allows_one_way_collision() const { return true; }
 
 	virtual bool is_concave() const { return false; }
 
@@ -86,10 +93,10 @@ public:
 	_FORCE_INLINE_ void set_custom_bias(real_t p_bias) { custom_bias = p_bias; }
 	_FORCE_INLINE_ real_t get_custom_bias() const { return custom_bias; }
 
-	void add_owner(GodotShapeOwner2D *p_owner);
-	void remove_owner(GodotShapeOwner2D *p_owner);
-	bool is_owner(GodotShapeOwner2D *p_owner) const;
-	const HashMap<GodotShapeOwner2D *, int> &get_owners() const;
+	void add_owner(ShapeOwner2DSW *p_owner);
+	void remove_owner(ShapeOwner2DSW *p_owner);
+	bool is_owner(ShapeOwner2DSW *p_owner) const;
+	const Map<ShapeOwner2DSW *, int> &get_owners() const;
 
 	_FORCE_INLINE_ void get_supports_transformed_cast(const Vector2 &p_cast, const Vector2 &p_normal, const Transform2D &p_xform, Vector2 *r_supports, int &r_amount) const {
 		get_supports(p_xform.basis_xform_inv(p_normal).normalized(), r_supports, r_amount);
@@ -98,7 +105,7 @@ public:
 		}
 
 		if (r_amount == 1) {
-			if (Math::abs(p_normal.dot(p_cast.normalized())) < segment_is_valid_support_threshold_lower) {
+			if (Math::abs(p_normal.dot(p_cast.normalized())) < (1.0 - _SEGMENT_IS_VALID_SUPPORT_THRESHOLD)) {
 				//make line because they are parallel
 				r_amount = 2;
 				r_supports[1] = r_supports[0] + p_cast;
@@ -108,7 +115,7 @@ public:
 			}
 
 		} else {
-			if (Math::abs(p_normal.dot(p_cast.normalized())) < segment_is_valid_support_threshold_lower) {
+			if (Math::abs(p_normal.dot(p_cast.normalized())) < (1.0 - _SEGMENT_IS_VALID_SUPPORT_THRESHOLD)) {
 				//optimize line and make it larger because they are parallel
 				if ((r_supports[1] - r_supports[0]).dot(p_cast) > 0) {
 					//larger towards 1
@@ -124,45 +131,46 @@ public:
 			}
 		}
 	}
-	GodotShape2D() {}
-	virtual ~GodotShape2D();
+
+	Shape2DSW();
+	virtual ~Shape2DSW();
 };
 
 //let the optimizer do the magic
-#define DEFAULT_PROJECT_RANGE_CAST                                                                                                                                  \
-	virtual void project_range_castv(const Vector2 &p_cast, const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const override { \
-		project_range_cast(p_cast, p_normal, p_transform, r_min, r_max);                                                                                            \
-	}                                                                                                                                                               \
-	_FORCE_INLINE_ void project_range_cast(const Vector2 &p_cast, const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const {    \
-		real_t mina, maxa;                                                                                                                                          \
-		real_t minb, maxb;                                                                                                                                          \
-		Transform2D ofsb = p_transform;                                                                                                                             \
-		ofsb.columns[2] += p_cast;                                                                                                                                  \
-		project_range(p_normal, p_transform, mina, maxa);                                                                                                           \
-		project_range(p_normal, ofsb, minb, maxb);                                                                                                                  \
-		r_min = MIN(mina, minb);                                                                                                                                    \
-		r_max = MAX(maxa, maxb);                                                                                                                                    \
+#define DEFAULT_PROJECT_RANGE_CAST                                                                                                                               \
+	virtual void project_range_castv(const Vector2 &p_cast, const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const {       \
+		project_range_cast(p_cast, p_normal, p_transform, r_min, r_max);                                                                                         \
+	}                                                                                                                                                            \
+	_FORCE_INLINE_ void project_range_cast(const Vector2 &p_cast, const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const { \
+		real_t mina, maxa;                                                                                                                                       \
+		real_t minb, maxb;                                                                                                                                       \
+		Transform2D ofsb = p_transform;                                                                                                                          \
+		ofsb.elements[2] += p_cast;                                                                                                                              \
+		project_range(p_normal, p_transform, mina, maxa);                                                                                                        \
+		project_range(p_normal, ofsb, minb, maxb);                                                                                                               \
+		r_min = MIN(mina, minb);                                                                                                                                 \
+		r_max = MAX(maxa, maxb);                                                                                                                                 \
 	}
 
-class GodotWorldBoundaryShape2D : public GodotShape2D {
+class LineShape2DSW : public Shape2DSW {
 	Vector2 normal;
-	real_t d = 0.0;
+	real_t d;
 
 public:
 	_FORCE_INLINE_ Vector2 get_normal() const { return normal; }
 	_FORCE_INLINE_ real_t get_d() const { return d; }
 
-	virtual PhysicsServer2D::ShapeType get_type() const override { return PhysicsServer2D::SHAPE_WORLD_BOUNDARY; }
+	virtual Physics2DServer::ShapeType get_type() const { return Physics2DServer::SHAPE_LINE; }
 
-	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const override { project_range(p_normal, p_transform, r_min, r_max); }
-	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const override;
+	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const { project_range(p_normal, p_transform, r_min, r_max); }
+	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const;
 
-	virtual bool contains_point(const Vector2 &p_point) const override;
-	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const override;
-	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const override;
+	virtual bool contains_point(const Vector2 &p_point) const;
+	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const;
+	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const;
 
-	virtual void set_data(const Variant &p_data) override;
-	virtual Variant get_data() const override;
+	virtual void set_data(const Variant &p_data);
+	virtual Variant get_data() const;
 
 	_FORCE_INLINE_ void project_range(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const {
 		//real large
@@ -170,7 +178,7 @@ public:
 		r_max = 1e10;
 	}
 
-	virtual void project_range_castv(const Vector2 &p_cast, const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const override {
+	virtual void project_range_castv(const Vector2 &p_cast, const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const {
 		project_range_cast(p_cast, p_normal, p_transform, r_min, r_max);
 	}
 
@@ -181,27 +189,25 @@ public:
 	}
 };
 
-class GodotSeparationRayShape2D : public GodotShape2D {
-	real_t length = 0.0;
-	bool slide_on_slope = false;
+class RayShape2DSW : public Shape2DSW {
+	real_t length;
+	bool slips_on_slope;
 
 public:
 	_FORCE_INLINE_ real_t get_length() const { return length; }
-	_FORCE_INLINE_ bool get_slide_on_slope() const { return slide_on_slope; }
+	_FORCE_INLINE_ bool get_slips_on_slope() const { return slips_on_slope; }
 
-	virtual PhysicsServer2D::ShapeType get_type() const override { return PhysicsServer2D::SHAPE_SEPARATION_RAY; }
+	virtual Physics2DServer::ShapeType get_type() const { return Physics2DServer::SHAPE_RAY; }
 
-	virtual bool allows_one_way_collision() const override { return false; }
+	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const { project_range(p_normal, p_transform, r_min, r_max); }
+	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const;
 
-	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const override { project_range(p_normal, p_transform, r_min, r_max); }
-	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const override;
+	virtual bool contains_point(const Vector2 &p_point) const;
+	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const;
+	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const;
 
-	virtual bool contains_point(const Vector2 &p_point) const override;
-	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const override;
-	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const override;
-
-	virtual void set_data(const Variant &p_data) override;
-	virtual Variant get_data() const override;
+	virtual void set_data(const Variant &p_data);
+	virtual Variant get_data() const;
 
 	_FORCE_INLINE_ void project_range(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const {
 		//real large
@@ -214,11 +220,11 @@ public:
 
 	DEFAULT_PROJECT_RANGE_CAST
 
-	_FORCE_INLINE_ GodotSeparationRayShape2D() {}
-	_FORCE_INLINE_ GodotSeparationRayShape2D(real_t p_length) { length = p_length; }
+	_FORCE_INLINE_ RayShape2DSW() {}
+	_FORCE_INLINE_ RayShape2DSW(real_t p_length) { length = p_length; }
 };
 
-class GodotSegmentShape2D : public GodotShape2D {
+class SegmentShape2DSW : public Shape2DSW {
 	Vector2 a;
 	Vector2 b;
 	Vector2 n;
@@ -228,20 +234,20 @@ public:
 	_FORCE_INLINE_ const Vector2 &get_b() const { return b; }
 	_FORCE_INLINE_ const Vector2 &get_normal() const { return n; }
 
-	virtual PhysicsServer2D::ShapeType get_type() const override { return PhysicsServer2D::SHAPE_SEGMENT; }
+	virtual Physics2DServer::ShapeType get_type() const { return Physics2DServer::SHAPE_SEGMENT; }
 
 	_FORCE_INLINE_ Vector2 get_xformed_normal(const Transform2D &p_xform) const {
-		return (p_xform.xform(b) - p_xform.xform(a)).normalized().orthogonal();
+		return (p_xform.xform(b) - p_xform.xform(a)).normalized().tangent();
 	}
-	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const override { project_range(p_normal, p_transform, r_min, r_max); }
-	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const override;
+	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const { project_range(p_normal, p_transform, r_min, r_max); }
+	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const;
 
-	virtual bool contains_point(const Vector2 &p_point) const override;
-	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const override;
-	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const override;
+	virtual bool contains_point(const Vector2 &p_point) const;
+	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const;
+	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const;
 
-	virtual void set_data(const Variant &p_data) override;
-	virtual Variant get_data() const override;
+	virtual void set_data(const Variant &p_data);
+	virtual Variant get_data() const;
 
 	_FORCE_INLINE_ void project_range(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const {
 		//real large
@@ -254,31 +260,31 @@ public:
 
 	DEFAULT_PROJECT_RANGE_CAST
 
-	_FORCE_INLINE_ GodotSegmentShape2D() {}
-	_FORCE_INLINE_ GodotSegmentShape2D(const Vector2 &p_a, const Vector2 &p_b, const Vector2 &p_n) {
+	_FORCE_INLINE_ SegmentShape2DSW() {}
+	_FORCE_INLINE_ SegmentShape2DSW(const Vector2 &p_a, const Vector2 &p_b, const Vector2 &p_n) {
 		a = p_a;
 		b = p_b;
 		n = p_n;
 	}
 };
 
-class GodotCircleShape2D : public GodotShape2D {
+class CircleShape2DSW : public Shape2DSW {
 	real_t radius;
 
 public:
 	_FORCE_INLINE_ const real_t &get_radius() const { return radius; }
 
-	virtual PhysicsServer2D::ShapeType get_type() const override { return PhysicsServer2D::SHAPE_CIRCLE; }
+	virtual Physics2DServer::ShapeType get_type() const { return Physics2DServer::SHAPE_CIRCLE; }
 
-	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const override { project_range(p_normal, p_transform, r_min, r_max); }
-	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const override;
+	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const { project_range(p_normal, p_transform, r_min, r_max); }
+	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const;
 
-	virtual bool contains_point(const Vector2 &p_point) const override;
-	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const override;
-	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const override;
+	virtual bool contains_point(const Vector2 &p_point) const;
+	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const;
+	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const;
 
-	virtual void set_data(const Variant &p_data) override;
-	virtual Variant get_data() const override;
+	virtual void set_data(const Variant &p_data);
+	virtual Variant get_data() const;
 
 	_FORCE_INLINE_ void project_range(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const {
 		//real large
@@ -295,23 +301,23 @@ public:
 	DEFAULT_PROJECT_RANGE_CAST
 };
 
-class GodotRectangleShape2D : public GodotShape2D {
+class RectangleShape2DSW : public Shape2DSW {
 	Vector2 half_extents;
 
 public:
 	_FORCE_INLINE_ const Vector2 &get_half_extents() const { return half_extents; }
 
-	virtual PhysicsServer2D::ShapeType get_type() const override { return PhysicsServer2D::SHAPE_RECTANGLE; }
+	virtual Physics2DServer::ShapeType get_type() const { return Physics2DServer::SHAPE_RECTANGLE; }
 
-	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const override { project_range(p_normal, p_transform, r_min, r_max); }
-	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const override;
+	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const { project_range(p_normal, p_transform, r_min, r_max); }
+	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const;
 
-	virtual bool contains_point(const Vector2 &p_point) const override;
-	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const override;
-	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const override;
+	virtual bool contains_point(const Vector2 &p_point) const;
+	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const;
+	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const;
 
-	virtual void set_data(const Variant &p_data) override;
-	virtual Variant get_data() const override;
+	virtual void set_data(const Variant &p_data);
+	virtual Variant get_data() const;
 
 	_FORCE_INLINE_ void project_range(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const {
 		// no matter the angle, the box is mirrored anyway
@@ -339,7 +345,7 @@ public:
 		return (p_xform.xform(he) - p_circle).normalized();
 	}
 
-	_FORCE_INLINE_ Vector2 get_box_axis(const Transform2D &p_xform, const Transform2D &p_xform_inv, const GodotRectangleShape2D *p_B, const Transform2D &p_B_xform, const Transform2D &p_B_xform_inv) const {
+	_FORCE_INLINE_ Vector2 get_box_axis(const Transform2D &p_xform, const Transform2D &p_xform_inv, const RectangleShape2DSW *p_B, const Transform2D &p_B_xform, const Transform2D &p_B_xform_inv) const {
 		Vector2 a, b;
 
 		{
@@ -367,33 +373,33 @@ public:
 	DEFAULT_PROJECT_RANGE_CAST
 };
 
-class GodotCapsuleShape2D : public GodotShape2D {
-	real_t radius = 0.0;
-	real_t height = 0.0;
+class CapsuleShape2DSW : public Shape2DSW {
+	real_t radius;
+	real_t height;
 
 public:
 	_FORCE_INLINE_ const real_t &get_radius() const { return radius; }
 	_FORCE_INLINE_ const real_t &get_height() const { return height; }
 
-	virtual PhysicsServer2D::ShapeType get_type() const override { return PhysicsServer2D::SHAPE_CAPSULE; }
+	virtual Physics2DServer::ShapeType get_type() const { return Physics2DServer::SHAPE_CAPSULE; }
 
-	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const override { project_range(p_normal, p_transform, r_min, r_max); }
-	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const override;
+	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const { project_range(p_normal, p_transform, r_min, r_max); }
+	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const;
 
-	virtual bool contains_point(const Vector2 &p_point) const override;
-	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const override;
-	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const override;
+	virtual bool contains_point(const Vector2 &p_point) const;
+	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const;
+	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const;
 
-	virtual void set_data(const Variant &p_data) override;
-	virtual Variant get_data() const override;
+	virtual void set_data(const Variant &p_data);
+	virtual Variant get_data() const;
 
 	_FORCE_INLINE_ void project_range(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const {
 		// no matter the angle, the box is mirrored anyway
 		Vector2 n = p_transform.basis_xform_inv(p_normal).normalized();
-		real_t h = height * 0.5 - radius;
+		real_t h = (n.y > 0) ? height : -height;
 
 		n *= radius;
-		n.y += (n.y > 0) ? h : -h;
+		n.y += h * 0.5;
 
 		r_max = p_normal.dot(p_transform.xform(n));
 		r_min = p_normal.dot(p_transform.xform(-n));
@@ -408,14 +414,14 @@ public:
 	DEFAULT_PROJECT_RANGE_CAST
 };
 
-class GodotConvexPolygonShape2D : public GodotShape2D {
+class ConvexPolygonShape2DSW : public Shape2DSW {
 	struct Point {
 		Vector2 pos;
 		Vector2 normal; //normal to next segment
 	};
 
-	Point *points = nullptr;
-	int point_count = 0;
+	Point *points;
+	int point_count;
 
 public:
 	_FORCE_INLINE_ int get_point_count() const { return point_count; }
@@ -425,20 +431,20 @@ public:
 		Vector2 a = points[p_idx].pos;
 		p_idx++;
 		Vector2 b = points[p_idx == point_count ? 0 : p_idx].pos;
-		return (p_xform.xform(b) - p_xform.xform(a)).normalized().orthogonal();
+		return (p_xform.xform(b) - p_xform.xform(a)).normalized().tangent();
 	}
 
-	virtual PhysicsServer2D::ShapeType get_type() const override { return PhysicsServer2D::SHAPE_CONVEX_POLYGON; }
+	virtual Physics2DServer::ShapeType get_type() const { return Physics2DServer::SHAPE_CONVEX_POLYGON; }
 
-	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const override { project_range(p_normal, p_transform, r_min, r_max); }
-	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const override;
+	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const { project_range(p_normal, p_transform, r_min, r_max); }
+	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const;
 
-	virtual bool contains_point(const Vector2 &p_point) const override;
-	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const override;
-	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const override;
+	virtual bool contains_point(const Vector2 &p_point) const;
+	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const;
+	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const;
 
-	virtual void set_data(const Variant &p_data) override;
-	virtual Variant get_data() const override;
+	virtual void set_data(const Variant &p_data);
+	virtual Variant get_data() const;
 
 	_FORCE_INLINE_ void project_range(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const {
 		if (!points || point_count <= 0) {
@@ -460,23 +466,22 @@ public:
 
 	DEFAULT_PROJECT_RANGE_CAST
 
-	GodotConvexPolygonShape2D() {}
-	~GodotConvexPolygonShape2D();
+	ConvexPolygonShape2DSW();
+	~ConvexPolygonShape2DSW();
 };
 
-class GodotConcaveShape2D : public GodotShape2D {
+class ConcaveShape2DSW : public Shape2DSW {
 public:
-	virtual bool is_concave() const override { return true; }
-
 	// Returns true to stop the query.
-	typedef bool (*QueryCallback)(void *p_userdata, GodotShape2D *p_convex);
+	typedef bool (*QueryCallback)(void *p_userdata, Shape2DSW *p_convex);
 
+	virtual bool is_concave() const { return true; }
 	virtual void cull(const Rect2 &p_local_aabb, QueryCallback p_callback, void *p_userdata) const = 0;
 };
 
-class GodotConcavePolygonShape2D : public GodotConcaveShape2D {
+class ConcavePolygonShape2DSW : public ConcaveShape2DSW {
 	struct Segment {
-		int points[2] = {};
+		int points[2];
 	};
 
 	Vector<Segment> segments;
@@ -484,11 +489,11 @@ class GodotConcavePolygonShape2D : public GodotConcaveShape2D {
 
 	struct BVH {
 		Rect2 aabb;
-		int left = 0, right = 0;
+		int left, right;
 	};
 
 	Vector<BVH> bvh;
-	int bvh_depth = 0;
+	int bvh_depth;
 
 	struct BVH_CompareX {
 		_FORCE_INLINE_ bool operator()(const BVH &a, const BVH &b) const {
@@ -505,35 +510,27 @@ class GodotConcavePolygonShape2D : public GodotConcaveShape2D {
 	int _generate_bvh(BVH *p_bvh, int p_len, int p_depth);
 
 public:
-	virtual PhysicsServer2D::ShapeType get_type() const override { return PhysicsServer2D::SHAPE_CONCAVE_POLYGON; }
+	virtual Physics2DServer::ShapeType get_type() const { return Physics2DServer::SHAPE_CONCAVE_POLYGON; }
 
-	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const override {
-		r_min = 0;
-		r_max = 0;
-		ERR_FAIL_MSG("Unsupported call to project_rangev in GodotConcavePolygonShape2D");
+	virtual void project_rangev(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const { /*project_range(p_normal,p_transform,r_min,r_max);*/
 	}
-
-	void project_range(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const {
-		r_min = 0;
-		r_max = 0;
-		ERR_FAIL_MSG("Unsupported call to project_range in GodotConcavePolygonShape2D");
+	virtual void project_range(const Vector2 &p_normal, const Transform2D &p_transform, real_t &r_min, real_t &r_max) const { /*project_range(p_normal,p_transform,r_min,r_max);*/
 	}
+	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const;
 
-	virtual void get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const override;
+	virtual bool contains_point(const Vector2 &p_point) const;
+	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const;
 
-	virtual bool contains_point(const Vector2 &p_point) const override;
-	virtual bool intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const override;
+	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const { return 0; }
 
-	virtual real_t get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const override { return 0; }
+	virtual void set_data(const Variant &p_data);
+	virtual Variant get_data() const;
 
-	virtual void set_data(const Variant &p_data) override;
-	virtual Variant get_data() const override;
-
-	virtual void cull(const Rect2 &p_local_aabb, QueryCallback p_callback, void *p_userdata) const override;
+	virtual void cull(const Rect2 &p_local_aabb, QueryCallback p_callback, void *p_userdata) const;
 
 	DEFAULT_PROJECT_RANGE_CAST
 };
 
 #undef DEFAULT_PROJECT_RANGE_CAST
 
-#endif // GODOT_SHAPE_2D_H
+#endif // SHAPE_2D_SW_H

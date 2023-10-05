@@ -9,9 +9,8 @@
 #ifndef BROTLI_DEC_HUFFMAN_H_
 #define BROTLI_DEC_HUFFMAN_H_
 
-#include <brotli/types.h>
-
 #include "../common/platform.h"
+#include <brotli/types.h>
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {

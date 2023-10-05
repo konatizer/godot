@@ -1,55 +1,55 @@
-/**************************************************************************/
-/*  string_buffer.h                                                       */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  string_buffer.h                                                      */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef STRING_BUFFER_H
 #define STRING_BUFFER_H
 
-#include "core/string/ustring.h"
+#include "core/ustring.h"
 
 template <int SHORT_BUFFER_SIZE = 64>
 class StringBuffer {
-	char32_t short_buffer[SHORT_BUFFER_SIZE];
+	CharType short_buffer[SHORT_BUFFER_SIZE];
 	String buffer;
-	int string_length = 0;
+	int string_length;
 
-	_FORCE_INLINE_ char32_t *current_buffer_ptr() {
-		return static_cast<String &>(buffer).is_empty() ? short_buffer : buffer.ptrw();
+	_FORCE_INLINE_ CharType *current_buffer_ptr() {
+		return static_cast<String &>(buffer).empty() ? short_buffer : buffer.ptrw();
 	}
 
 public:
-	StringBuffer &append(char32_t p_char);
+	StringBuffer &append(CharType p_char);
 	StringBuffer &append(const String &p_string);
 	StringBuffer &append(const char *p_str);
-	StringBuffer &append(const char32_t *p_str, int p_clip_to_len = -1);
+	StringBuffer &append(const CharType *p_str, int p_clip_to_len = -1);
 
-	_FORCE_INLINE_ void operator+=(char32_t p_char) {
+	_FORCE_INLINE_ void operator+=(CharType p_char) {
 		append(p_char);
 	}
 
@@ -61,7 +61,7 @@ public:
 		append(p_str);
 	}
 
-	_FORCE_INLINE_ void operator+=(const char32_t *p_str) {
+	_FORCE_INLINE_ void operator+=(const CharType *p_str) {
 		append(p_str);
 	}
 
@@ -77,10 +77,14 @@ public:
 	_FORCE_INLINE_ operator String() {
 		return as_string();
 	}
+
+	StringBuffer() {
+		string_length = 0;
+	}
 };
 
 template <int SHORT_BUFFER_SIZE>
-StringBuffer<SHORT_BUFFER_SIZE> &StringBuffer<SHORT_BUFFER_SIZE>::append(char32_t p_char) {
+StringBuffer<SHORT_BUFFER_SIZE> &StringBuffer<SHORT_BUFFER_SIZE>::append(CharType p_char) {
 	reserve(string_length + 2);
 	current_buffer_ptr()[string_length++] = p_char;
 	return *this;
@@ -88,7 +92,7 @@ StringBuffer<SHORT_BUFFER_SIZE> &StringBuffer<SHORT_BUFFER_SIZE>::append(char32_
 
 template <int SHORT_BUFFER_SIZE>
 StringBuffer<SHORT_BUFFER_SIZE> &StringBuffer<SHORT_BUFFER_SIZE>::append(const String &p_string) {
-	return append(p_string.get_data());
+	return append(p_string.c_str());
 }
 
 template <int SHORT_BUFFER_SIZE>
@@ -96,7 +100,7 @@ StringBuffer<SHORT_BUFFER_SIZE> &StringBuffer<SHORT_BUFFER_SIZE>::append(const c
 	int len = strlen(p_str);
 	reserve(string_length + len + 1);
 
-	char32_t *buf = current_buffer_ptr();
+	CharType *buf = current_buffer_ptr();
 	for (const char *c_ptr = p_str; *c_ptr; ++c_ptr) {
 		buf[string_length++] = *c_ptr;
 	}
@@ -104,13 +108,13 @@ StringBuffer<SHORT_BUFFER_SIZE> &StringBuffer<SHORT_BUFFER_SIZE>::append(const c
 }
 
 template <int SHORT_BUFFER_SIZE>
-StringBuffer<SHORT_BUFFER_SIZE> &StringBuffer<SHORT_BUFFER_SIZE>::append(const char32_t *p_str, int p_clip_to_len) {
+StringBuffer<SHORT_BUFFER_SIZE> &StringBuffer<SHORT_BUFFER_SIZE>::append(const CharType *p_str, int p_clip_to_len) {
 	int len = 0;
 	while ((p_clip_to_len < 0 || len < p_clip_to_len) && p_str[len]) {
 		++len;
 	}
 	reserve(string_length + len + 1);
-	memcpy(&(current_buffer_ptr()[string_length]), p_str, len * sizeof(char32_t));
+	memcpy(&(current_buffer_ptr()[string_length]), p_str, len * sizeof(CharType));
 	string_length += len;
 
 	return *this;
@@ -122,10 +126,10 @@ StringBuffer<SHORT_BUFFER_SIZE> &StringBuffer<SHORT_BUFFER_SIZE>::reserve(int p_
 		return *this;
 	}
 
-	bool need_copy = string_length > 0 && buffer.is_empty();
+	bool need_copy = string_length > 0 && buffer.empty();
 	buffer.resize(next_power_of_2(p_size));
 	if (need_copy) {
-		memcpy(buffer.ptrw(), short_buffer, string_length * sizeof(char32_t));
+		memcpy(buffer.ptrw(), short_buffer, string_length * sizeof(CharType));
 	}
 
 	return *this;
@@ -139,7 +143,7 @@ int StringBuffer<SHORT_BUFFER_SIZE>::length() const {
 template <int SHORT_BUFFER_SIZE>
 String StringBuffer<SHORT_BUFFER_SIZE>::as_string() {
 	current_buffer_ptr()[string_length] = '\0';
-	if (buffer.is_empty()) {
+	if (buffer.empty()) {
 		return String(short_buffer);
 	} else {
 		buffer.resize(string_length + 1);
@@ -150,7 +154,7 @@ String StringBuffer<SHORT_BUFFER_SIZE>::as_string() {
 template <int SHORT_BUFFER_SIZE>
 double StringBuffer<SHORT_BUFFER_SIZE>::as_double() {
 	current_buffer_ptr()[string_length] = '\0';
-	return String::to_float(current_buffer_ptr());
+	return String::to_double(current_buffer_ptr());
 }
 
 template <int SHORT_BUFFER_SIZE>

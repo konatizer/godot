@@ -1,43 +1,38 @@
-/**************************************************************************/
-/*  property_selector.cpp                                                 */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  property_selector.cpp                                                */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "property_selector.h"
 
 #include "core/os/keyboard.h"
-#include "editor/doc_tools.h"
-#include "editor/editor_help.h"
 #include "editor/editor_node.h"
-#include "editor/editor_scale.h"
-#include "scene/gui/line_edit.h"
-#include "scene/gui/rich_text_label.h"
-#include "scene/gui/tree.h"
+#include "editor_scale.h"
 
 void PropertySelector::_text_changed(const String &p_newtext) {
 	_update_search();
@@ -47,16 +42,16 @@ void PropertySelector::_sbox_input(const Ref<InputEvent> &p_ie) {
 	Ref<InputEventKey> k = p_ie;
 
 	if (k.is_valid()) {
-		switch (k->get_keycode()) {
-			case Key::UP:
-			case Key::DOWN:
-			case Key::PAGEUP:
-			case Key::PAGEDOWN: {
-				search_options->gui_input(k);
+		switch (k->get_scancode()) {
+			case KEY_UP:
+			case KEY_DOWN:
+			case KEY_PAGEUP:
+			case KEY_PAGEDOWN: {
+				search_options->call("_gui_input", k);
 				search_box->accept_event();
 
 				TreeItem *root = search_options->get_root();
-				if (!root->get_first_child()) {
+				if (!root->get_children()) {
 					break;
 				}
 
@@ -71,8 +66,6 @@ void PropertySelector::_sbox_input(const Ref<InputEvent> &p_ie) {
 				current->select(0);
 
 			} break;
-			default:
-				break;
 		}
 	}
 }
@@ -101,8 +94,8 @@ void PropertySelector::_update_search() {
 			instance->get_property_list(&props, true);
 		} else if (type != Variant::NIL) {
 			Variant v;
-			Callable::CallError ce;
-			Variant::construct(type, v, nullptr, 0, ce);
+			Variant::CallError ce;
+			v = Variant::construct(type, nullptr, 0, ce);
 
 			v.get_property_list(&props);
 		} else {
@@ -124,85 +117,73 @@ void PropertySelector::_update_search() {
 
 		bool found = false;
 
-		Ref<Texture2D> type_icons[] = {
-			search_options->get_editor_theme_icon(SNAME("Variant")),
-			search_options->get_editor_theme_icon(SNAME("bool")),
-			search_options->get_editor_theme_icon(SNAME("int")),
-			search_options->get_editor_theme_icon(SNAME("float")),
-			search_options->get_editor_theme_icon(SNAME("String")),
-			search_options->get_editor_theme_icon(SNAME("Vector2")),
-			search_options->get_editor_theme_icon(SNAME("Vector2i")),
-			search_options->get_editor_theme_icon(SNAME("Rect2")),
-			search_options->get_editor_theme_icon(SNAME("Rect2i")),
-			search_options->get_editor_theme_icon(SNAME("Vector3")),
-			search_options->get_editor_theme_icon(SNAME("Vector3i")),
-			search_options->get_editor_theme_icon(SNAME("Transform2D")),
-			search_options->get_editor_theme_icon(SNAME("Vector4")),
-			search_options->get_editor_theme_icon(SNAME("Vector4i")),
-			search_options->get_editor_theme_icon(SNAME("Plane")),
-			search_options->get_editor_theme_icon(SNAME("Quaternion")),
-			search_options->get_editor_theme_icon(SNAME("AABB")),
-			search_options->get_editor_theme_icon(SNAME("Basis")),
-			search_options->get_editor_theme_icon(SNAME("Transform3D")),
-			search_options->get_editor_theme_icon(SNAME("Projection")),
-			search_options->get_editor_theme_icon(SNAME("Color")),
-			search_options->get_editor_theme_icon(SNAME("StringName")),
-			search_options->get_editor_theme_icon(SNAME("NodePath")),
-			search_options->get_editor_theme_icon(SNAME("RID")),
-			search_options->get_editor_theme_icon(SNAME("MiniObject")),
-			search_options->get_editor_theme_icon(SNAME("Callable")),
-			search_options->get_editor_theme_icon(SNAME("Signal")),
-			search_options->get_editor_theme_icon(SNAME("Dictionary")),
-			search_options->get_editor_theme_icon(SNAME("Array")),
-			search_options->get_editor_theme_icon(SNAME("PackedByteArray")),
-			search_options->get_editor_theme_icon(SNAME("PackedInt32Array")),
-			search_options->get_editor_theme_icon(SNAME("PackedInt64Array")),
-			search_options->get_editor_theme_icon(SNAME("PackedFloat32Array")),
-			search_options->get_editor_theme_icon(SNAME("PackedFloat64Array")),
-			search_options->get_editor_theme_icon(SNAME("PackedStringArray")),
-			search_options->get_editor_theme_icon(SNAME("PackedVector2Array")),
-			search_options->get_editor_theme_icon(SNAME("PackedVector3Array")),
-			search_options->get_editor_theme_icon(SNAME("PackedColorArray"))
+		Ref<Texture> type_icons[Variant::VARIANT_MAX] = {
+			Control::get_icon("Variant", "EditorIcons"),
+			Control::get_icon("bool", "EditorIcons"),
+			Control::get_icon("int", "EditorIcons"),
+			Control::get_icon("float", "EditorIcons"),
+			Control::get_icon("String", "EditorIcons"),
+			Control::get_icon("Vector2", "EditorIcons"),
+			Control::get_icon("Rect2", "EditorIcons"),
+			Control::get_icon("Vector3", "EditorIcons"),
+			Control::get_icon("Transform2D", "EditorIcons"),
+			Control::get_icon("Plane", "EditorIcons"),
+			Control::get_icon("Quat", "EditorIcons"),
+			Control::get_icon("AABB", "EditorIcons"),
+			Control::get_icon("Basis", "EditorIcons"),
+			Control::get_icon("Transform", "EditorIcons"),
+			Control::get_icon("Color", "EditorIcons"),
+			Control::get_icon("Path", "EditorIcons"),
+			Control::get_icon("RID", "EditorIcons"),
+			Control::get_icon("Object", "EditorIcons"),
+			Control::get_icon("Dictionary", "EditorIcons"),
+			Control::get_icon("Array", "EditorIcons"),
+			Control::get_icon("PoolByteArray", "EditorIcons"),
+			Control::get_icon("PoolIntArray", "EditorIcons"),
+			Control::get_icon("PoolRealArray", "EditorIcons"),
+			Control::get_icon("PoolStringArray", "EditorIcons"),
+			Control::get_icon("PoolVector2Array", "EditorIcons"),
+			Control::get_icon("PoolVector3Array", "EditorIcons"),
+			Control::get_icon("PoolColorArray", "EditorIcons")
 		};
-		static_assert((sizeof(type_icons) / sizeof(type_icons[0])) == Variant::VARIANT_MAX, "Number of type icons doesn't match the number of Variant types.");
 
-		for (const PropertyInfo &E : props) {
-			if (E.usage == PROPERTY_USAGE_CATEGORY) {
-				if (category && category->get_first_child() == nullptr) {
+		for (List<PropertyInfo>::Element *E = props.front(); E; E = E->next()) {
+			if (E->get().usage == PROPERTY_USAGE_CATEGORY) {
+				if (category && category->get_children() == nullptr) {
 					memdelete(category); //old category was unused
 				}
 				category = search_options->create_item(root);
-				category->set_text(0, E.name);
+				category->set_text(0, E->get().name);
 				category->set_selectable(0, false);
 
-				Ref<Texture2D> icon;
-				if (E.name == "Script Variables") {
-					icon = search_options->get_editor_theme_icon(SNAME("Script"));
+				Ref<Texture> icon;
+				if (E->get().name == "Script Variables") {
+					icon = get_icon("Script", "EditorIcons");
 				} else {
-					icon = EditorNode::get_singleton()->get_class_icon(E.name);
+					icon = EditorNode::get_singleton()->get_class_icon(E->get().name);
 				}
 				category->set_icon(0, icon);
 				continue;
 			}
 
-			if (!(E.usage & PROPERTY_USAGE_EDITOR) && !(E.usage & PROPERTY_USAGE_SCRIPT_VARIABLE)) {
+			if (!(E->get().usage & PROPERTY_USAGE_EDITOR) && !(E->get().usage & PROPERTY_USAGE_SCRIPT_VARIABLE)) {
 				continue;
 			}
 
-			if (!search_box->get_text().is_empty() && E.name.findn(search_text) == -1) {
+			if (search_box->get_text() != String() && E->get().name.findn(search_text) == -1) {
 				continue;
 			}
 
-			if (type_filter.size() && !type_filter.has(E.type)) {
+			if (type_filter.size() && type_filter.find(E->get().type) == -1) {
 				continue;
 			}
 
 			TreeItem *item = search_options->create_item(category ? category : root);
-			item->set_text(0, E.name);
-			item->set_metadata(0, E.name);
-			item->set_icon(0, type_icons[E.type]);
+			item->set_text(0, E->get().name);
+			item->set_metadata(0, E->get().name);
+			item->set_icon(0, type_icons[E->get().type]);
 
-			if (!found && !search_box->get_text().is_empty() && E.name.findn(search_text) != -1) {
+			if (!found && search_box->get_text() != String() && E->get().name.findn(search_text) != -1) {
 				item->select(0);
 				found = true;
 			}
@@ -210,7 +191,7 @@ void PropertySelector::_update_search() {
 			item->set_selectable(0, true);
 		}
 
-		if (category && category->get_first_child() == nullptr) {
+		if (category && category->get_children() == nullptr) {
 			memdelete(category); //old category was unused
 		}
 	} else {
@@ -218,17 +199,14 @@ void PropertySelector::_update_search() {
 
 		if (type != Variant::NIL) {
 			Variant v;
-			Callable::CallError ce;
-			Variant::construct(type, v, nullptr, 0, ce);
+			Variant::CallError ce;
+			v = Variant::construct(type, nullptr, 0, ce);
 			v.get_method_list(&methods);
 		} else {
-			Ref<Script> script_ref = Object::cast_to<Script>(ObjectDB::get_instance(script));
-			if (script_ref.is_valid()) {
+			Object *obj = ObjectDB::get_instance(script);
+			if (Object::cast_to<Script>(obj)) {
 				methods.push_back(MethodInfo("*Script Methods"));
-				if (script_ref->is_built_in()) {
-					script_ref->reload(true);
-				}
-				script_ref->get_script_method_list(&methods);
+				Object::cast_to<Script>(obj)->get_script_method_list(&methods);
 			}
 
 			StringName base = base_type;
@@ -244,20 +222,20 @@ void PropertySelector::_update_search() {
 		bool found = false;
 		bool script_methods = false;
 
-		for (MethodInfo &mi : methods) {
-			if (mi.name.begins_with("*")) {
-				if (category && category->get_first_child() == nullptr) {
+		for (List<MethodInfo>::Element *E = methods.front(); E; E = E->next()) {
+			if (E->get().name.begins_with("*")) {
+				if (category && category->get_children() == nullptr) {
 					memdelete(category); //old category was unused
 				}
 				category = search_options->create_item(root);
-				category->set_text(0, mi.name.replace_first("*", ""));
+				category->set_text(0, E->get().name.replace_first("*", ""));
 				category->set_selectable(0, false);
 
-				Ref<Texture2D> icon;
+				Ref<Texture> icon;
 				script_methods = false;
-				String rep = mi.name.replace("*", "");
-				if (mi.name == "*Script Methods") {
-					icon = search_options->get_editor_theme_icon(SNAME("Script"));
+				String rep = E->get().name.replace("*", "");
+				if (E->get().name == "*Script Methods") {
+					icon = get_icon("Script", "EditorIcons");
 					script_methods = true;
 				} else {
 					icon = EditorNode::get_singleton()->get_class_icon(rep);
@@ -267,27 +245,29 @@ void PropertySelector::_update_search() {
 				continue;
 			}
 
-			String name = mi.name.get_slice(":", 0);
-			if (!script_methods && name.begins_with("_") && !(mi.flags & METHOD_FLAG_VIRTUAL)) {
+			String name = E->get().name.get_slice(":", 0);
+			if (!script_methods && name.begins_with("_") && !(E->get().flags & METHOD_FLAG_VIRTUAL)) {
 				continue;
 			}
 
-			if (virtuals_only && !(mi.flags & METHOD_FLAG_VIRTUAL)) {
+			if (virtuals_only && !(E->get().flags & METHOD_FLAG_VIRTUAL)) {
 				continue;
 			}
 
-			if (!virtuals_only && (mi.flags & METHOD_FLAG_VIRTUAL)) {
+			if (!virtuals_only && (E->get().flags & METHOD_FLAG_VIRTUAL)) {
 				continue;
 			}
 
-			if (!search_box->get_text().is_empty() && name.findn(search_text) == -1) {
+			if (search_box->get_text() != String() && name.findn(search_text) == -1) {
 				continue;
 			}
 
 			TreeItem *item = search_options->create_item(category ? category : root);
 
+			MethodInfo mi = E->get();
+
 			String desc;
-			if (mi.name.contains(":")) {
+			if (mi.name.find(":") != -1) {
 				desc = mi.name.get_slice(":", 1) + " ";
 				mi.name = mi.name.get_slice(":", 0);
 			} else if (mi.return_val.type != Variant::NIL) {
@@ -307,7 +287,7 @@ void PropertySelector::_update_search() {
 
 				if (mi.arguments[i].type == Variant::NIL) {
 					desc += ": Variant";
-				} else if (mi.arguments[i].name.contains(":")) {
+				} else if (mi.arguments[i].name.find(":") != -1) {
 					desc += vformat(": %s", mi.arguments[i].name.get_slice(":", 1));
 					mi.arguments[i].name = mi.arguments[i].name.get_slice(":", 0);
 				} else {
@@ -317,11 +297,11 @@ void PropertySelector::_update_search() {
 
 			desc += ")";
 
-			if (mi.flags & METHOD_FLAG_CONST) {
+			if (E->get().flags & METHOD_FLAG_CONST) {
 				desc += " const";
 			}
 
-			if (mi.flags & METHOD_FLAG_VIRTUAL) {
+			if (E->get().flags & METHOD_FLAG_VIRTUAL) {
 				desc += " virtual";
 			}
 
@@ -329,18 +309,18 @@ void PropertySelector::_update_search() {
 			item->set_metadata(0, name);
 			item->set_selectable(0, true);
 
-			if (!found && !search_box->get_text().is_empty() && name.findn(search_text) != -1) {
+			if (!found && search_box->get_text() != String() && name.findn(search_text) != -1) {
 				item->select(0);
 				found = true;
 			}
 		}
 
-		if (category && category->get_first_child() == nullptr) {
+		if (category && category->get_children() == nullptr) {
 			memdelete(category); //old category was unused
 		}
 	}
 
-	get_ok_button()->set_disabled(root->get_first_child() == nullptr);
+	get_ok()->set_disabled(root->get_children() == nullptr);
 }
 
 void PropertySelector::_confirmed() {
@@ -348,7 +328,7 @@ void PropertySelector::_confirmed() {
 	if (!ti) {
 		return;
 	}
-	emit_signal(SNAME("selected"), ti->get_metadata(0));
+	emit_signal("selected", ti->get_metadata(0));
 	hide();
 }
 
@@ -364,27 +344,27 @@ void PropertySelector::_item_selected() {
 	String class_type;
 	if (type != Variant::NIL) {
 		class_type = Variant::get_type_name(type);
-	} else if (!base_type.is_empty()) {
+	} else if (base_type != String()) {
 		class_type = base_type;
 	} else if (instance) {
 		class_type = instance->get_class();
 	}
 
-	DocTools *dd = EditorHelp::get_doc_data();
+	DocData *dd = EditorHelp::get_doc_data();
 	String text;
 	if (properties) {
-		while (!class_type.is_empty()) {
-			HashMap<String, DocData::ClassDoc>::Iterator E = dd->class_list.find(class_type);
+		while (class_type != String()) {
+			Map<String, DocData::ClassDoc>::Element *E = dd->class_list.find(class_type);
 			if (E) {
-				for (int i = 0; i < E->value.properties.size(); i++) {
-					if (E->value.properties[i].name == name) {
-						text = DTR(E->value.properties[i].description);
+				for (int i = 0; i < E->get().properties.size(); i++) {
+					if (E->get().properties[i].name == name) {
+						text = DTR(E->get().properties[i].description);
 						break;
 					}
 				}
 			}
 
-			if (!text.is_empty()) {
+			if (text != String()) {
 				break;
 			}
 
@@ -392,18 +372,18 @@ void PropertySelector::_item_selected() {
 			class_type = ClassDB::get_parent_class(class_type);
 		}
 	} else {
-		while (!class_type.is_empty()) {
-			HashMap<String, DocData::ClassDoc>::Iterator E = dd->class_list.find(class_type);
+		while (class_type != String()) {
+			Map<String, DocData::ClassDoc>::Element *E = dd->class_list.find(class_type);
 			if (E) {
-				for (int i = 0; i < E->value.methods.size(); i++) {
-					if (E->value.methods[i].name == name) {
-						text = DTR(E->value.methods[i].description);
+				for (int i = 0; i < E->get().methods.size(); i++) {
+					if (E->get().methods[i].name == name) {
+						text = DTR(E->get().methods[i].description);
 						break;
 					}
 				}
 			}
 
-			if (!text.is_empty()) {
+			if (text != String()) {
 				break;
 			}
 
@@ -412,7 +392,7 @@ void PropertySelector::_item_selected() {
 		}
 	}
 
-	if (!text.is_empty()) {
+	if (text != String()) {
 		// Display both property name and description, since the help bit may be displayed
 		// far away from the location (especially if the dialog was resized to be taller).
 		help_bit->set_text(vformat("[b]%s[/b]: %s", name, text));
@@ -424,19 +404,11 @@ void PropertySelector::_item_selected() {
 	}
 }
 
-void PropertySelector::_hide_requested() {
-	_cancel_pressed(); // From AcceptDialog.
-}
-
 void PropertySelector::_notification(int p_what) {
-	switch (p_what) {
-		case NOTIFICATION_ENTER_TREE: {
-			connect("confirmed", callable_mp(this, &PropertySelector::_confirmed));
-		} break;
-
-		case NOTIFICATION_EXIT_TREE: {
-			disconnect("confirmed", callable_mp(this, &PropertySelector::_confirmed));
-		} break;
+	if (p_what == NOTIFICATION_ENTER_TREE) {
+		connect("confirmed", this, "_confirmed");
+	} else if (p_what == NOTIFICATION_EXIT_TREE) {
+		disconnect("confirmed", this, "_confirmed");
 	}
 }
 
@@ -444,7 +416,7 @@ void PropertySelector::select_method_from_base_type(const String &p_base, const 
 	base_type = p_base;
 	selected = p_current;
 	type = Variant::NIL;
-	script = ObjectID();
+	script = 0;
 	properties = false;
 	instance = nullptr;
 	virtuals_only = p_virtuals_only;
@@ -470,13 +442,12 @@ void PropertySelector::select_method_from_script(const Ref<Script> &p_script, co
 	search_box->grab_focus();
 	_update_search();
 }
-
 void PropertySelector::select_method_from_basic_type(Variant::Type p_type, const String &p_current) {
 	ERR_FAIL_COND(p_type == Variant::NIL);
 	base_type = "";
 	selected = p_current;
 	type = p_type;
-	script = ObjectID();
+	script = 0;
 	properties = false;
 	instance = nullptr;
 	virtuals_only = false;
@@ -491,7 +462,7 @@ void PropertySelector::select_method_from_instance(Object *p_instance, const Str
 	base_type = p_instance->get_class();
 	selected = p_current;
 	type = Variant::NIL;
-	script = ObjectID();
+	script = 0;
 	{
 		Ref<Script> scr = p_instance->get_script();
 		if (scr.is_valid()) {
@@ -512,7 +483,7 @@ void PropertySelector::select_property_from_base_type(const String &p_base, cons
 	base_type = p_base;
 	selected = p_current;
 	type = Variant::NIL;
-	script = ObjectID();
+	script = 0;
 	properties = true;
 	instance = nullptr;
 	virtuals_only = false;
@@ -545,7 +516,7 @@ void PropertySelector::select_property_from_basic_type(Variant::Type p_type, con
 	base_type = "";
 	selected = p_current;
 	type = p_type;
-	script = ObjectID();
+	script = 0;
 	properties = true;
 	instance = nullptr;
 	virtuals_only = false;
@@ -560,7 +531,7 @@ void PropertySelector::select_property_from_instance(Object *p_instance, const S
 	base_type = "";
 	selected = p_current;
 	type = Variant::NIL;
-	script = ObjectID();
+	script = 0;
 	properties = true;
 	instance = p_instance;
 	virtuals_only = false;
@@ -576,6 +547,11 @@ void PropertySelector::set_type_filter(const Vector<Variant::Type> &p_type_filte
 }
 
 void PropertySelector::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("_text_changed"), &PropertySelector::_text_changed);
+	ClassDB::bind_method(D_METHOD("_confirmed"), &PropertySelector::_confirmed);
+	ClassDB::bind_method(D_METHOD("_sbox_input"), &PropertySelector::_sbox_input);
+	ClassDB::bind_method(D_METHOD("_item_selected"), &PropertySelector::_item_selected);
+
 	ADD_SIGNAL(MethodInfo("selected", PropertyInfo(Variant::STRING, "name")));
 }
 
@@ -585,20 +561,21 @@ PropertySelector::PropertySelector() {
 	//set_child_rect(vbc);
 	search_box = memnew(LineEdit);
 	vbc->add_margin_child(TTR("Search:"), search_box);
-	search_box->connect("text_changed", callable_mp(this, &PropertySelector::_text_changed));
-	search_box->connect("gui_input", callable_mp(this, &PropertySelector::_sbox_input));
+	search_box->connect("text_changed", this, "_text_changed");
+	search_box->connect("gui_input", this, "_sbox_input");
 	search_options = memnew(Tree);
 	vbc->add_margin_child(TTR("Matches:"), search_options, true);
-	set_ok_button_text(TTR("Open"));
-	get_ok_button()->set_disabled(true);
+	get_ok()->set_text(TTR("Open"));
+	get_ok()->set_disabled(true);
 	register_text_enter(search_box);
 	set_hide_on_ok(false);
-	search_options->connect("item_activated", callable_mp(this, &PropertySelector::_confirmed));
-	search_options->connect("cell_selected", callable_mp(this, &PropertySelector::_item_selected));
+	search_options->connect("item_activated", this, "_confirmed");
+	search_options->connect("cell_selected", this, "_item_selected");
 	search_options->set_hide_root(true);
 	search_options->set_hide_folding(true);
+	virtuals_only = false;
 
 	help_bit = memnew(EditorHelpBit);
 	vbc->add_margin_child(TTR("Description:"), help_bit);
-	help_bit->connect("request_hide", callable_mp(this, &PropertySelector::_hide_requested));
+	help_bit->connect("request_hide", this, "_closed");
 }

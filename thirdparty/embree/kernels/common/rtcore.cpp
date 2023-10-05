@@ -7,7 +7,6 @@
 #include "device.h"
 #include "scene.h"
 #include "context.h"
-#include "../geometry/filter.h"
 #include "../../include/embree3/rtcore_ray.h"
 using namespace embree;
 
@@ -483,7 +482,7 @@ RTC_NAMESPACE_BEGIN;
 
     IntersectContext context(scene,user_context);
 #if !defined(EMBREE_RAY_PACKETS)
-    RayHit4* ray4 = (RayHit4*) rayhit;
+    Ray4* ray4 = (Ray4*) rayhit;
     for (size_t i=0; i<4; i++) {
       if (!valid[i]) continue;
       RayHit ray1; ray4->get(i,ray1);
@@ -514,7 +513,7 @@ RTC_NAMESPACE_BEGIN;
 
     IntersectContext context(scene,user_context);
 #if !defined(EMBREE_RAY_PACKETS)
-    RayHit8* ray8 = (RayHit8*) rayhit;
+    Ray8* ray8 = (Ray8*) rayhit;
     for (size_t i=0; i<8; i++) {
       if (!valid[i]) continue;
       RayHit ray1; ray8->get(i,ray1);
@@ -547,7 +546,7 @@ RTC_NAMESPACE_BEGIN;
 
     IntersectContext context(scene,user_context);
 #if !defined(EMBREE_RAY_PACKETS)
-    RayHit16* ray16 = (RayHit16*) rayhit;
+    Ray16* ray16 = (Ray16*) rayhit;
     for (size_t i=0; i<16; i++) {
       if (!valid[i]) continue;
       RayHit ray1; ray16->get(i,ray1);
@@ -1098,13 +1097,13 @@ RTC_NAMESPACE_BEGIN;
   RTC_API void rtcFilterIntersection(const struct RTCIntersectFunctionNArguments* const args_i, const struct RTCFilterFunctionNArguments* filter_args)
   {
     IntersectFunctionNArguments* args = (IntersectFunctionNArguments*) args_i;
-    isa::reportIntersection1(args, filter_args);
+    args->report(args,filter_args);
   }
 
   RTC_API void rtcFilterOcclusion(const struct RTCOccludedFunctionNArguments* const args_i, const struct RTCFilterFunctionNArguments* filter_args)
   {
     OccludedFunctionNArguments* args = (OccludedFunctionNArguments*) args_i;
-    isa::reportOcclusion1(args,filter_args);
+    args->report(args,filter_args);
   }
   
   RTC_API RTCGeometry rtcNewGeometry (RTCDevice hdevice, RTCGeometryType type)
@@ -1760,21 +1759,6 @@ RTC_NAMESPACE_BEGIN;
     RTC_VERIFY_GEOMID(geomID);
 #endif
     return (RTCGeometry) scene->get(geomID);
-    RTC_CATCH_END2(scene);
-    return nullptr;
-  }
-
-  RTC_API RTCGeometry rtcGetGeometryThreadSafe (RTCScene hscene, unsigned int geomID)
-  {
-    Scene* scene = (Scene*) hscene;
-    RTC_CATCH_BEGIN;
-    RTC_TRACE(rtcGetGeometryThreadSafe);
-#if defined(DEBUG)
-    RTC_VERIFY_HANDLE(hscene);
-    RTC_VERIFY_GEOMID(geomID);
-#endif
-    Ref<Geometry> geom = scene->get_locked(geomID);
-    return (RTCGeometry) geom.ptr; 
     RTC_CATCH_END2(scene);
     return nullptr;
   }

@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  godot_generic_6dof_joint_3d.cpp                                       */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  generic_6dof_joint_sw.cpp                                            */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 /*
 Adapted to Godot from the Bullet library.
@@ -49,18 +49,18 @@ subject to the following restrictions:
 
 /*
 2007-09-09
-GodotGeneric6DOFJoint3D Refactored by Francisco Le?n
+Generic6DOFJointSW Refactored by Francisco Le?n
 email: projectileman@yahoo.com
 http://gimpact.sf.net
 */
 
-#include "godot_generic_6dof_joint_3d.h"
+#include "generic_6dof_joint_sw.h"
 
 #define GENERIC_D6_DISABLE_WARMSTARTING 1
 
-//////////////////////////// GodotG6DOFRotationalLimitMotor3D ////////////////////////////////////
+//////////////////////////// G6DOFRotationalLimitMotorSW ////////////////////////////////////
 
-int GodotG6DOFRotationalLimitMotor3D::testLimitValue(real_t test_value) {
+int G6DOFRotationalLimitMotorSW::testLimitValue(real_t test_value) {
 	if (m_loLimit > m_hiLimit) {
 		m_currentLimit = 0; //Free from violation
 		return 0;
@@ -80,9 +80,9 @@ int GodotG6DOFRotationalLimitMotor3D::testLimitValue(real_t test_value) {
 	return 0;
 }
 
-real_t GodotG6DOFRotationalLimitMotor3D::solveAngularLimits(
+real_t G6DOFRotationalLimitMotorSW::solveAngularLimits(
 		real_t timeStep, Vector3 &axis, real_t jacDiagABInv,
-		GodotBody3D *body0, GodotBody3D *body1, bool p_body0_dynamic, bool p_body1_dynamic) {
+		BodySW *body0, BodySW *body1) {
 	if (!needApplyTorques()) {
 		return 0.0f;
 	}
@@ -138,24 +138,22 @@ real_t GodotG6DOFRotationalLimitMotor3D::solveAngularLimits(
 
 	Vector3 motorImp = clippedMotorImpulse * axis;
 
-	if (p_body0_dynamic) {
-		body0->apply_torque_impulse(motorImp);
-	}
-	if (body1 && p_body1_dynamic) {
+	body0->apply_torque_impulse(motorImp);
+	if (body1) {
 		body1->apply_torque_impulse(-motorImp);
 	}
 
 	return clippedMotorImpulse;
 }
 
-//////////////////////////// GodotG6DOFTranslationalLimitMotor3D ////////////////////////////////////
+//////////////////////////// End G6DOFRotationalLimitMotorSW ////////////////////////////////////
 
-real_t GodotG6DOFTranslationalLimitMotor3D::solveLinearAxis(
+//////////////////////////// G6DOFTranslationalLimitMotorSW ////////////////////////////////////
+real_t G6DOFTranslationalLimitMotorSW::solveLinearAxis(
 		real_t timeStep,
 		real_t jacDiagABInv,
-		GodotBody3D *body1, const Vector3 &pointInA,
-		GodotBody3D *body2, const Vector3 &pointInB,
-		bool p_body1_dynamic, bool p_body2_dynamic,
+		BodySW *body1, const Vector3 &pointInA,
+		BodySW *body2, const Vector3 &pointInB,
 		int limit_index,
 		const Vector3 &axis_normal_on_a,
 		const Vector3 &anchorPos) {
@@ -183,18 +181,16 @@ real_t GodotG6DOFTranslationalLimitMotor3D::solveLinearAxis(
 
 	//handle the limits
 	if (minLimit < maxLimit) {
-		{
-			if (depth > maxLimit) {
-				depth -= maxLimit;
-				lo = real_t(0.);
+		if (depth > maxLimit) {
+			depth -= maxLimit;
+			lo = real_t(0.);
 
+		} else {
+			if (depth < minLimit) {
+				depth -= minLimit;
+				hi = real_t(0.);
 			} else {
-				if (depth < minLimit) {
-					depth -= minLimit;
-					hi = real_t(0.);
-				} else {
-					return 0.0f;
-				}
+				return 0.0f;
 			}
 		}
 	}
@@ -207,19 +203,15 @@ real_t GodotG6DOFTranslationalLimitMotor3D::solveLinearAxis(
 	normalImpulse = m_accumulatedImpulse[limit_index] - oldNormalImpulse;
 
 	Vector3 impulse_vector = axis_normal_on_a * normalImpulse;
-	if (p_body1_dynamic) {
-		body1->apply_impulse(impulse_vector, rel_pos1);
-	}
-	if (p_body2_dynamic) {
-		body2->apply_impulse(-impulse_vector, rel_pos2);
-	}
+	body1->apply_impulse(rel_pos1, impulse_vector);
+	body2->apply_impulse(rel_pos2, -impulse_vector);
 	return normalImpulse;
 }
 
-//////////////////////////// GodotGeneric6DOFJoint3D ////////////////////////////////////
+//////////////////////////// G6DOFTranslationalLimitMotorSW ////////////////////////////////////
 
-GodotGeneric6DOFJoint3D::GodotGeneric6DOFJoint3D(GodotBody3D *rbA, GodotBody3D *rbB, const Transform3D &frameInA, const Transform3D &frameInB, bool useLinearReferenceFrameA) :
-		GodotJoint3D(_arr, 2),
+Generic6DOFJointSW::Generic6DOFJointSW(BodySW *rbA, BodySW *rbB, const Transform &frameInA, const Transform &frameInB, bool useLinearReferenceFrameA) :
+		JointSW(_arr, 2),
 		m_frameInA(frameInA),
 		m_frameInB(frameInB),
 		m_useLinearReferenceFrameA(useLinearReferenceFrameA) {
@@ -229,10 +221,10 @@ GodotGeneric6DOFJoint3D::GodotGeneric6DOFJoint3D(GodotBody3D *rbA, GodotBody3D *
 	B->add_constraint(this, 1);
 }
 
-void GodotGeneric6DOFJoint3D::calculateAngleInfo() {
+void Generic6DOFJointSW::calculateAngleInfo() {
 	Basis relative_frame = m_calculatedTransformB.basis.inverse() * m_calculatedTransformA.basis;
 
-	m_calculatedAxisAngleDiff = relative_frame.get_euler(EulerOrder::XYZ);
+	m_calculatedAxisAngleDiff = relative_frame.get_euler_xyz();
 
 	// in euler angle mode we do not actually constrain the angular velocity
 	// along the axes axis[0] and axis[2] (although we do use axis[1]) :
@@ -249,8 +241,8 @@ void GodotGeneric6DOFJoint3D::calculateAngleInfo() {
 	// easier to take the euler rate expression for d(angle[2])/dt with respect
 	// to the components of w and set that to 0.
 
-	Vector3 axis0 = m_calculatedTransformB.basis.get_column(0);
-	Vector3 axis2 = m_calculatedTransformA.basis.get_column(2);
+	Vector3 axis0 = m_calculatedTransformB.basis.get_axis(0);
+	Vector3 axis2 = m_calculatedTransformA.basis.get_axis(2);
 
 	m_calculatedAxis[1] = axis2.cross(axis0);
 	m_calculatedAxis[0] = m_calculatedAxis[1].cross(axis2);
@@ -259,6 +251,7 @@ void GodotGeneric6DOFJoint3D::calculateAngleInfo() {
 	/*
 	if(m_debugDrawer)
 	{
+
 		char buff[300];
 		sprintf(buff,"\n X: %.2f ; Y: %.2f ; Z: %.2f ",
 		m_calculatedAxisAngleDiff[0],
@@ -269,19 +262,19 @@ void GodotGeneric6DOFJoint3D::calculateAngleInfo() {
 	*/
 }
 
-void GodotGeneric6DOFJoint3D::calculateTransforms() {
+void Generic6DOFJointSW::calculateTransforms() {
 	m_calculatedTransformA = A->get_transform() * m_frameInA;
 	m_calculatedTransformB = B->get_transform() * m_frameInB;
 
 	calculateAngleInfo();
 }
 
-void GodotGeneric6DOFJoint3D::buildLinearJacobian(
-		GodotJacobianEntry3D &jacLinear, const Vector3 &normalWorld,
+void Generic6DOFJointSW::buildLinearJacobian(
+		JacobianEntrySW &jacLinear, const Vector3 &normalWorld,
 		const Vector3 &pivotAInW, const Vector3 &pivotBInW) {
 	memnew_placement(
 			&jacLinear,
-			GodotJacobianEntry3D(
+			JacobianEntrySW(
 					A->get_principal_inertia_axes().transposed(),
 					B->get_principal_inertia_axes().transposed(),
 					pivotAInW - A->get_transform().origin - A->get_center_of_mass(),
@@ -293,11 +286,11 @@ void GodotGeneric6DOFJoint3D::buildLinearJacobian(
 					B->get_inv_mass()));
 }
 
-void GodotGeneric6DOFJoint3D::buildAngularJacobian(
-		GodotJacobianEntry3D &jacAngular, const Vector3 &jointAxisW) {
+void Generic6DOFJointSW::buildAngularJacobian(
+		JacobianEntrySW &jacAngular, const Vector3 &jointAxisW) {
 	memnew_placement(
 			&jacAngular,
-			GodotJacobianEntry3D(
+			JacobianEntrySW(
 					jointAxisW,
 					A->get_principal_inertia_axes().transposed(),
 					B->get_principal_inertia_axes().transposed(),
@@ -305,7 +298,7 @@ void GodotGeneric6DOFJoint3D::buildAngularJacobian(
 					B->get_inv_inertia()));
 }
 
-bool GodotGeneric6DOFJoint3D::testAngularLimitMotor(int axis_index) {
+bool Generic6DOFJointSW::testAngularLimitMotor(int axis_index) {
 	real_t angle = m_calculatedAxisAngleDiff[axis_index];
 
 	//test limits
@@ -313,11 +306,8 @@ bool GodotGeneric6DOFJoint3D::testAngularLimitMotor(int axis_index) {
 	return m_angularLimits[axis_index].needApplyTorques();
 }
 
-bool GodotGeneric6DOFJoint3D::setup(real_t p_timestep) {
-	dynamic_A = (A->get_mode() > PhysicsServer3D::BODY_MODE_KINEMATIC);
-	dynamic_B = (B->get_mode() > PhysicsServer3D::BODY_MODE_KINEMATIC);
-
-	if (!dynamic_A && !dynamic_B) {
+bool Generic6DOFJointSW::setup(real_t p_timestep) {
+	if ((A->get_mode() <= PhysicsServer::BODY_MODE_KINEMATIC) && (B->get_mode() <= PhysicsServer::BODY_MODE_KINEMATIC)) {
 		return false;
 	}
 
@@ -345,9 +335,9 @@ bool GodotGeneric6DOFJoint3D::setup(real_t p_timestep) {
 	for (i = 0; i < 3; i++) {
 		if (m_linearLimits.enable_limit[i] && m_linearLimits.isLimited(i)) {
 			if (m_useLinearReferenceFrameA) {
-				normalWorld = m_calculatedTransformA.basis.get_column(i);
+				normalWorld = m_calculatedTransformA.basis.get_axis(i);
 			} else {
-				normalWorld = m_calculatedTransformB.basis.get_column(i);
+				normalWorld = m_calculatedTransformB.basis.get_axis(i);
 			}
 
 			buildLinearJacobian(
@@ -369,7 +359,7 @@ bool GodotGeneric6DOFJoint3D::setup(real_t p_timestep) {
 	return true;
 }
 
-void GodotGeneric6DOFJoint3D::solve(real_t p_timestep) {
+void Generic6DOFJointSW::solve(real_t p_timestep) {
 	m_timeStep = p_timestep;
 
 	//calculateTransforms();
@@ -388,9 +378,9 @@ void GodotGeneric6DOFJoint3D::solve(real_t p_timestep) {
 			jacDiagABInv = real_t(1.) / m_jacLinear[i].getDiagonal();
 
 			if (m_useLinearReferenceFrameA) {
-				linear_axis = m_calculatedTransformA.basis.get_column(i);
+				linear_axis = m_calculatedTransformA.basis.get_axis(i);
 			} else {
-				linear_axis = m_calculatedTransformB.basis.get_column(i);
+				linear_axis = m_calculatedTransformB.basis.get_axis(i);
 			}
 
 			m_linearLimits.solveLinearAxis(
@@ -398,7 +388,6 @@ void GodotGeneric6DOFJoint3D::solve(real_t p_timestep) {
 					jacDiagABInv,
 					A, pointInA,
 					B, pointInB,
-					dynamic_A, dynamic_B,
 					i, linear_axis, m_AnchorPos);
 		}
 	}
@@ -413,24 +402,24 @@ void GodotGeneric6DOFJoint3D::solve(real_t p_timestep) {
 
 			angularJacDiagABInv = real_t(1.) / m_jacAng[i].getDiagonal();
 
-			m_angularLimits[i].solveAngularLimits(m_timeStep, angular_axis, angularJacDiagABInv, A, B, dynamic_A, dynamic_B);
+			m_angularLimits[i].solveAngularLimits(m_timeStep, angular_axis, angularJacDiagABInv, A, B);
 		}
 	}
 }
 
-void GodotGeneric6DOFJoint3D::updateRHS(real_t timeStep) {
+void Generic6DOFJointSW::updateRHS(real_t timeStep) {
 	(void)timeStep;
 }
 
-Vector3 GodotGeneric6DOFJoint3D::getAxis(int axis_index) const {
+Vector3 Generic6DOFJointSW::getAxis(int axis_index) const {
 	return m_calculatedAxis[axis_index];
 }
 
-real_t GodotGeneric6DOFJoint3D::getAngle(int axis_index) const {
+real_t Generic6DOFJointSW::getAngle(int axis_index) const {
 	return m_calculatedAxisAngleDiff[axis_index];
 }
 
-void GodotGeneric6DOFJoint3D::calcAnchorPos() {
+void Generic6DOFJointSW::calcAnchorPos() {
 	real_t imA = A->get_inv_mass();
 	real_t imB = B->get_inv_mass();
 	real_t weight;
@@ -442,232 +431,231 @@ void GodotGeneric6DOFJoint3D::calcAnchorPos() {
 	const Vector3 &pA = m_calculatedTransformA.origin;
 	const Vector3 &pB = m_calculatedTransformB.origin;
 	m_AnchorPos = pA * weight + pB * (real_t(1.0) - weight);
-}
+} // Generic6DOFJointSW::calcAnchorPos()
 
-void GodotGeneric6DOFJoint3D::set_param(Vector3::Axis p_axis, PhysicsServer3D::G6DOFJointAxisParam p_param, real_t p_value) {
+void Generic6DOFJointSW::set_param(Vector3::Axis p_axis, PhysicsServer::G6DOFJointAxisParam p_param, real_t p_value) {
 	ERR_FAIL_INDEX(p_axis, 3);
 	switch (p_param) {
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_LOWER_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_LINEAR_LOWER_LIMIT: {
 			m_linearLimits.m_lowerLimit[p_axis] = p_value;
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_UPPER_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_LINEAR_UPPER_LIMIT: {
 			m_linearLimits.m_upperLimit[p_axis] = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_LIMIT_SOFTNESS: {
+		case PhysicsServer::G6DOF_JOINT_LINEAR_LIMIT_SOFTNESS: {
 			m_linearLimits.m_limitSoftness[p_axis] = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_RESTITUTION: {
+		case PhysicsServer::G6DOF_JOINT_LINEAR_RESTITUTION: {
 			m_linearLimits.m_restitution[p_axis] = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_DAMPING: {
+		case PhysicsServer::G6DOF_JOINT_LINEAR_DAMPING: {
 			m_linearLimits.m_damping[p_axis] = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_LOWER_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_LOWER_LIMIT: {
 			m_angularLimits[p_axis].m_loLimit = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_UPPER_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_UPPER_LIMIT: {
 			m_angularLimits[p_axis].m_hiLimit = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_LIMIT_SOFTNESS: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_LIMIT_SOFTNESS: {
 			m_angularLimits[p_axis].m_limitSoftness = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_DAMPING: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_DAMPING: {
 			m_angularLimits[p_axis].m_damping = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_RESTITUTION: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_RESTITUTION: {
 			m_angularLimits[p_axis].m_bounce = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_FORCE_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_FORCE_LIMIT: {
 			m_angularLimits[p_axis].m_maxLimitForce = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_ERP: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_ERP: {
 			m_angularLimits[p_axis].m_ERP = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_MOTOR_TARGET_VELOCITY: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_MOTOR_TARGET_VELOCITY: {
 			m_angularLimits[p_axis].m_targetVelocity = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_MOTOR_FORCE_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_MOTOR_FORCE_LIMIT: {
 			m_angularLimits[p_axis].m_maxLimitForce = p_value;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_MOTOR_TARGET_VELOCITY: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_LINEAR_MOTOR_TARGET_VELOCITY: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_MOTOR_FORCE_LIMIT: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_LINEAR_MOTOR_FORCE_LIMIT: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_SPRING_STIFFNESS: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_LINEAR_SPRING_STIFFNESS: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_SPRING_DAMPING: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_LINEAR_SPRING_DAMPING: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_SPRING_EQUILIBRIUM_POINT: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_LINEAR_SPRING_EQUILIBRIUM_POINT: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_SPRING_STIFFNESS: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_SPRING_STIFFNESS: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_SPRING_DAMPING: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_SPRING_DAMPING: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_SPRING_EQUILIBRIUM_POINT: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_SPRING_EQUILIBRIUM_POINT: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_MAX:
+		case PhysicsServer::G6DOF_JOINT_MAX:
 			break; // Can't happen, but silences warning
 	}
 }
 
-real_t GodotGeneric6DOFJoint3D::get_param(Vector3::Axis p_axis, PhysicsServer3D::G6DOFJointAxisParam p_param) const {
+real_t Generic6DOFJointSW::get_param(Vector3::Axis p_axis, PhysicsServer::G6DOFJointAxisParam p_param) const {
 	ERR_FAIL_INDEX_V(p_axis, 3, 0);
 	switch (p_param) {
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_LOWER_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_LINEAR_LOWER_LIMIT: {
 			return m_linearLimits.m_lowerLimit[p_axis];
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_UPPER_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_LINEAR_UPPER_LIMIT: {
 			return m_linearLimits.m_upperLimit[p_axis];
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_LIMIT_SOFTNESS: {
+		case PhysicsServer::G6DOF_JOINT_LINEAR_LIMIT_SOFTNESS: {
 			return m_linearLimits.m_limitSoftness[p_axis];
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_RESTITUTION: {
+		case PhysicsServer::G6DOF_JOINT_LINEAR_RESTITUTION: {
 			return m_linearLimits.m_restitution[p_axis];
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_DAMPING: {
+		case PhysicsServer::G6DOF_JOINT_LINEAR_DAMPING: {
 			return m_linearLimits.m_damping[p_axis];
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_LOWER_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_LOWER_LIMIT: {
 			return m_angularLimits[p_axis].m_loLimit;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_UPPER_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_UPPER_LIMIT: {
 			return m_angularLimits[p_axis].m_hiLimit;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_LIMIT_SOFTNESS: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_LIMIT_SOFTNESS: {
 			return m_angularLimits[p_axis].m_limitSoftness;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_DAMPING: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_DAMPING: {
 			return m_angularLimits[p_axis].m_damping;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_RESTITUTION: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_RESTITUTION: {
 			return m_angularLimits[p_axis].m_bounce;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_FORCE_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_FORCE_LIMIT: {
 			return m_angularLimits[p_axis].m_maxLimitForce;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_ERP: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_ERP: {
 			return m_angularLimits[p_axis].m_ERP;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_MOTOR_TARGET_VELOCITY: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_MOTOR_TARGET_VELOCITY: {
 			return m_angularLimits[p_axis].m_targetVelocity;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_MOTOR_FORCE_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_MOTOR_FORCE_LIMIT: {
 			return m_angularLimits[p_axis].m_maxMotorForce;
 
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_MOTOR_TARGET_VELOCITY: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_LINEAR_MOTOR_TARGET_VELOCITY: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_MOTOR_FORCE_LIMIT: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_LINEAR_MOTOR_FORCE_LIMIT: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_SPRING_STIFFNESS: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_LINEAR_SPRING_STIFFNESS: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_SPRING_DAMPING: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_LINEAR_SPRING_DAMPING: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_LINEAR_SPRING_EQUILIBRIUM_POINT: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_LINEAR_SPRING_EQUILIBRIUM_POINT: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_SPRING_STIFFNESS: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_SPRING_STIFFNESS: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_SPRING_DAMPING: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_SPRING_DAMPING: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_ANGULAR_SPRING_EQUILIBRIUM_POINT: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_ANGULAR_SPRING_EQUILIBRIUM_POINT: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_MAX:
+		case PhysicsServer::G6DOF_JOINT_MAX:
 			break; // Can't happen, but silences warning
 	}
 	return 0;
 }
 
-void GodotGeneric6DOFJoint3D::set_flag(Vector3::Axis p_axis, PhysicsServer3D::G6DOFJointAxisFlag p_flag, bool p_value) {
+void Generic6DOFJointSW::set_flag(Vector3::Axis p_axis, PhysicsServer::G6DOFJointAxisFlag p_flag, bool p_value) {
 	ERR_FAIL_INDEX(p_axis, 3);
 
 	switch (p_flag) {
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_ENABLE_LINEAR_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_FLAG_ENABLE_LINEAR_LIMIT: {
 			m_linearLimits.enable_limit[p_axis] = p_value;
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_ENABLE_ANGULAR_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_FLAG_ENABLE_ANGULAR_LIMIT: {
 			m_angularLimits[p_axis].m_enableLimit = p_value;
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_ENABLE_MOTOR: {
+		case PhysicsServer::G6DOF_JOINT_FLAG_ENABLE_MOTOR: {
 			m_angularLimits[p_axis].m_enableMotor = p_value;
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_ENABLE_LINEAR_MOTOR: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_FLAG_ENABLE_LINEAR_MOTOR: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_ENABLE_LINEAR_SPRING: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_FLAG_ENABLE_LINEAR_SPRING: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_ENABLE_ANGULAR_SPRING: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_FLAG_ENABLE_ANGULAR_SPRING: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_MAX:
+		case PhysicsServer::G6DOF_JOINT_FLAG_MAX:
 			break; // Can't happen, but silences warning
 	}
 }
-
-bool GodotGeneric6DOFJoint3D::get_flag(Vector3::Axis p_axis, PhysicsServer3D::G6DOFJointAxisFlag p_flag) const {
+bool Generic6DOFJointSW::get_flag(Vector3::Axis p_axis, PhysicsServer::G6DOFJointAxisFlag p_flag) const {
 	ERR_FAIL_INDEX_V(p_axis, 3, 0);
 	switch (p_flag) {
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_ENABLE_LINEAR_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_FLAG_ENABLE_LINEAR_LIMIT: {
 			return m_linearLimits.enable_limit[p_axis];
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_ENABLE_ANGULAR_LIMIT: {
+		case PhysicsServer::G6DOF_JOINT_FLAG_ENABLE_ANGULAR_LIMIT: {
 			return m_angularLimits[p_axis].m_enableLimit;
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_ENABLE_MOTOR: {
+		case PhysicsServer::G6DOF_JOINT_FLAG_ENABLE_MOTOR: {
 			return m_angularLimits[p_axis].m_enableMotor;
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_ENABLE_LINEAR_MOTOR: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_FLAG_ENABLE_LINEAR_MOTOR: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_ENABLE_LINEAR_SPRING: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_FLAG_ENABLE_LINEAR_SPRING: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_ENABLE_ANGULAR_SPRING: {
-			// Not implemented in GodotPhysics3D backend
+		case PhysicsServer::G6DOF_JOINT_FLAG_ENABLE_ANGULAR_SPRING: {
+			// Not implemented in GodotPhysics backend
 		} break;
-		case PhysicsServer3D::G6DOF_JOINT_FLAG_MAX:
+		case PhysicsServer::G6DOF_JOINT_FLAG_MAX:
 			break; // Can't happen, but silences warning
 	}
 

@@ -1,36 +1,35 @@
-/**************************************************************************/
-/*  godot_windows.cpp                                                     */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
-
-#include "os_windows.h"
+/*************************************************************************/
+/*  godot_windows.cpp                                                    */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "main/main.h"
+#include "os_windows.h"
 
 #include <locale.h>
 #include <stdio.h>
@@ -88,8 +87,7 @@ CommandLineToArgvA(
 	i = 0;
 	j = 0;
 
-	a = CmdLine[i];
-	while (a) {
+	while ((a = CmdLine[i])) {
 		if (in_QM) {
 			if (a == '\"') {
 				in_QM = FALSE;
@@ -132,25 +130,24 @@ CommandLineToArgvA(
 			}
 		}
 		i++;
-		a = CmdLine[i];
 	}
 	_argv[j] = '\0';
-	argv[argc] = nullptr;
+	argv[argc] = NULL;
 
 	(*_argc) = argc;
 	return argv;
 }
 
 char *wc_to_utf8(const wchar_t *wc) {
-	int ulen = WideCharToMultiByte(CP_UTF8, 0, wc, -1, nullptr, 0, nullptr, nullptr);
+	int ulen = WideCharToMultiByte(CP_UTF8, 0, wc, -1, NULL, 0, NULL, NULL);
 	char *ubuf = new char[ulen + 1];
-	WideCharToMultiByte(CP_UTF8, 0, wc, -1, ubuf, ulen, nullptr, nullptr);
+	WideCharToMultiByte(CP_UTF8, 0, wc, -1, ubuf, ulen, NULL, NULL);
 	ubuf[ulen] = 0;
 	return ubuf;
 }
 
-int widechar_main(int argc, wchar_t **argv) {
-	OS_Windows os(nullptr);
+__declspec(dllexport) int widechar_main(int argc, wchar_t **argv) {
+	OS_Windows os(NULL);
 
 	setlocale(LC_CTYPE, "");
 
@@ -159,8 +156,6 @@ int widechar_main(int argc, wchar_t **argv) {
 	for (int i = 0; i < argc; ++i) {
 		argv_utf8[i] = wc_to_utf8(argv[i]);
 	}
-
-	TEST_MAIN_PARAM_OVERRIDE(argc, argv_utf8)
 
 	Error err = Main::setup(argv_utf8[0], argc - 1, &argv_utf8[1]);
 
@@ -176,9 +171,8 @@ int widechar_main(int argc, wchar_t **argv) {
 		return 255;
 	}
 
-	if (Main::start()) {
+	if (Main::start())
 		os.run();
-	}
 	Main::cleanup();
 
 	for (int i = 0; i < argc; ++i) {
@@ -187,16 +181,16 @@ int widechar_main(int argc, wchar_t **argv) {
 	delete[] argv_utf8;
 
 	return os.get_exit_code();
-}
+};
 
-int _main() {
+__declspec(dllexport) int _main() {
 	LPWSTR *wc_argv;
 	int argc;
 	int result;
 
 	wc_argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 
-	if (nullptr == wc_argv) {
+	if (NULL == wc_argv) {
 		wprintf(L"CommandLineToArgvW failed\n");
 		return 0;
 	}
@@ -207,12 +201,10 @@ int _main() {
 	return result;
 }
 
-int main(int argc, char **argv) {
-	// override the arguments for the test handler / if symbol is provided
-	// TEST_MAIN_OVERRIDE
-
+__declspec(dllexport) int main(int _argc, char **_argv) {
 	// _argc and _argv are ignored
 	// we are going to use the WideChar version of them instead
+
 #ifdef CRASH_HANDLER_EXCEPTION
 	__try {
 		return _main();
@@ -224,9 +216,9 @@ int main(int argc, char **argv) {
 #endif
 }
 
-HINSTANCE godot_hinstance = nullptr;
+HINSTANCE godot_hinstance = NULL;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 	godot_hinstance = hInstance;
-	return main(0, nullptr);
+	return main(0, NULL);
 }

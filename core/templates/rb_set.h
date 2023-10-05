@@ -1,44 +1,44 @@
-/**************************************************************************/
-/*  rb_set.h                                                              */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  set.h                                                                */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
-#ifndef RB_SET_H
-#define RB_SET_H
+#ifndef SET_H
+#define SET_H
 
 #include "core/os/memory.h"
 #include "core/typedefs.h"
 
 // based on the very nice implementation of rb-trees by:
-// https://web.archive.org/web/20120507164830/https://web.mit.edu/~emin/www/source_code/red_black_tree/index.html
+// https://web.archive.org/web/20120507164830/http://web.mit.edu/~emin/www/source_code/red_black_tree/index.html
 
 template <class T, class C = Comparator<T>, class A = DefaultAllocator>
-class RBSet {
+class Set {
 	enum Color {
 		RED,
 		BLACK
@@ -48,13 +48,13 @@ class RBSet {
 public:
 	class Element {
 	private:
-		friend class RBSet<T, C, A>;
-		int color = RED;
-		Element *right = nullptr;
-		Element *left = nullptr;
-		Element *parent = nullptr;
-		Element *_next = nullptr;
-		Element *_prev = nullptr;
+		friend class Set<T, C, A>;
+		int color;
+		Element *right;
+		Element *left;
+		Element *parent;
+		Element *_next;
+		Element *_prev;
 		T value;
 		//_Data *data;
 
@@ -71,102 +71,24 @@ public:
 		Element *prev() {
 			return _prev;
 		}
-		T &get() {
-			return value;
-		}
 		const T &get() const {
 			return value;
 		};
-		Element() {}
+		Element() {
+			color = RED;
+			right = nullptr;
+			left = nullptr;
+			parent = nullptr;
+			_next = nullptr;
+			_prev = nullptr;
+		};
 	};
 
-	typedef T ValueType;
-
-	struct Iterator {
-		_FORCE_INLINE_ T &operator*() const {
-			return E->get();
-		}
-		_FORCE_INLINE_ T *operator->() const { return &E->get(); }
-		_FORCE_INLINE_ Iterator &operator++() {
-			E = E->next();
-			return *this;
-		}
-		_FORCE_INLINE_ Iterator &operator--() {
-			E = E->prev();
-			return *this;
-		}
-
-		_FORCE_INLINE_ bool operator==(const Iterator &b) const { return E == b.E; }
-		_FORCE_INLINE_ bool operator!=(const Iterator &b) const { return E != b.E; }
-
-		explicit operator bool() const { return E != nullptr; }
-		Iterator(Element *p_E) { E = p_E; }
-		Iterator() {}
-		Iterator(const Iterator &p_it) { E = p_it.E; }
-
-	private:
-		Element *E = nullptr;
-	};
-
-	struct ConstIterator {
-		_FORCE_INLINE_ const T &operator*() const {
-			return E->get();
-		}
-		_FORCE_INLINE_ const T *operator->() const { return &E->get(); }
-		_FORCE_INLINE_ ConstIterator &operator++() {
-			E = E->next();
-			return *this;
-		}
-		_FORCE_INLINE_ ConstIterator &operator--() {
-			E = E->prev();
-			return *this;
-		}
-
-		_FORCE_INLINE_ bool operator==(const ConstIterator &b) const { return E == b.E; }
-		_FORCE_INLINE_ bool operator!=(const ConstIterator &b) const { return E != b.E; }
-
-		_FORCE_INLINE_ ConstIterator(const Element *p_E) { E = p_E; }
-		_FORCE_INLINE_ ConstIterator() {}
-		_FORCE_INLINE_ ConstIterator(const ConstIterator &p_it) { E = p_it.E; }
-
-		explicit operator bool() const { return E != nullptr; }
-
-	private:
-		const Element *E = nullptr;
-	};
-
-	_FORCE_INLINE_ Iterator begin() {
-		return Iterator(front());
-	}
-	_FORCE_INLINE_ Iterator end() {
-		return Iterator(nullptr);
-	}
-
-#if 0
-	//to use when replacing find()
-	_FORCE_INLINE_ Iterator find(const K &p_key) {
-		return Iterator(find(p_key));
-	}
-#endif
-
-	_FORCE_INLINE_ ConstIterator begin() const {
-		return ConstIterator(front());
-	}
-	_FORCE_INLINE_ ConstIterator end() const {
-		return ConstIterator(nullptr);
-	}
-
-#if 0
-	//to use when replacing find()
-	_FORCE_INLINE_ ConstIterator find(const K &p_key) const {
-		return ConstIterator(find(p_key));
-	}
-#endif
 private:
 	struct _Data {
-		Element *_root = nullptr;
-		Element *_nil = nullptr;
-		int size_cache = 0;
+		Element *_root;
+		Element *_nil;
+		int size_cache;
 
 		_FORCE_INLINE_ _Data() {
 #ifdef GLOBALNIL_DISABLED
@@ -176,6 +98,8 @@ private:
 #else
 			_nil = (Element *)&_GlobalNilClass::_nil;
 #endif
+			_root = nullptr;
+			size_cache = 0;
 		}
 
 		void _create_root() {
@@ -331,7 +255,7 @@ private:
 	void _insert_rb_fix(Element *p_new_node) {
 		Element *node = p_new_node;
 		Element *nparent = node->parent;
-		Element *ngrand_parent = nullptr;
+		Element *ngrand_parent;
 
 		while (nparent->color == RED) {
 			ngrand_parent = nparent->parent;
@@ -485,7 +409,7 @@ private:
 		Element *rp = ((p_node->left == _data._nil) || (p_node->right == _data._nil)) ? p_node : p_node->_next;
 		Element *node = (rp->left == _data._nil) ? rp->right : rp->left;
 
-		Element *sibling = nullptr;
+		Element *sibling;
 		if (rp == rp->parent->left) {
 			rp->parent->left = node;
 			sibling = rp->parent->right;
@@ -557,7 +481,7 @@ private:
 		memdelete_allocator<Element, A>(p_element);
 	}
 
-	void _copy_from(const RBSet &p_set) {
+	void _copy_from(const Set &p_set) {
 		clear();
 		// not the fastest way, but safeset to write.
 		for (Element *I = p_set.front(); I; I = I->next()) {
@@ -664,12 +588,8 @@ public:
 		return e;
 	}
 
-	inline bool is_empty() const {
-		return _data.size_cache == 0;
-	}
-	inline int size() const {
-		return _data.size_cache;
-	}
+	inline bool empty() const { return _data.size_cache == 0; }
+	inline int size() const { return _data.size_cache; }
 
 	int calculate_depth() const {
 		// used for debug mostly
@@ -693,19 +613,20 @@ public:
 		_data._free_root();
 	}
 
-	void operator=(const RBSet &p_set) {
+	void operator=(const Set &p_set) {
 		_copy_from(p_set);
 	}
 
-	RBSet(const RBSet &p_set) {
+	Set(const Set &p_set) {
 		_copy_from(p_set);
 	}
 
-	_FORCE_INLINE_ RBSet() {}
+	_FORCE_INLINE_ Set() {
+	}
 
-	~RBSet() {
+	~Set() {
 		clear();
 	}
 };
 
-#endif // RB_SET_H
+#endif // SET_H

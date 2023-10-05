@@ -1,51 +1,55 @@
-/**************************************************************************/
-/*  macho.cpp                                                             */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  macho.cpp                                                            */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "macho.h"
 
+#include "modules/modules_enabled.gen.h" // For regex.
+
+#ifdef MODULE_REGEX_ENABLED
+
 uint32_t MachO::seg_align(uint64_t p_vmaddr, uint32_t p_min, uint32_t p_max) {
-	uint32_t salign = p_max;
+	uint32_t align = p_max;
 	if (p_vmaddr != 0) {
 		uint64_t seg_align = 1;
-		salign = 0;
+		align = 0;
 		while ((seg_align & p_vmaddr) == 0) {
 			seg_align = seg_align << 1;
-			salign++;
+			align++;
 		}
-		salign = CLAMP(salign, p_min, p_max);
+		align = CLAMP(align, p_min, p_max);
 	}
-	return salign;
+	return align;
 }
 
 bool MachO::alloc_signature(uint64_t p_size) {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), false, "MachO: File not opened.");
+	ERR_FAIL_COND_V_MSG(!fa, false, "MachO: File not opened.");
 	if (signature_offset != 0) {
 		// Nothing to do, already have signature load command.
 		return true;
@@ -65,7 +69,7 @@ bool MachO::alloc_signature(uint64_t p_size) {
 		}
 		fa->store_buffer((const uint8_t *)&lc, sizeof(LoadCommandHeader));
 
-		uint32_t lc_offset = fa->get_length() + PAD(fa->get_length(), 16);
+		uint32_t lc_offset = fa->get_len() + PAD(fa->get_len(), 16);
 		uint32_t lc_size = 0;
 		if (swap) {
 			lc_offset = BSWAP32(lc_offset);
@@ -99,15 +103,15 @@ bool MachO::alloc_signature(uint64_t p_size) {
 }
 
 bool MachO::is_macho(const String &p_path) {
-	Ref<FileAccess> fb = FileAccess::open(p_path, FileAccess::READ);
-	ERR_FAIL_COND_V_MSG(fb.is_null(), false, vformat("MachO: Can't open file: \"%s\".", p_path));
+	FileAccessRef fb = FileAccess::open(p_path, FileAccess::READ);
+	ERR_FAIL_COND_V_MSG(!fb, false, vformat("MachO: Can't open file: \"%s\".", p_path));
 	uint32_t magic = fb->get_32();
 	return (magic == 0xcefaedfe || magic == 0xfeedface || magic == 0xcffaedfe || magic == 0xfeedfacf);
 }
 
 bool MachO::open_file(const String &p_path) {
 	fa = FileAccess::open(p_path, FileAccess::READ_WRITE);
-	ERR_FAIL_COND_V_MSG(fa.is_null(), false, vformat("MachO: Can't open file: \"%s\".", p_path));
+	ERR_FAIL_COND_V_MSG(!fa, false, vformat("MachO: Can't open file: \"%s\".", p_path));
 	uint32_t magic = fa->get_32();
 	MachHeader mach_header;
 
@@ -228,37 +232,37 @@ bool MachO::open_file(const String &p_path) {
 }
 
 uint64_t MachO::get_exe_base() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), 0, "MachO: File not opened.");
+	ERR_FAIL_COND_V_MSG(!fa, 0, "MachO: File not opened.");
 	return exe_base;
 }
 
 uint64_t MachO::get_exe_limit() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), 0, "MachO: File not opened.");
+	ERR_FAIL_COND_V_MSG(!fa, 0, "MachO: File not opened.");
 	return exe_limit;
 }
 
 int32_t MachO::get_align() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), 0, "MachO: File not opened.");
+	ERR_FAIL_COND_V_MSG(!fa, 0, "MachO: File not opened.");
 	return align;
 }
 
 uint32_t MachO::get_cputype() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), 0, "MachO: File not opened.");
+	ERR_FAIL_COND_V_MSG(!fa, 0, "MachO: File not opened.");
 	return cputype;
 }
 
 uint32_t MachO::get_cpusubtype() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), 0, "MachO: File not opened.");
+	ERR_FAIL_COND_V_MSG(!fa, 0, "MachO: File not opened.");
 	return cpusubtype;
 }
 
 uint64_t MachO::get_size() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), 0, "MachO: File not opened.");
-	return fa->get_length();
+	ERR_FAIL_COND_V_MSG(!fa, 0, "MachO: File not opened.");
+	return fa->get_len();
 }
 
 uint64_t MachO::get_signature_offset() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), 0, "MachO: File not opened.");
+	ERR_FAIL_COND_V_MSG(!fa, 0, "MachO: File not opened.");
 	ERR_FAIL_COND_V_MSG(signature_offset == 0, 0, "MachO: No signature load command.");
 
 	fa->seek(signature_offset + 8);
@@ -270,17 +274,17 @@ uint64_t MachO::get_signature_offset() {
 }
 
 uint64_t MachO::get_code_limit() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), 0, "MachO: File not opened.");
+	ERR_FAIL_COND_V_MSG(!fa, 0, "MachO: File not opened.");
 
 	if (signature_offset == 0) {
-		return fa->get_length() + PAD(fa->get_length(), 16);
+		return fa->get_len() + PAD(fa->get_len(), 16);
 	} else {
 		return get_signature_offset();
 	}
 }
 
 uint64_t MachO::get_signature_size() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), 0, "MachO: File not opened.");
+	ERR_FAIL_COND_V_MSG(!fa, 0, "MachO: File not opened.");
 	ERR_FAIL_COND_V_MSG(signature_offset == 0, 0, "MachO: No signature load command.");
 
 	fa->seek(signature_offset + 12);
@@ -292,7 +296,7 @@ uint64_t MachO::get_signature_size() {
 }
 
 bool MachO::is_signed() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), false, "MachO: File not opened.");
+	ERR_FAIL_COND_V_MSG(!fa, false, "MachO: File not opened.");
 	if (signature_offset == 0) {
 		return false;
 	}
@@ -320,16 +324,16 @@ bool MachO::is_signed() {
 	return false; // No CD found.
 }
 
-PackedByteArray MachO::get_cdhash_sha1() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), PackedByteArray(), "MachO: File not opened.");
+PoolByteArray MachO::get_cdhash_sha1() {
+	ERR_FAIL_COND_V_MSG(!fa, PoolByteArray(), "MachO: File not opened.");
 	if (signature_offset == 0) {
-		return PackedByteArray();
+		return PoolByteArray();
 	}
 
 	fa->seek(get_signature_offset());
 	uint32_t magic = BSWAP32(fa->get_32());
 	if (magic != 0xfade0cc0) {
-		return PackedByteArray(); // No SuperBlob found.
+		return PoolByteArray(); // No SuperBlob found.
 	}
 	fa->get_32(); // Skip size field, unused.
 	uint32_t count = BSWAP32(fa->get_32());
@@ -346,37 +350,37 @@ PackedByteArray MachO::get_cdhash_sha1() {
 			uint8_t hash_size = fa->get_8();
 			uint8_t hash_type = fa->get_8();
 			if (hash_size == 0x14 && hash_type == 0x01) { /* SHA-1 */
-				PackedByteArray hash;
+				PoolByteArray hash;
 				hash.resize(0x14);
 
 				fa->seek(get_signature_offset() + offset);
-				PackedByteArray blob;
+				PoolByteArray blob;
 				blob.resize(cdsize);
-				fa->get_buffer(blob.ptrw(), cdsize);
+				fa->get_buffer(blob.write().ptr(), cdsize);
 
 				CryptoCore::SHA1Context ctx;
 				ctx.start();
-				ctx.update(blob.ptr(), blob.size());
-				ctx.finish(hash.ptrw());
+				ctx.update(blob.read().ptr(), blob.size());
+				ctx.finish(hash.write().ptr());
 
 				return hash;
 			}
 		}
 		fa->seek(pos);
 	}
-	return PackedByteArray();
+	return PoolByteArray();
 }
 
-PackedByteArray MachO::get_cdhash_sha256() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), PackedByteArray(), "MachO: File not opened.");
+PoolByteArray MachO::get_cdhash_sha256() {
+	ERR_FAIL_COND_V_MSG(!fa, PoolByteArray(), "MachO: File not opened.");
 	if (signature_offset == 0) {
-		return PackedByteArray();
+		return PoolByteArray();
 	}
 
 	fa->seek(get_signature_offset());
 	uint32_t magic = BSWAP32(fa->get_32());
 	if (magic != 0xfade0cc0) {
-		return PackedByteArray(); // No SuperBlob found.
+		return PoolByteArray(); // No SuperBlob found.
 	}
 	fa->get_32(); // Skip size field, unused.
 	uint32_t count = BSWAP32(fa->get_32());
@@ -393,37 +397,37 @@ PackedByteArray MachO::get_cdhash_sha256() {
 			uint8_t hash_size = fa->get_8();
 			uint8_t hash_type = fa->get_8();
 			if (hash_size == 0x20 && hash_type == 0x02) { /* SHA-256 */
-				PackedByteArray hash;
+				PoolByteArray hash;
 				hash.resize(0x20);
 
 				fa->seek(get_signature_offset() + offset);
-				PackedByteArray blob;
+				PoolByteArray blob;
 				blob.resize(cdsize);
-				fa->get_buffer(blob.ptrw(), cdsize);
+				fa->get_buffer(blob.write().ptr(), cdsize);
 
 				CryptoCore::SHA256Context ctx;
 				ctx.start();
-				ctx.update(blob.ptr(), blob.size());
-				ctx.finish(hash.ptrw());
+				ctx.update(blob.read().ptr(), blob.size());
+				ctx.finish(hash.write().ptr());
 
 				return hash;
 			}
 		}
 		fa->seek(pos);
 	}
-	return PackedByteArray();
+	return PoolByteArray();
 }
 
-PackedByteArray MachO::get_requirements() {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), PackedByteArray(), "MachO: File not opened.");
+PoolByteArray MachO::get_requirements() {
+	ERR_FAIL_COND_V_MSG(!fa, PoolByteArray(), "MachO: File not opened.");
 	if (signature_offset == 0) {
-		return PackedByteArray();
+		return PoolByteArray();
 	}
 
 	fa->seek(get_signature_offset());
 	uint32_t magic = BSWAP32(fa->get_32());
 	if (magic != 0xfade0cc0) {
-		return PackedByteArray(); // No SuperBlob found.
+		return PoolByteArray(); // No SuperBlob found.
 	}
 	fa->get_32(); // Skip size field, unused.
 	uint32_t count = BSWAP32(fa->get_32());
@@ -436,27 +440,27 @@ PackedByteArray MachO::get_requirements() {
 		uint32_t rqmagic = BSWAP32(fa->get_32());
 		uint32_t rqsize = BSWAP32(fa->get_32());
 		if (rqmagic == 0xfade0c01) { // Requirements.
-			PackedByteArray blob;
+			PoolByteArray blob;
 			fa->seek(get_signature_offset() + offset);
 			blob.resize(rqsize);
-			fa->get_buffer(blob.ptrw(), rqsize);
+			fa->get_buffer(blob.write().ptr(), rqsize);
 			return blob;
 		}
 		fa->seek(pos);
 	}
-	return PackedByteArray();
+	return PoolByteArray();
 }
 
-const Ref<FileAccess> MachO::get_file() const {
+const FileAccess *MachO::get_file() const {
 	return fa;
 }
 
-Ref<FileAccess> MachO::get_file() {
+FileAccess *MachO::get_file() {
 	return fa;
 }
 
 bool MachO::set_signature_size(uint64_t p_size) {
-	ERR_FAIL_COND_V_MSG(fa.is_null(), false, "MachO: File not opened.");
+	ERR_FAIL_COND_V_MSG(!fa, false, "MachO: File not opened.");
 
 	// Ensure signature load command exists.
 	ERR_FAIL_COND_V_MSG(link_edit_offset == 0, false, "MachO: No __LINKEDIT segment found.");
@@ -540,3 +544,13 @@ bool MachO::set_signature_size(uint64_t p_size) {
 	}
 	return true;
 }
+
+MachO::~MachO() {
+	if (fa) {
+		fa->close();
+		memdelete(fa);
+		fa = nullptr;
+	}
+}
+
+#endif // MODULE_REGEX_ENABLED

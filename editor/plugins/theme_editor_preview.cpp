@@ -1,54 +1,40 @@
-/**************************************************************************/
-/*  theme_editor_preview.cpp                                              */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  theme_editor_preview.cpp                                             */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "theme_editor_preview.h"
 
-#include "core/config/project_settings.h"
-#include "core/input/input.h"
 #include "core/math/math_funcs.h"
-#include "editor/editor_node.h"
-#include "editor/editor_scale.h"
-#include "editor/editor_string_names.h"
-#include "scene/gui/button.h"
-#include "scene/gui/check_box.h"
-#include "scene/gui/check_button.h"
-#include "scene/gui/color_picker.h"
-#include "scene/gui/color_rect.h"
-#include "scene/gui/margin_container.h"
-#include "scene/gui/progress_bar.h"
-#include "scene/gui/scroll_container.h"
-#include "scene/gui/tab_container.h"
-#include "scene/gui/text_edit.h"
-#include "scene/gui/tree.h"
+#include "core/os/input.h"
 #include "scene/resources/packed_scene.h"
-#include "scene/theme/theme_db.h"
+
+#include "editor/editor_scale.h"
 
 constexpr double REFRESH_TIMER = 1.5;
 
@@ -63,8 +49,8 @@ void ThemeEditorPreview::add_preview_overlay(Control *p_overlay) {
 
 void ThemeEditorPreview::_propagate_redraw(Control *p_at) {
 	p_at->notification(NOTIFICATION_THEME_CHANGED);
-	p_at->update_minimum_size();
-	p_at->queue_redraw();
+	p_at->minimum_size_changed();
+	p_at->update();
 	for (int i = 0; i < p_at->get_child_count(); i++) {
 		Control *a = Object::cast_to<Control>(p_at->get_child(i));
 		if (a) {
@@ -75,7 +61,7 @@ void ThemeEditorPreview::_propagate_redraw(Control *p_at) {
 
 void ThemeEditorPreview::_refresh_interval() {
 	// In case the project settings have changed.
-	preview_bg->set_color(GLOBAL_GET("rendering/environment/defaults/default_clear_color"));
+	preview_bg->set_frame_color(GLOBAL_GET("rendering/environment/default_clear_color"));
 
 	_propagate_redraw(preview_bg);
 	_propagate_redraw(preview_content);
@@ -136,23 +122,23 @@ void ThemeEditorPreview::_draw_picker_overlay() {
 		}
 
 		Rect2 highlight_label_rect = highlight_rect;
-		highlight_label_rect.size = theme_cache.preview_picker_font->get_string_size(highlight_name, HORIZONTAL_ALIGNMENT_LEFT, -1, theme_cache.font_size);
+		highlight_label_rect.size = theme_cache.preview_picker_font->get_string_size(highlight_name);
 
-		int margin_top = theme_cache.preview_picker_label->get_margin(SIDE_TOP);
-		int margin_left = theme_cache.preview_picker_label->get_margin(SIDE_LEFT);
-		int margin_bottom = theme_cache.preview_picker_label->get_margin(SIDE_BOTTOM);
-		int margin_right = theme_cache.preview_picker_label->get_margin(SIDE_RIGHT);
+		int margin_top = theme_cache.preview_picker_label->get_margin(MARGIN_TOP);
+		int margin_left = theme_cache.preview_picker_label->get_margin(MARGIN_LEFT);
+		int margin_bottom = theme_cache.preview_picker_label->get_margin(MARGIN_BOTTOM);
+		int margin_right = theme_cache.preview_picker_label->get_margin(MARGIN_RIGHT);
 		highlight_label_rect.size.x += margin_left + margin_right;
 		highlight_label_rect.size.y += margin_top + margin_bottom;
 
-		highlight_label_rect.position = highlight_label_rect.position.clamp(Vector2(), picker_overlay->get_size());
-
+		highlight_label_rect.position.x = CLAMP(highlight_label_rect.position.x, 0.0, picker_overlay->get_size().width);
+		highlight_label_rect.position.y = CLAMP(highlight_label_rect.position.y, 0.0, picker_overlay->get_size().height);
 		picker_overlay->draw_style_box(theme_cache.preview_picker_label, highlight_label_rect);
 
 		Point2 label_pos = highlight_label_rect.position;
 		label_pos.y += highlight_label_rect.size.y - margin_bottom;
 		label_pos.x += margin_left;
-		picker_overlay->draw_string(theme_cache.preview_picker_font, label_pos, highlight_name, HORIZONTAL_ALIGNMENT_LEFT, -1, theme_cache.font_size);
+		picker_overlay->draw_string(theme_cache.preview_picker_font, label_pos, highlight_name);
 	}
 }
 
@@ -163,14 +149,14 @@ void ThemeEditorPreview::_gui_input_picker_overlay(const Ref<InputEvent> &p_even
 
 	Ref<InputEventMouseButton> mb = p_event;
 
-	if (mb.is_valid() && mb->is_pressed() && mb->get_button_index() == MouseButton::LEFT) {
+	if (mb.is_valid() && mb->is_pressed() && mb->get_button_index() == BUTTON_LEFT) {
 		if (hovered_control) {
 			StringName theme_type = hovered_control->get_theme_type_variation();
 			if (theme_type == StringName()) {
 				theme_type = hovered_control->get_class_name();
 			}
 
-			emit_signal(SNAME("control_picked"), theme_type);
+			emit_signal("control_picked", theme_type);
 			picker_button->set_pressed(false);
 			picker_overlay->set_visible(false);
 			return;
@@ -182,16 +168,16 @@ void ThemeEditorPreview::_gui_input_picker_overlay(const Ref<InputEvent> &p_even
 	if (mm.is_valid()) {
 		Vector2 mp = preview_content->get_local_mouse_position();
 		hovered_control = _find_hovered_control(preview_content, mp);
-		picker_overlay->queue_redraw();
+		picker_overlay->update();
 	}
 
 	// Forward input to the scroll container underneath to allow scrolling.
-	preview_container->gui_input(p_event);
+	preview_container->call("_gui_input", p_event);
 }
 
 void ThemeEditorPreview::_reset_picker_overlay() {
 	hovered_control = nullptr;
-	picker_overlay->queue_redraw();
+	picker_overlay->update();
 }
 
 void ThemeEditorPreview::_notification(int p_what) {
@@ -201,19 +187,17 @@ void ThemeEditorPreview::_notification(int p_what) {
 				set_process(true);
 			}
 
-			connect("visibility_changed", callable_mp(this, &ThemeEditorPreview::_preview_visibility_changed));
-			[[fallthrough]];
+			connect("visibility_changed", this, "_preview_visibility_changed");
+			FALLTHROUGH;
 		}
 		case NOTIFICATION_THEME_CHANGED: {
-			picker_button->set_icon(get_editor_theme_icon(SNAME("ColorPick")));
+			picker_button->set_icon(get_icon("ColorPick", "EditorIcons"));
 
-			theme_cache.preview_picker_overlay = get_theme_stylebox(SNAME("preview_picker_overlay"), SNAME("ThemeEditor"));
-			theme_cache.preview_picker_overlay_color = get_theme_color(SNAME("preview_picker_overlay_color"), SNAME("ThemeEditor"));
-			theme_cache.preview_picker_label = get_theme_stylebox(SNAME("preview_picker_label"), SNAME("ThemeEditor"));
-			theme_cache.preview_picker_font = get_theme_font(SNAME("status_source"), EditorStringName(EditorFonts));
-			theme_cache.font_size = get_theme_font_size(SNAME("font_size"), EditorStringName(EditorFonts));
+			theme_cache.preview_picker_overlay = get_stylebox("preview_picker_overlay", "ThemeEditor");
+			theme_cache.preview_picker_overlay_color = get_color("preview_picker_overlay_color", "ThemeEditor");
+			theme_cache.preview_picker_label = get_stylebox("preview_picker_label", "ThemeEditor");
+			theme_cache.preview_picker_font = get_font("status_source", "EditorFonts");
 		} break;
-
 		case NOTIFICATION_PROCESS: {
 			time_left -= get_process_delta_time();
 			if (time_left < 0) {
@@ -225,6 +209,14 @@ void ThemeEditorPreview::_notification(int p_what) {
 }
 
 void ThemeEditorPreview::_bind_methods() {
+	// Internal binds.
+	ClassDB::bind_method("_picker_button_cbk", &ThemeEditorPreview::_picker_button_cbk);
+	ClassDB::bind_method("_preview_visibility_changed", &ThemeEditorPreview::_preview_visibility_changed);
+	ClassDB::bind_method("_draw_picker_overlay", &ThemeEditorPreview::_draw_picker_overlay);
+	ClassDB::bind_method("_gui_input_picker_overlay", &ThemeEditorPreview::_gui_input_picker_overlay);
+	ClassDB::bind_method("_reset_picker_overlay", &ThemeEditorPreview::_reset_picker_overlay);
+
+	// Public binds.
 	ADD_SIGNAL(MethodInfo("control_picked", PropertyInfo(Variant::STRING, "class_name")));
 }
 
@@ -236,8 +228,8 @@ ThemeEditorPreview::ThemeEditorPreview() {
 	preview_toolbar->add_child(picker_button);
 	picker_button->set_flat(true);
 	picker_button->set_toggle_mode(true);
-	picker_button->set_tooltip_text(TTR("Toggle the control picker, allowing to visually select control types for edit."));
-	picker_button->connect("pressed", callable_mp(this, &ThemeEditorPreview::_picker_button_cbk));
+	picker_button->set_tooltip(TTR("Toggle the control picker, allowing to visually select control types for edit."));
+	picker_button->connect("pressed", this, "_picker_button_cbk");
 
 	MarginContainer *preview_body = memnew(MarginContainer);
 	preview_body->set_custom_minimum_size(Size2(480, 0) * EDSCALE);
@@ -245,27 +237,29 @@ ThemeEditorPreview::ThemeEditorPreview() {
 	add_child(preview_body);
 
 	preview_container = memnew(ScrollContainer);
+	preview_container->set_enable_v_scroll(true);
+	preview_container->set_enable_h_scroll(true);
 	preview_body->add_child(preview_container);
 
 	MarginContainer *preview_root = memnew(MarginContainer);
 	preview_container->add_child(preview_root);
-	preview_root->set_theme(ThemeDB::get_singleton()->get_default_theme());
+	preview_root->set_theme(Theme::get_default());
 	preview_root->set_clip_contents(true);
 	preview_root->set_custom_minimum_size(Size2(450, 0) * EDSCALE);
 	preview_root->set_v_size_flags(SIZE_EXPAND_FILL);
 	preview_root->set_h_size_flags(SIZE_EXPAND_FILL);
 
 	preview_bg = memnew(ColorRect);
-	preview_bg->set_anchors_and_offsets_preset(PRESET_FULL_RECT);
-	preview_bg->set_color(GLOBAL_GET("rendering/environment/defaults/default_clear_color"));
+	preview_bg->set_anchors_and_margins_preset(PRESET_WIDE);
+	preview_bg->set_frame_color(GLOBAL_GET("rendering/environment/default_clear_color"));
 	preview_root->add_child(preview_bg);
 
 	preview_content = memnew(MarginContainer);
 	preview_root->add_child(preview_content);
-	preview_content->add_theme_constant_override("margin_right", 4 * EDSCALE);
-	preview_content->add_theme_constant_override("margin_top", 4 * EDSCALE);
-	preview_content->add_theme_constant_override("margin_left", 4 * EDSCALE);
-	preview_content->add_theme_constant_override("margin_bottom", 4 * EDSCALE);
+	preview_content->add_constant_override("margin_right", 4 * EDSCALE);
+	preview_content->add_constant_override("margin_top", 4 * EDSCALE);
+	preview_content->add_constant_override("margin_left", 4 * EDSCALE);
+	preview_content->add_constant_override("margin_bottom", 4 * EDSCALE);
 
 	preview_overlay = memnew(MarginContainer);
 	preview_overlay->set_mouse_filter(MOUSE_FILTER_IGNORE);
@@ -274,18 +268,9 @@ ThemeEditorPreview::ThemeEditorPreview() {
 
 	picker_overlay = memnew(Control);
 	add_preview_overlay(picker_overlay);
-	picker_overlay->connect("draw", callable_mp(this, &ThemeEditorPreview::_draw_picker_overlay));
-	picker_overlay->connect("gui_input", callable_mp(this, &ThemeEditorPreview::_gui_input_picker_overlay));
-	picker_overlay->connect("mouse_exited", callable_mp(this, &ThemeEditorPreview::_reset_picker_overlay));
-}
-
-void DefaultThemeEditorPreview::_notification(int p_what) {
-	switch (p_what) {
-		case NOTIFICATION_ENTER_TREE:
-		case NOTIFICATION_THEME_CHANGED: {
-			test_color_picker_button->set_custom_minimum_size(Size2(0, get_theme_constant(SNAME("color_picker_button_height"), EditorStringName(Editor))));
-		} break;
-	}
+	picker_overlay->connect("draw", this, "_draw_picker_overlay");
+	picker_overlay->connect("gui_input", this, "_gui_input_picker_overlay");
+	picker_overlay->connect("mouse_exited", this, "_reset_picker_overlay");
 }
 
 DefaultThemeEditorPreview::DefaultThemeEditorPreview() {
@@ -293,20 +278,20 @@ DefaultThemeEditorPreview::DefaultThemeEditorPreview() {
 	preview_content->add_child(main_panel);
 
 	MarginContainer *main_mc = memnew(MarginContainer);
-	main_mc->add_theme_constant_override("margin_right", 4 * EDSCALE);
-	main_mc->add_theme_constant_override("margin_top", 4 * EDSCALE);
-	main_mc->add_theme_constant_override("margin_left", 4 * EDSCALE);
-	main_mc->add_theme_constant_override("margin_bottom", 4 * EDSCALE);
+	main_mc->add_constant_override("margin_right", 4 * EDSCALE);
+	main_mc->add_constant_override("margin_top", 4 * EDSCALE);
+	main_mc->add_constant_override("margin_left", 4 * EDSCALE);
+	main_mc->add_constant_override("margin_bottom", 4 * EDSCALE);
 	preview_content->add_child(main_mc);
 
 	HBoxContainer *main_hb = memnew(HBoxContainer);
 	main_mc->add_child(main_hb);
-	main_hb->add_theme_constant_override("separation", 20 * EDSCALE);
+	main_hb->add_constant_override("separation", 20 * EDSCALE);
 
 	VBoxContainer *first_vb = memnew(VBoxContainer);
 	main_hb->add_child(first_vb);
 	first_vb->set_h_size_flags(SIZE_EXPAND_FILL);
-	first_vb->add_theme_constant_override("separation", 10 * EDSCALE);
+	first_vb->add_constant_override("separation", 10 * EDSCALE);
 
 	first_vb->add_child(memnew(Label("Label")));
 
@@ -322,7 +307,7 @@ DefaultThemeEditorPreview::DefaultThemeEditorPreview() {
 	first_vb->add_child(bt);
 	Button *tb = memnew(Button);
 	tb->set_flat(true);
-	tb->set_text("Flat Button");
+	tb->set_text("Button");
 	first_vb->add_child(tb);
 
 	CheckButton *cb = memnew(CheckButton);
@@ -362,13 +347,12 @@ DefaultThemeEditorPreview::DefaultThemeEditorPreview() {
 	test_option_button->add_item(TTR("Many"));
 	test_option_button->add_item(TTR("Options"));
 	first_vb->add_child(test_option_button);
-	test_color_picker_button = memnew(ColorPickerButton);
-	first_vb->add_child(test_color_picker_button);
+	first_vb->add_child(memnew(ColorPickerButton));
 
 	VBoxContainer *second_vb = memnew(VBoxContainer);
 	second_vb->set_h_size_flags(SIZE_EXPAND_FILL);
 	main_hb->add_child(second_vb);
-	second_vb->add_theme_constant_override("separation", 10 * EDSCALE);
+	second_vb->add_constant_override("separation", 10 * EDSCALE);
 	LineEdit *le = memnew(LineEdit);
 	le->set_text("LineEdit");
 	second_vb->add_child(le);
@@ -392,7 +376,7 @@ DefaultThemeEditorPreview::DefaultThemeEditorPreview() {
 	vhb->add_child(memnew(VSeparator));
 	VBoxContainer *hvb = memnew(VBoxContainer);
 	vhb->add_child(hvb);
-	hvb->set_alignment(BoxContainer::ALIGNMENT_CENTER);
+	hvb->set_alignment(BoxContainer::ALIGN_CENTER);
 	hvb->set_h_size_flags(SIZE_EXPAND_FILL);
 	hvb->add_child(memnew(HSlider));
 	HScrollBar *hsb = memnew(HScrollBar);
@@ -408,7 +392,7 @@ DefaultThemeEditorPreview::DefaultThemeEditorPreview() {
 
 	VBoxContainer *third_vb = memnew(VBoxContainer);
 	third_vb->set_h_size_flags(SIZE_EXPAND_FILL);
-	third_vb->add_theme_constant_override("separation", 10 * EDSCALE);
+	third_vb->add_constant_override("separation", 10 * EDSCALE);
 	main_hb->add_child(third_vb);
 
 	TabContainer *tc = memnew(TabContainer);
@@ -459,39 +443,43 @@ void SceneThemeEditorPreview::_reload_scene() {
 		return;
 	}
 
-	if (loaded_scene->get_path().is_empty() || !ResourceLoader::exists(loaded_scene->get_path())) {
+	if (loaded_scene->get_path().empty() || !ResourceLoader::exists(loaded_scene->get_path())) {
 		EditorNode::get_singleton()->show_warning(TTR("Invalid path, the PackedScene resource was probably moved or removed."));
-		emit_signal(SNAME("scene_invalidated"));
+		emit_signal("scene_invalidated");
 		return;
 	}
 
 	for (int i = preview_content->get_child_count() - 1; i >= 0; i--) {
 		Node *node = preview_content->get_child(i);
-		node->queue_free();
+		node->queue_delete();
 		preview_content->remove_child(node);
 	}
 
-	Node *instance = loaded_scene->instantiate();
+	Node *instance = loaded_scene->instance();
 	if (!instance || !Object::cast_to<Control>(instance)) {
 		EditorNode::get_singleton()->show_warning(TTR("Invalid PackedScene resource, must have a Control node at its root."));
-		emit_signal(SNAME("scene_invalidated"));
+		emit_signal("scene_invalidated");
 		return;
 	}
 
 	preview_content->add_child(instance);
-	emit_signal(SNAME("scene_reloaded"));
+	emit_signal("scene_reloaded");
 }
 
 void SceneThemeEditorPreview::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
-			reload_scene_button->set_icon(get_editor_theme_icon(SNAME("Reload")));
+			reload_scene_button->set_icon(get_icon("Reload", "EditorIcons"));
 		} break;
 	}
 }
 
 void SceneThemeEditorPreview::_bind_methods() {
+	// Internal binds.
+	ClassDB::bind_method("_reload_scene", &SceneThemeEditorPreview::_reload_scene);
+
+	// Public binds.
 	ADD_SIGNAL(MethodInfo("scene_invalidated"));
 	ADD_SIGNAL(MethodInfo("scene_reloaded"));
 }
@@ -503,7 +491,7 @@ bool SceneThemeEditorPreview::set_preview_scene(const String &p_path) {
 		return false;
 	}
 
-	Node *instance = loaded_scene->instantiate();
+	Node *instance = loaded_scene->instance();
 	if (!instance || !Object::cast_to<Control>(instance)) {
 		EditorNode::get_singleton()->show_warning(TTR("Invalid PackedScene resource, must have a Control node at its root."));
 		return false;
@@ -526,7 +514,7 @@ SceneThemeEditorPreview::SceneThemeEditorPreview() {
 
 	reload_scene_button = memnew(Button);
 	reload_scene_button->set_flat(true);
-	reload_scene_button->set_tooltip_text(TTR("Reload the scene to reflect its most actual state."));
+	reload_scene_button->set_tooltip(TTR("Reload the scene to reflect its most actual state."));
 	preview_toolbar->add_child(reload_scene_button);
-	reload_scene_button->connect("pressed", callable_mp(this, &SceneThemeEditorPreview::_reload_scene));
+	reload_scene_button->connect("pressed", this, "_reload_scene");
 }

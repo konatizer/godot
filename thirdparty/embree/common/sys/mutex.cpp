@@ -36,7 +36,6 @@ namespace embree
     MAYBE_UNUSED bool ok = pthread_mutex_destroy((pthread_mutex_t*)mutex) == 0;
     assert(ok);
     delete (pthread_mutex_t*)mutex; 
-    mutex = nullptr;
   }
   
   void MutexSys::lock() 

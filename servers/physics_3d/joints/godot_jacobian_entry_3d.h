@@ -1,39 +1,39 @@
-/**************************************************************************/
-/*  godot_jacobian_entry_3d.h                                             */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
-
-#ifndef GODOT_JACOBIAN_ENTRY_3D_H
-#define GODOT_JACOBIAN_ENTRY_3D_H
+/*************************************************************************/
+/*  jacobian_entry_sw.h                                                  */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 /*
 Adapted to Godot from the Bullet library.
 */
+
+#ifndef JACOBIAN_ENTRY_SW_H
+#define JACOBIAN_ENTRY_SW_H
 
 /*
 Bullet Continuous Collision Detection and Physics Library
@@ -50,13 +50,13 @@ subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 */
 
-#include "core/math/transform_3d.h"
+#include "core/math/transform.h"
 
-class GodotJacobianEntry3D {
+class JacobianEntrySW {
 public:
-	GodotJacobianEntry3D() {}
+	JacobianEntrySW(){};
 	//constraint between two different rigidbodies
-	GodotJacobianEntry3D(
+	JacobianEntrySW(
 			const Basis &world2A,
 			const Basis &world2B,
 			const Vector3 &rel_pos1, const Vector3 &rel_pos2,
@@ -76,7 +76,7 @@ public:
 	}
 
 	//angular constraint between two different rigidbodies
-	GodotJacobianEntry3D(const Vector3 &jointAxis,
+	JacobianEntrySW(const Vector3 &jointAxis,
 			const Basis &world2A,
 			const Basis &world2B,
 			const Vector3 &inertiaInvA,
@@ -92,7 +92,7 @@ public:
 	}
 
 	//angular constraint between two different rigidbodies
-	GodotJacobianEntry3D(const Vector3 &axisInA,
+	JacobianEntrySW(const Vector3 &axisInA,
 			const Vector3 &axisInB,
 			const Vector3 &inertiaInvA,
 			const Vector3 &inertiaInvB) :
@@ -107,7 +107,7 @@ public:
 	}
 
 	//constraint on one rigidbody
-	GodotJacobianEntry3D(
+	JacobianEntrySW(
 			const Basis &world2A,
 			const Vector3 &rel_pos1, const Vector3 &rel_pos2,
 			const Vector3 &jointAxis,
@@ -126,16 +126,16 @@ public:
 	real_t getDiagonal() const { return m_Adiag; }
 
 	// for two constraints on the same rigidbody (for example vehicle friction)
-	real_t getNonDiagonal(const GodotJacobianEntry3D &jacB, const real_t massInvA) const {
-		const GodotJacobianEntry3D &jacA = *this;
+	real_t getNonDiagonal(const JacobianEntrySW &jacB, const real_t massInvA) const {
+		const JacobianEntrySW &jacA = *this;
 		real_t lin = massInvA * jacA.m_linearJointAxis.dot(jacB.m_linearJointAxis);
 		real_t ang = jacA.m_0MinvJt.dot(jacB.m_aJ);
 		return lin + ang;
 	}
 
 	// for two constraints on sharing two same rigidbodies (for example two contact points between two rigidbodies)
-	real_t getNonDiagonal(const GodotJacobianEntry3D &jacB, const real_t massInvA, const real_t massInvB) const {
-		const GodotJacobianEntry3D &jacA = *this;
+	real_t getNonDiagonal(const JacobianEntrySW &jacB, const real_t massInvA, const real_t massInvB) const {
+		const JacobianEntrySW &jacA = *this;
 		Vector3 lin = jacA.m_linearJointAxis * jacB.m_linearJointAxis;
 		Vector3 ang0 = jacA.m_0MinvJt * jacB.m_aJ;
 		Vector3 ang1 = jacA.m_1MinvJt * jacB.m_bJ;
@@ -163,7 +163,7 @@ public:
 	Vector3 m_0MinvJt;
 	Vector3 m_1MinvJt;
 	//Optimization: can be stored in the w/last component of one of the vectors
-	real_t m_Adiag = 1.0;
+	real_t m_Adiag;
 };
 
-#endif // GODOT_JACOBIAN_ENTRY_3D_H
+#endif // JACOBIAN_ENTRY_SW_H

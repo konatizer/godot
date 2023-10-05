@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  bvh_abb.h                                                             */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  bvh_abb.h                                                            */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef BVH_ABB_H
 #define BVH_ABB_H
@@ -87,13 +87,13 @@ struct BVH_ABB {
 		return -neg_max - min;
 	}
 
-	POINT calculate_center() const {
-		return POINT((calculate_size() * 0.5) + min);
+	POINT calculate_centre() const {
+		return POINT((calculate_size() * 0.5f) + min);
 	}
 
 	real_t get_proximity_to(const BVH_ABB &p_b) const {
 		const POINT d = (min - neg_max) - (p_b.min - p_b.neg_max);
-		real_t proximity = 0.0;
+		real_t proximity = 0;
 		for (int axis = 0; axis < POINT::AXIS_COUNT; ++axis) {
 			proximity += Math::abs(d[axis]);
 		}
@@ -119,7 +119,7 @@ struct BVH_ABB {
 
 	bool intersects_plane(const Plane &p_p) const {
 		Vector3 size = calculate_size();
-		Vector3 half_extents = size * 0.5;
+		Vector3 half_extents = size * 0.5f;
 		Vector3 ofs = min + half_extents;
 
 		// forward side of plane?
@@ -143,7 +143,7 @@ struct BVH_ABB {
 
 	bool intersects_convex_optimized(const ConvexHull &p_hull, const uint32_t *p_plane_ids, uint32_t p_num_planes) const {
 		Vector3 size = calculate_size();
-		Vector3 half_extents = size * 0.5;
+		Vector3 half_extents = size * 0.5f;
 		Vector3 ofs = min + half_extents;
 
 		for (unsigned int i = 0; i < p_num_planes; i++) {
@@ -189,7 +189,7 @@ struct BVH_ABB {
 
 	bool is_point_within_hull(const ConvexHull &p_hull, const Vector3 &p_pt) const {
 		for (int n = 0; n < p_hull.num_planes; n++) {
-			if (p_hull.planes[n].distance_to(p_pt) > 0.0f) {
+			if (p_hull.planes[n].distance_to(p_pt) > 0) {
 				return false;
 			}
 		}
@@ -251,22 +251,18 @@ struct BVH_ABB {
 
 	void expand(real_t p_change) {
 		POINT change;
-		for (int axis = 0; axis < POINT::AXIS_COUNT; ++axis) {
-			change[axis] = p_change;
-		}
+		change.set_all(p_change);
 		grow(change);
 	}
 
 	// Actually surface area metric.
 	float get_area() const {
 		POINT d = calculate_size();
-		return 2.0f * (d.x * d.y + d.y * d.z + d.z * d.x);
+		return 2 * (d.x * d.y + d.y * d.z + d.z * d.x);
 	}
 
 	void set_to_max_opposite_extents() {
-		for (int axis = 0; axis < POINT::AXIS_COUNT; ++axis) {
-			neg_max[axis] = FLT_MAX;
-		}
+		neg_max.set_all(FLT_MAX);
 		min = neg_max;
 	}
 

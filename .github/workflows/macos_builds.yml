@@ -1,12 +1,11 @@
 name: 🍎 macOS Builds
-on:
-  workflow_call:
+on: [push, pull_request]
 
 # Global Settings
 env:
-  # Used for the cache key. Add version suffix to force clean build.
-  GODOT_BASE_BRANCH: master
-  SCONSFLAGS: verbose=yes warnings=extra werror=yes module_text_server_fb_enabled=yes
+  # Only used for the cache key. Increment version to force clean build.
+  GODOT_BASE_BRANCH: 3.5
+  SCONSFLAGS: verbose=yes warnings=all werror=yes debug_symbols=no
 
 concurrency:
   group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}-macos
@@ -20,20 +19,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Editor (target=editor, tests=yes)
+          - name: Editor (target=release_debug, tools=yes)
             cache-name: macos-editor
-            target: editor
-            tests: true
-            bin: "./bin/godot.macos.editor.x86_64"
+            target: release_debug
+            tools: true
+            bin: "./bin/godot.osx.opt.tools.64"
 
-          - name: Template (target=template_release)
+          - name: Template (target=release, tools=no)
             cache-name: macos-template
-            target: template_release
-            tests: false
-            sconsflags: debug_symbols=no
+            target: release
+            tools: false
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
       - name: Setup Godot build cache
         uses: ./.github/actions/godot-cache
@@ -44,17 +42,13 @@ jobs:
       - name: Setup python and scons
         uses: ./.github/actions/godot-deps
 
-      - name: Setup Vulkan SDK
-        run: |
-          sh misc/scripts/install_vulkan_sdk_macos.sh
-
       - name: Compilation
         uses: ./.github/actions/godot-build
         with:
           sconsflags: ${{ env.SCONSFLAGS }}
-          platform: macos
+          platform: osx
           target: ${{ matrix.target }}
-          tests: ${{ matrix.tests }}
+          tools: ${{ matrix.tools }}
 
       - name: Prepare artifact
         run: |
@@ -65,11 +59,3 @@ jobs:
         uses: ./.github/actions/upload-artifact
         with:
           name: ${{ matrix.cache-name }}
-
-      # Execute unit tests for the editor
-      - name: Unit tests
-        if: ${{ matrix.tests }}
-        run: |
-          ${{ matrix.bin }} --version
-          ${{ matrix.bin }} --help
-          ${{ matrix.bin }} --test

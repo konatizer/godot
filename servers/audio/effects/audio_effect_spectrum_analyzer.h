@@ -1,32 +1,32 @@
-/**************************************************************************/
-/*  audio_effect_spectrum_analyzer.h                                      */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  audio_effect_spectrum_analyzer.h                                     */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef AUDIO_EFFECT_SPECTRUM_ANALYZER_H
 #define AUDIO_EFFECT_SPECTRUM_ANALYZER_H
@@ -61,7 +61,7 @@ protected:
 	static void _bind_methods();
 
 public:
-	virtual void process(const AudioFrame *p_src_frames, AudioFrame *p_dst_frames, int p_frame_count) override;
+	virtual void process(const AudioFrame *p_src_frames, AudioFrame *p_dst_frames, int p_frame_count);
 	Vector2 get_magnitude_for_frequency_range(float p_begin, float p_end, MagnitudeMode p_mode = MAGNITUDE_MAX) const;
 };
 
@@ -71,7 +71,7 @@ class AudioEffectSpectrumAnalyzer : public AudioEffect {
 	GDCLASS(AudioEffectSpectrumAnalyzer, AudioEffect);
 
 public:
-	enum FFTSize {
+	enum FFT_Size {
 		FFT_SIZE_256,
 		FFT_SIZE_512,
 		FFT_SIZE_1024,
@@ -84,24 +84,24 @@ public:
 	friend class AudioEffectSpectrumAnalyzerInstance;
 	float buffer_length;
 	float tapback_pos;
-	FFTSize fft_size;
+	FFT_Size fft_size;
 
 protected:
 	static void _bind_methods();
 
 public:
-	Ref<AudioEffectInstance> instantiate() override;
+	Ref<AudioEffectInstance> instance();
 	void set_buffer_length(float p_seconds);
 	float get_buffer_length() const;
 	void set_tap_back_pos(float p_seconds);
 	float get_tap_back_pos() const;
 
-	void set_fft_size(FFTSize);
-	FFTSize get_fft_size() const;
+	void set_fft_size(FFT_Size);
+	FFT_Size get_fft_size() const;
 
 	AudioEffectSpectrumAnalyzer();
 };
 
-VARIANT_ENUM_CAST(AudioEffectSpectrumAnalyzer::FFTSize);
+VARIANT_ENUM_CAST(AudioEffectSpectrumAnalyzer::FFT_Size);
 
 #endif // AUDIO_EFFECT_SPECTRUM_ANALYZER_H

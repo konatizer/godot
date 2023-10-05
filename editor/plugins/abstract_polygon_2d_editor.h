@@ -1,76 +1,68 @@
-/**************************************************************************/
-/*  abstract_polygon_2d_editor.h                                          */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  abstract_polygon_2d_editor.h                                         */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef ABSTRACT_POLYGON_2D_EDITOR_H
 #define ABSTRACT_POLYGON_2D_EDITOR_H
 
+#include "editor/editor_node.h"
 #include "editor/editor_plugin.h"
 #include "scene/2d/polygon_2d.h"
-#include "scene/gui/box_container.h"
+#include "scene/gui/tool_button.h"
 
-class Button;
 class CanvasItemEditor;
-class ConfirmationDialog;
 
 class AbstractPolygon2DEditor : public HBoxContainer {
 	GDCLASS(AbstractPolygon2DEditor, HBoxContainer);
 
-	Button *button_create = nullptr;
-	Button *button_edit = nullptr;
-	Button *button_delete = nullptr;
+	ToolButton *button_create;
+	ToolButton *button_edit;
+	ToolButton *button_delete;
 
 	struct Vertex {
-		Vertex() {}
-		Vertex(int p_vertex) :
-				vertex(p_vertex) {}
-		Vertex(int p_polygon, int p_vertex) :
-				polygon(p_polygon),
-				vertex(p_vertex) {}
+		Vertex();
+		Vertex(int p_vertex);
+		Vertex(int p_polygon, int p_vertex);
 
 		bool operator==(const Vertex &p_vertex) const;
 		bool operator!=(const Vertex &p_vertex) const;
 
 		bool valid() const;
 
-		int polygon = -1;
-		int vertex = -1;
+		int polygon;
+		int vertex;
 	};
 
 	struct PosVertex : public Vertex {
-		PosVertex() {}
-		PosVertex(const Vertex &p_vertex, const Vector2 &p_pos) :
-				Vertex(p_vertex.polygon, p_vertex.vertex),
-				pos(p_pos) {}
-		PosVertex(int p_polygon, int p_vertex, const Vector2 &p_pos) :
-				Vertex(p_polygon, p_vertex),
-				pos(p_pos) {}
+		PosVertex();
+		PosVertex(const Vertex &p_vertex, const Vector2 &p_pos);
+		PosVertex(int p_polygon, int p_vertex, const Vector2 &p_pos);
 
 		Vector2 pos;
 	};
@@ -82,14 +74,15 @@ class AbstractPolygon2DEditor : public HBoxContainer {
 
 	Vector<Vector2> pre_move_edit;
 	Vector<Vector2> wip;
-	bool wip_active = false;
-	bool wip_destructive = false;
+	bool wip_active;
+	bool wip_destructive;
 
-	bool _polygon_editing_enabled = false;
+	bool _polygon_editing_enabled;
 
-	CanvasItemEditor *canvas_item_editor = nullptr;
-	Panel *panel = nullptr;
-	ConfirmationDialog *create_resource = nullptr;
+	CanvasItemEditor *canvas_item_editor;
+	EditorNode *editor;
+	Panel *panel;
+	ConfirmationDialog *create_resource;
 
 protected:
 	enum {
@@ -99,7 +92,9 @@ protected:
 		MODE_CONT,
 	};
 
-	int mode = MODE_EDIT;
+	int mode;
+
+	UndoRedo *undo_redo;
 
 	virtual void _menu_option(int p_option);
 	void _wip_changed();
@@ -143,26 +138,27 @@ public:
 	void forward_canvas_draw_over_viewport(Control *p_overlay);
 
 	void edit(Node *p_polygon);
-	AbstractPolygon2DEditor(bool p_wip_destructive = true);
+	AbstractPolygon2DEditor(EditorNode *p_editor, bool p_wip_destructive = true);
 };
 
 class AbstractPolygon2DEditorPlugin : public EditorPlugin {
 	GDCLASS(AbstractPolygon2DEditorPlugin, EditorPlugin);
 
-	AbstractPolygon2DEditor *polygon_editor = nullptr;
+	AbstractPolygon2DEditor *polygon_editor;
+	EditorNode *editor;
 	String klass;
 
 public:
-	virtual bool forward_canvas_gui_input(const Ref<InputEvent> &p_event) override { return polygon_editor->forward_gui_input(p_event); }
-	virtual void forward_canvas_draw_over_viewport(Control *p_overlay) override { polygon_editor->forward_canvas_draw_over_viewport(p_overlay); }
+	virtual bool forward_canvas_gui_input(const Ref<InputEvent> &p_event) { return polygon_editor->forward_gui_input(p_event); }
+	virtual void forward_canvas_draw_over_viewport(Control *p_overlay) { polygon_editor->forward_canvas_draw_over_viewport(p_overlay); }
 
-	bool has_main_screen() const override { return false; }
-	virtual String get_name() const override { return klass; }
-	virtual void edit(Object *p_object) override;
-	virtual bool handles(Object *p_object) const override;
-	virtual void make_visible(bool p_visible) override;
+	bool has_main_screen() const { return false; }
+	virtual String get_name() const { return klass; }
+	virtual void edit(Object *p_object);
+	virtual bool handles(Object *p_object) const;
+	virtual void make_visible(bool p_visible);
 
-	AbstractPolygon2DEditorPlugin(AbstractPolygon2DEditor *p_polygon_editor, String p_class);
+	AbstractPolygon2DEditorPlugin(EditorNode *p_node, AbstractPolygon2DEditor *p_polygon_editor, String p_class);
 	~AbstractPolygon2DEditorPlugin();
 };
 

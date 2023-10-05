@@ -1,51 +1,55 @@
-/**************************************************************************/
-/*  joypad_macos.h                                                        */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  joypad_osx.h                                                         */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
-#ifndef JOYPAD_MACOS_H
-#define JOYPAD_MACOS_H
+#ifndef JOYPAD_OSX_H
+#define JOYPAD_OSX_H
 
-#include "core/input/input.h"
+#ifdef MACOS_10_0_4
+#include <IOKit/hidsystem/IOHIDUsageTables.h>
+#else
+#include <Kernel/IOKit/hidsystem/IOHIDUsageTables.h>
+#endif
+#include <ForceFeedback/ForceFeedback.h>
+#include <ForceFeedback/ForceFeedbackConstants.h>
+#include <IOKit/hid/IOHIDLib.h>
 
-#import <ForceFeedback/ForceFeedback.h>
-#import <ForceFeedback/ForceFeedbackConstants.h>
-#import <IOKit/hid/IOHIDLib.h>
-#import <Kernel/IOKit/hidsystem/IOHIDUsageTables.h>
+#include "main/input_default.h"
 
 struct rec_element {
 	IOHIDElementRef ref;
 	IOHIDElementCookie cookie;
 
-	uint32_t usage = 0;
+	uint32_t usage;
 
-	int min = 0;
-	int max = 0;
+	int min;
+	int max;
 
 	struct Comparator {
 		bool operator()(const rec_element p_a, const rec_element p_b) const { return p_a.usage < p_b.usage; }
@@ -53,7 +57,7 @@ struct rec_element {
 };
 
 struct joypad {
-	IOHIDDeviceRef device_ref = nullptr;
+	IOHIDDeviceRef device_ref;
 
 	Vector<rec_element> axis_elements;
 	Vector<rec_element> button_elements;
@@ -62,7 +66,7 @@ struct joypad {
 	int id = 0;
 	bool offset_hat = false;
 
-	io_service_t ffservice = 0; // Interface for force feedback, 0 = no ff.
+	io_service_t ffservice = 0; /* Interface for force feedback, 0 = no ff */
 	FFCONSTANTFORCE ff_constant_force;
 	FFDeviceObjectReference ff_device = nullptr;
 	FFEffectObjectReference ff_object = nullptr;
@@ -84,13 +88,13 @@ struct joypad {
 	joypad();
 };
 
-class JoypadMacOS {
+class JoypadOSX {
 	enum {
 		JOYPADS_MAX = 16,
 	};
 
 private:
-	Input *input = nullptr;
+	InputDefault *input;
 	IOHIDManagerRef hid_manager;
 
 	Vector<joypad> device_list;
@@ -113,8 +117,8 @@ public:
 	void _device_added(IOReturn p_res, IOHIDDeviceRef p_device);
 	void _device_removed(IOReturn p_res, IOHIDDeviceRef p_device);
 
-	JoypadMacOS(Input *in);
-	~JoypadMacOS();
+	JoypadOSX();
+	~JoypadOSX();
 };
 
-#endif // JOYPAD_MACOS_H
+#endif // JOYPAD_OSX_H

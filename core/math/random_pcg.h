@@ -1,46 +1,46 @@
-/**************************************************************************/
-/*  random_pcg.h                                                          */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  random_pcg.h                                                         */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef RANDOM_PCG_H
 #define RANDOM_PCG_H
+
+#include <math.h>
 
 #include "core/math/math_defs.h"
 
 #include "thirdparty/misc/pcg.h"
 
-#include <math.h>
-
-#if defined(__GNUC__)
+#if defined(__GNUC__) || (_llvm_has_builtin(__builtin_clz))
 #define CLZ32(x) __builtin_clz(x)
 #elif defined(_MSC_VER)
-#include <intrin.h>
+#include "intrin.h"
 static int __bsr_clz32(uint32_t x) {
 	unsigned long index;
 	_BitScanReverse(&index, x);
@@ -50,19 +50,19 @@ static int __bsr_clz32(uint32_t x) {
 #else
 #endif
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) || (_llvm_has_builtin(__builtin_ldexp) && _llvm_has_builtin(__builtin_ldexpf))
 #define LDEXP(s, e) __builtin_ldexp(s, e)
 #define LDEXPF(s, e) __builtin_ldexpf(s, e)
 #else
-#include <math.h>
+#include "math.h"
 #define LDEXP(s, e) ldexp(s, e)
 #define LDEXPF(s, e) ldexp(s, e)
 #endif
 
 class RandomPCG {
 	pcg32_random_t pcg;
-	uint64_t current_seed = 0; // The seed the current generator state started from.
-	uint64_t current_inc = 0;
+	uint64_t current_seed; // The seed the current generator state started from.
+	uint64_t current_inc;
 
 public:
 	static const uint64_t DEFAULT_SEED = 12047754176567800795U;
@@ -81,10 +81,8 @@ public:
 
 	void randomize();
 	_FORCE_INLINE_ uint32_t rand() {
+		current_seed = pcg.state;
 		return pcg32_random_r(&pcg);
-	}
-	_FORCE_INLINE_ uint32_t rand(uint32_t bounds) {
-		return pcg32_boundedrand_r(&pcg, bounds);
 	}
 
 	// Obtaining floating point numbers in [0, 1] range with "good enough" uniformity.
@@ -126,23 +124,15 @@ public:
 	}
 
 	_FORCE_INLINE_ double randfn(double p_mean, double p_deviation) {
-		double temp = randd();
-		if (temp < CMP_EPSILON) {
-			temp += CMP_EPSILON; // To prevent generating of INF value in log function, resulting to return NaN value from this function.
-		}
-		return p_mean + p_deviation * (cos(Math_TAU * randd()) * sqrt(-2.0 * log(temp))); // Box-Muller transform.
+		return p_mean + p_deviation * (cos(Math_TAU * randd()) * sqrt(-2.0 * log(randd()))); // Box-Muller transform
 	}
 	_FORCE_INLINE_ float randfn(float p_mean, float p_deviation) {
-		float temp = randf();
-		if (temp < CMP_EPSILON) {
-			temp += CMP_EPSILON; // To prevent generating of INF value in log function, resulting to return NaN value from this function.
-		}
-		return p_mean + p_deviation * (cos((float)Math_TAU * randf()) * sqrt(-2.0 * log(temp))); // Box-Muller transform.
+		return p_mean + p_deviation * (cos(Math_TAU * randf()) * sqrt(-2.0 * log(randf()))); // Box-Muller transform
 	}
 
 	double random(double p_from, double p_to);
 	float random(float p_from, float p_to);
-	int random(int p_from, int p_to);
+	real_t random(int p_from, int p_to) { return (real_t)random((real_t)p_from, (real_t)p_to); }
 };
 
 #endif // RANDOM_PCG_H

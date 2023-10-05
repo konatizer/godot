@@ -1,48 +1,47 @@
-/**************************************************************************/
-/*  ip.cpp                                                                */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  ip.cpp                                                               */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "ip.h"
 
+#include "core/hash_map.h"
 #include "core/os/semaphore.h"
 #include "core/os/thread.h"
-#include "core/templates/hash_map.h"
-#include "core/variant/typed_array.h"
+
+VARIANT_ENUM_CAST(IP::ResolverStatus);
 
 /************* RESOLVER ******************/
 
 struct _IP_ResolverPrivate {
 	struct QueueItem {
 		SafeNumeric<IP::ResolverStatus> status;
-
-		List<IPAddress> response;
-
+		List<IP_Address> response;
 		String hostname;
 		IP::Type type;
 
@@ -55,7 +54,7 @@ struct _IP_ResolverPrivate {
 
 		QueueItem() {
 			clear();
-		}
+		};
 	};
 
 	QueueItem queue[IP::RESOLVER_MAX_QUERIES];
@@ -73,7 +72,8 @@ struct _IP_ResolverPrivate {
 	Semaphore sem;
 
 	Thread thread;
-	SafeFlag thread_abort;
+	//Semaphore* semaphore;
+	bool thread_abort;
 
 	void resolve_queues() {
 		for (int i = 0; i < IP::RESOLVER_MAX_QUERIES; i++) {
@@ -82,7 +82,7 @@ struct _IP_ResolverPrivate {
 			}
 
 			mutex.lock();
-			List<IPAddress> response;
+			List<IP_Address> response;
 			String hostname = queue[i].hostname;
 			IP::Type type = queue[i].type;
 			mutex.unlock();
@@ -102,33 +102,33 @@ struct _IP_ResolverPrivate {
 				cache[key] = response;
 			}
 			queue[i].response = response;
-			queue[i].status.set(response.is_empty() ? IP::RESOLVER_STATUS_ERROR : IP::RESOLVER_STATUS_DONE);
+			queue[i].status.set(response.empty() ? IP::RESOLVER_STATUS_ERROR : IP::RESOLVER_STATUS_DONE);
 		}
 	}
 
 	static void _thread_function(void *self) {
-		_IP_ResolverPrivate *ipr = static_cast<_IP_ResolverPrivate *>(self);
+		_IP_ResolverPrivate *ipr = (_IP_ResolverPrivate *)self;
 
-		while (!ipr->thread_abort.is_set()) {
+		while (!ipr->thread_abort) {
 			ipr->sem.wait();
 			ipr->resolve_queues();
 		}
 	}
 
-	HashMap<String, List<IPAddress>> cache;
+	HashMap<String, List<IP_Address>> cache;
 
 	static String get_cache_key(String p_hostname, IP::Type p_type) {
 		return itos(p_type) + p_hostname;
 	}
 };
 
-IPAddress IP::resolve_hostname(const String &p_hostname, IP::Type p_type) {
-	const PackedStringArray addresses = resolve_hostname_addresses(p_hostname, p_type);
-	return addresses.size() ? (IPAddress)addresses[0] : IPAddress();
+IP_Address IP::resolve_hostname(const String &p_hostname, IP::Type p_type) {
+	const Array addresses = resolve_hostname_addresses(p_hostname, p_type);
+	return addresses.size() ? addresses[0].operator IP_Address() : IP_Address();
 }
 
-PackedStringArray IP::resolve_hostname_addresses(const String &p_hostname, Type p_type) {
-	List<IPAddress> res;
+Array IP::resolve_hostname_addresses(const String &p_hostname, Type p_type) {
+	List<IP_Address> res;
 	String key = _IP_ResolverPrivate::get_cache_key(p_hostname, p_type);
 
 	resolver->mutex.lock();
@@ -147,7 +147,7 @@ PackedStringArray IP::resolve_hostname_addresses(const String &p_hostname, Type 
 	}
 	resolver->mutex.unlock();
 
-	PackedStringArray result;
+	Array result;
 	for (int i = 0; i < res.size(); ++i) {
 		result.push_back(String(res[i]));
 	}
@@ -171,7 +171,7 @@ IP::ResolverID IP::resolve_hostname_queue_item(const String &p_hostname, IP::Typ
 		resolver->queue[id].response = resolver->cache[key];
 		resolver->queue[id].status.set(IP::RESOLVER_STATUS_DONE);
 	} else {
-		resolver->queue[id].response = List<IPAddress>();
+		resolver->queue[id].response = List<IP_Address>();
 		resolver->queue[id].status.set(IP::RESOLVER_STATUS_WAITING);
 		if (resolver->thread.is_started()) {
 			resolver->sem.post();
@@ -194,28 +194,29 @@ IP::ResolverStatus IP::get_resolve_item_status(ResolverID p_id) const {
 	return res;
 }
 
-IPAddress IP::get_resolve_item_address(ResolverID p_id) const {
-	ERR_FAIL_INDEX_V_MSG(p_id, IP::RESOLVER_MAX_QUERIES, IPAddress(), vformat("Too many concurrent DNS resolver queries (%d, but should be %d at most). Try performing less network requests at once.", p_id, IP::RESOLVER_MAX_QUERIES));
+IP_Address IP::get_resolve_item_address(ResolverID p_id) const {
+	ERR_FAIL_INDEX_V_MSG(p_id, IP::RESOLVER_MAX_QUERIES, IP_Address(), vformat("Too many concurrent DNS resolver queries (%d, but should be %d at most). Try performing less network requests at once.", p_id, IP::RESOLVER_MAX_QUERIES));
 
 	MutexLock lock(resolver->mutex);
 
 	if (resolver->queue[p_id].status.get() != IP::RESOLVER_STATUS_DONE) {
 		ERR_PRINT("Resolve of '" + resolver->queue[p_id].hostname + "'' didn't complete yet.");
-		return IPAddress();
+		return IP_Address();
 	}
 
-	List<IPAddress> res = resolver->queue[p_id].response;
+	List<IP_Address> res = resolver->queue[p_id].response;
 
 	for (int i = 0; i < res.size(); ++i) {
 		if (res[i].is_valid()) {
 			return res[i];
 		}
 	}
-	return IPAddress();
+	return IP_Address();
 }
 
 Array IP::get_resolve_item_addresses(ResolverID p_id) const {
 	ERR_FAIL_INDEX_V_MSG(p_id, IP::RESOLVER_MAX_QUERIES, Array(), vformat("Too many concurrent DNS resolver queries (%d, but should be %d at most). Try performing less network requests at once.", p_id, IP::RESOLVER_MAX_QUERIES));
+
 	MutexLock lock(resolver->mutex);
 
 	if (resolver->queue[p_id].status.get() != IP::RESOLVER_STATUS_DONE) {
@@ -223,7 +224,7 @@ Array IP::get_resolve_item_addresses(ResolverID p_id) const {
 		return Array();
 	}
 
-	List<IPAddress> res = resolver->queue[p_id].response;
+	List<IP_Address> res = resolver->queue[p_id].response;
 
 	Array result;
 	for (int i = 0; i < res.size(); ++i) {
@@ -243,7 +244,7 @@ void IP::erase_resolve_item(ResolverID p_id) {
 void IP::clear_cache(const String &p_hostname) {
 	MutexLock lock(resolver->mutex);
 
-	if (p_hostname.is_empty()) {
+	if (p_hostname.empty()) {
 		resolver->cache.clear();
 	} else {
 		resolver->cache.erase(_IP_ResolverPrivate::get_cache_key(p_hostname, IP::TYPE_NONE));
@@ -253,31 +254,31 @@ void IP::clear_cache(const String &p_hostname) {
 	}
 }
 
-PackedStringArray IP::_get_local_addresses() const {
-	PackedStringArray addresses;
-	List<IPAddress> ip_addresses;
+Array IP::_get_local_addresses() const {
+	Array addresses;
+	List<IP_Address> ip_addresses;
 	get_local_addresses(&ip_addresses);
-	for (const IPAddress &E : ip_addresses) {
-		addresses.push_back(E);
+	for (List<IP_Address>::Element *E = ip_addresses.front(); E; E = E->next()) {
+		addresses.push_back(E->get());
 	}
 
 	return addresses;
 }
 
-TypedArray<Dictionary> IP::_get_local_interfaces() const {
-	TypedArray<Dictionary> results;
-	HashMap<String, Interface_Info> interfaces;
+Array IP::_get_local_interfaces() const {
+	Array results;
+	Map<String, Interface_Info> interfaces;
 	get_local_interfaces(&interfaces);
-	for (KeyValue<String, Interface_Info> &E : interfaces) {
-		Interface_Info &c = E.value;
+	for (Map<String, Interface_Info>::Element *E = interfaces.front(); E; E = E->next()) {
+		Interface_Info &c = E->get();
 		Dictionary rc;
 		rc["name"] = c.name;
 		rc["friendly"] = c.name_friendly;
 		rc["index"] = c.index;
 
 		Array ips;
-		for (const IPAddress &F : c.ip_addresses) {
-			ips.push_front(F);
+		for (const List<IP_Address>::Element *F = c.ip_addresses.front(); F; F = F->next()) {
+			ips.push_front(F->get());
 		}
 		rc["addresses"] = ips;
 
@@ -287,12 +288,12 @@ TypedArray<Dictionary> IP::_get_local_interfaces() const {
 	return results;
 }
 
-void IP::get_local_addresses(List<IPAddress> *r_addresses) const {
-	HashMap<String, Interface_Info> interfaces;
+void IP::get_local_addresses(List<IP_Address> *r_addresses) const {
+	Map<String, Interface_Info> interfaces;
 	get_local_interfaces(&interfaces);
-	for (const KeyValue<String, Interface_Info> &E : interfaces) {
-		for (const IPAddress &F : E.value.ip_addresses) {
-			r_addresses->push_front(F);
+	for (Map<String, Interface_Info>::Element *E = interfaces.front(); E; E = E->next()) {
+		for (const List<IP_Address>::Element *F = E->get().ip_addresses.front(); F; F = F->next()) {
+			r_addresses->push_front(F->get());
 		}
 	}
 }
@@ -341,12 +342,12 @@ IP::IP() {
 	singleton = this;
 	resolver = memnew(_IP_ResolverPrivate);
 
-	resolver->thread_abort.clear();
+	resolver->thread_abort = false;
 	resolver->thread.start(_IP_ResolverPrivate::_thread_function, resolver);
 }
 
 IP::~IP() {
-	resolver->thread_abort.set();
+	resolver->thread_abort = true;
 	resolver->sem.post();
 	resolver->thread.wait_to_finish();
 

@@ -1,4 +1,5 @@
-// Copyright 2009-2021 Intel Corporation
+
+// Copyright 2009-2020 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 /* #undef EMBREE_RAY_MASK */
@@ -15,11 +16,10 @@
 /* #undef EMBREE_GEOMETRY_INSTANCE */
 /* #undef EMBREE_GEOMETRY_GRID */
 /* #undef EMBREE_GEOMETRY_POINT */
-#define EMBREE_RAY_PACKETS
+/* #undef EMBREE_RAY_PACKETS */
 /* #undef EMBREE_COMPACT_POLYS */
 
 #define EMBREE_CURVE_SELF_INTERSECTION_AVOIDANCE_FACTOR 2.0
-#define EMBREE_DISC_POINT_SELF_INTERSECTION_AVOIDANCE
 
 #if defined(EMBREE_GEOMETRY_TRIANGLE)
   #define IF_ENABLED_TRIS(x) x

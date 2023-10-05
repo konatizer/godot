@@ -7,7 +7,7 @@ import os
 from platform_methods import subprocess_main
 
 
-def make_debug_macos(target, source, env):
+def make_debug_osx(target, source, env):
     if env["macports_clang"] != "no":
         mpprefix = os.environ.get("MACPORTS_PREFIX", "/opt/local")
         mpclangver = env["macports_clang"]

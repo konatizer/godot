@@ -1,44 +1,37 @@
-/**************************************************************************/
-/*  vector2.cpp                                                           */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  vector2.cpp                                                          */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "vector2.h"
 
-#include "core/math/vector2i.h"
-#include "core/string/ustring.h"
-
 real_t Vector2::angle() const {
 	return Math::atan2(y, x);
-}
-
-Vector2 Vector2::from_angle(const real_t p_angle) {
-	return Vector2(Math::cos(p_angle), Math::sin(p_angle));
 }
 
 real_t Vector2::length() const {
@@ -82,7 +75,7 @@ real_t Vector2::angle_to(const Vector2 &p_vector2) const {
 }
 
 real_t Vector2::angle_to_point(const Vector2 &p_vector2) const {
-	return (p_vector2 - *this).angle();
+	return Math::atan2(y - p_vector2.y, x - p_vector2.x);
 }
 
 real_t Vector2::dot(const Vector2 &p_other) const {
@@ -94,7 +87,7 @@ real_t Vector2::cross(const Vector2 &p_other) const {
 }
 
 Vector2 Vector2::sign() const {
-	return Vector2(SIGN(x), SIGN(y));
+	return Vector2(SGN(x), SGN(y));
 }
 
 Vector2 Vector2::floor() const {
@@ -109,12 +102,11 @@ Vector2 Vector2::round() const {
 	return Vector2(Math::round(x), Math::round(y));
 }
 
-Vector2 Vector2::rotated(const real_t p_by) const {
-	real_t sine = Math::sin(p_by);
-	real_t cosi = Math::cos(p_by);
-	return Vector2(
-			x * cosi - y * sine,
-			x * sine + y * cosi);
+Vector2 Vector2::rotated(real_t p_by) const {
+	Vector2 v;
+	v.set_rotation(angle() + p_by);
+	v *= length();
+	return v;
 }
 
 Vector2 Vector2::posmod(const real_t p_mod) const {
@@ -129,16 +121,22 @@ Vector2 Vector2::project(const Vector2 &p_to) const {
 	return p_to * (dot(p_to) / p_to.length_squared());
 }
 
-Vector2 Vector2::clamp(const Vector2 &p_min, const Vector2 &p_max) const {
+Vector2 Vector2::snapped(const Vector2 &p_by) const {
 	return Vector2(
-			CLAMP(x, p_min.x, p_max.x),
-			CLAMP(y, p_min.y, p_max.y));
+			Math::stepify(x, p_by.x),
+			Math::stepify(y, p_by.y));
 }
 
-Vector2 Vector2::snapped(const Vector2 &p_step) const {
-	return Vector2(
-			Math::snapped(x, p_step.x),
-			Math::snapped(y, p_step.y));
+Vector2 Vector2::clamped(real_t p_len) const {
+	WARN_DEPRECATED_MSG("'Vector2.clamped()' is deprecated because it has been renamed to 'limit_length'.");
+	real_t l = length();
+	Vector2 v = *this;
+	if (l > 0 && p_len < l) {
+		v /= l;
+		v *= p_len;
+	}
+
+	return v;
 }
 
 Vector2 Vector2::limit_length(const real_t p_len) const {
@@ -150,6 +148,25 @@ Vector2 Vector2::limit_length(const real_t p_len) const {
 	}
 
 	return v;
+}
+
+Vector2 Vector2::cubic_interpolate(const Vector2 &p_b, const Vector2 &p_pre_a, const Vector2 &p_post_b, real_t p_weight) const {
+	Vector2 p0 = p_pre_a;
+	Vector2 p1 = *this;
+	Vector2 p2 = p_b;
+	Vector2 p3 = p_post_b;
+
+	real_t t = p_weight;
+	real_t t2 = t * t;
+	real_t t3 = t2 * t;
+
+	Vector2 out;
+	out = 0.5f *
+			((p1 * 2) +
+					(-p0 + p2) * t +
+					(2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+					(-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+	return out;
 }
 
 Vector2 Vector2::move_toward(const Vector2 &p_to, const real_t p_delta) const {
@@ -175,25 +192,62 @@ Vector2 Vector2::reflect(const Vector2 &p_normal) const {
 #ifdef MATH_CHECKS
 	ERR_FAIL_COND_V_MSG(!p_normal.is_normalized(), Vector2(), "The normal Vector2 must be normalized.");
 #endif
-	return 2.0f * p_normal * this->dot(p_normal) - *this;
+	return 2 * p_normal * this->dot(p_normal) - *this;
 }
 
 bool Vector2::is_equal_approx(const Vector2 &p_v) const {
 	return Math::is_equal_approx(x, p_v.x) && Math::is_equal_approx(y, p_v.y);
 }
 
-bool Vector2::is_zero_approx() const {
-	return Math::is_zero_approx(x) && Math::is_zero_approx(y);
+/* Vector2i */
+
+Vector2i Vector2i::operator+(const Vector2i &p_v) const {
+	return Vector2i(x + p_v.x, y + p_v.y);
+}
+void Vector2i::operator+=(const Vector2i &p_v) {
+	x += p_v.x;
+	y += p_v.y;
+}
+Vector2i Vector2i::operator-(const Vector2i &p_v) const {
+	return Vector2i(x - p_v.x, y - p_v.y);
+}
+void Vector2i::operator-=(const Vector2i &p_v) {
+	x -= p_v.x;
+	y -= p_v.y;
 }
 
-bool Vector2::is_finite() const {
-	return Math::is_finite(x) && Math::is_finite(y);
+Vector2i Vector2i::operator*(const Vector2i &p_v1) const {
+	return Vector2i(x * p_v1.x, y * p_v1.y);
+};
+
+Vector2i Vector2i::operator*(const int &rvalue) const {
+	return Vector2i(x * rvalue, y * rvalue);
+};
+void Vector2i::operator*=(const int &rvalue) {
+	x *= rvalue;
+	y *= rvalue;
+};
+
+Vector2i Vector2i::operator/(const Vector2i &p_v1) const {
+	return Vector2i(x / p_v1.x, y / p_v1.y);
+};
+
+Vector2i Vector2i::operator/(const int &rvalue) const {
+	return Vector2i(x / rvalue, y / rvalue);
+};
+
+void Vector2i::operator/=(const int &rvalue) {
+	x /= rvalue;
+	y /= rvalue;
+};
+
+Vector2i Vector2i::operator-() const {
+	return Vector2i(-x, -y);
 }
 
-Vector2::operator String() const {
-	return "(" + String::num_real(x, false) + ", " + String::num_real(y, false) + ")";
+bool Vector2i::operator==(const Vector2i &p_vec2) const {
+	return x == p_vec2.x && y == p_vec2.y;
 }
-
-Vector2::operator Vector2i() const {
-	return Vector2i(x, y);
+bool Vector2i::operator!=(const Vector2i &p_vec2) const {
+	return x != p_vec2.x || y != p_vec2.y;
 }

@@ -1,41 +1,40 @@
-/**************************************************************************/
-/*  memory.h                                                              */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  memory.h                                                             */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef MEMORY_H
 #define MEMORY_H
 
-#include "core/error/error_macros.h"
-#include "core/templates/safe_refcount.h"
+#include "core/error_macros.h"
+#include "core/safe_refcount.h"
 
 #include <stddef.h>
-#include <new>
 #include <type_traits>
 
 #ifndef PAD_ALIGN
@@ -93,8 +92,15 @@ _ALWAYS_INLINE_ T *_post_initialize(T *p_obj) {
 
 #define memnew(m_class) _post_initialize(new ("") m_class)
 
+_ALWAYS_INLINE_ void *operator new(size_t p_size, void *p_pointer, size_t check, const char *p_description) {
+	//void *failptr=0;
+	//ERR_FAIL_COND_V( check < p_size , failptr); /** bug, or strange compiler, most likely */
+
+	return p_pointer;
+}
+
 #define memnew_allocator(m_class, m_allocator) _post_initialize(new (m_allocator::alloc) m_class)
-#define memnew_placement(m_placement, m_class) _post_initialize(new (m_placement) m_class)
+#define memnew_placement(m_placement, m_class) _post_initialize(new (m_placement, sizeof(m_class), "") m_class)
 
 _ALWAYS_INLINE_ bool predelete_handler(void *) {
 	return true;
@@ -126,20 +132,19 @@ void memdelete_allocator(T *p_class) {
 
 #define memdelete_notnull(m_v) \
 	{                          \
-		if (m_v) {             \
+		if (m_v)               \
 			memdelete(m_v);    \
-		}                      \
 	}
 
 #define memnew_arr(m_class, m_count) memnew_arr_template<m_class>(m_count)
 
 template <typename T>
-T *memnew_arr_template(size_t p_elements) {
+T *memnew_arr_template(size_t p_elements, const char *p_descr = "") {
 	if (p_elements == 0) {
 		return nullptr;
 	}
 	/** overloading operator new[] cannot be done , because it may not return the real allocated address (it may pad the 'element count' before the actual array). Because of that, it must be done by hand. This is the
-	same strategy used by std::vector, and the Vector class, so it should be safe.*/
+	same strategy used by std::vector, and the PoolVector class, so it should be safe.*/
 
 	size_t len = sizeof(T) * p_elements;
 	uint64_t *mem = (uint64_t *)Memory::alloc_static(len, true);
@@ -152,7 +157,7 @@ T *memnew_arr_template(size_t p_elements) {
 
 		/* call operator new */
 		for (size_t i = 0; i < p_elements; i++) {
-			new (&elems[i]) T;
+			new (&elems[i], sizeof(T), p_descr) T;
 		}
 	}
 
@@ -186,24 +191,16 @@ void memdelete_arr(T *p_class) {
 }
 
 struct _GlobalNil {
-	int color = 1;
-	_GlobalNil *right = nullptr;
-	_GlobalNil *left = nullptr;
-	_GlobalNil *parent = nullptr;
+	int color;
+	_GlobalNil *right;
+	_GlobalNil *left;
+	_GlobalNil *parent;
 
 	_GlobalNil();
 };
 
 struct _GlobalNilClass {
 	static _GlobalNil _nil;
-};
-
-template <class T>
-class DefaultTypedAllocator {
-public:
-	template <class... Args>
-	_FORCE_INLINE_ T *new_allocation(const Args &&...p_args) { return memnew(T(p_args...)); }
-	_FORCE_INLINE_ void delete_allocation(T *p_allocation) { memdelete(p_allocation); }
 };
 
 #endif // MEMORY_H

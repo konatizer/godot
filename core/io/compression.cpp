@@ -1,52 +1,45 @@
-/**************************************************************************/
-/*  compression.cpp                                                       */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  compression.cpp                                                      */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "compression.h"
 
-#include "core/config/project_settings.h"
 #include "core/io/zip_io.h"
+#include "core/project_settings.h"
 
 #include "thirdparty/misc/fastlz.h"
 
 #include <zlib.h>
 #include <zstd.h>
 
-#ifdef BROTLI_ENABLED
-#include <brotli/decode.h>
-#endif
-
 int Compression::compress(uint8_t *p_dst, const uint8_t *p_src, int p_src_size, Mode p_mode) {
 	switch (p_mode) {
-		case MODE_BROTLI: {
-			ERR_FAIL_V_MSG(-1, "Only brotli decompression is supported.");
-		} break;
 		case MODE_FASTLZ: {
 			if (p_src_size < 16) {
 				uint8_t src[16];
@@ -102,9 +95,6 @@ int Compression::compress(uint8_t *p_dst, const uint8_t *p_src, int p_src_size, 
 
 int Compression::get_max_compressed_buffer_size(int p_src_size, Mode p_mode) {
 	switch (p_mode) {
-		case MODE_BROTLI: {
-			ERR_FAIL_V_MSG(-1, "Only brotli decompression is supported.");
-		} break;
 		case MODE_FASTLZ: {
 			int ss = p_src_size + p_src_size * 6 / 100;
 			if (ss < 66) {
@@ -139,16 +129,6 @@ int Compression::get_max_compressed_buffer_size(int p_src_size, Mode p_mode) {
 
 int Compression::decompress(uint8_t *p_dst, int p_dst_max_size, const uint8_t *p_src, int p_src_size, Mode p_mode) {
 	switch (p_mode) {
-		case MODE_BROTLI: {
-#ifdef BROTLI_ENABLED
-			size_t ret_size = p_dst_max_size;
-			BrotliDecoderResult res = BrotliDecoderDecompress(p_src_size, p_src, &ret_size, p_dst);
-			ERR_FAIL_COND_V(res != BROTLI_DECODER_RESULT_SUCCESS, -1);
-			return ret_size;
-#else
-			ERR_FAIL_V_MSG(-1, "Godot was compiled without brotli support.");
-#endif
-		} break;
 		case MODE_FASTLZ: {
 			int ret_size = 0;
 
@@ -201,152 +181,92 @@ int Compression::decompress(uint8_t *p_dst, int p_dst_max_size, const uint8_t *p
 }
 
 /**
-	This will handle both Gzip and Deflate streams. It will automatically allocate the output buffer into the provided p_dst_vect Vector.
-	This is required for compressed data whose final uncompressed size is unknown, as is the case for HTTP response bodies.
+	This will handle both Gzip and Deflat streams. It will automatically allocate the output buffer into the provided p_dst_vect Vector.
+	This is required for compressed data who's final uncompressed size is unknown, as is the case for HTTP response bodies.
 	This is much slower however than using Compression::decompress because it may result in multiple full copies of the output buffer.
 */
-int Compression::decompress_dynamic(Vector<uint8_t> *p_dst_vect, int p_max_dst_size, const uint8_t *p_src, int p_src_size, Mode p_mode) {
+int Compression::decompress_dynamic(PoolVector<uint8_t> *p_dst, int p_max_dst_size, const uint8_t *p_src, int p_src_size, Mode p_mode) {
+	int ret;
 	uint8_t *dst = nullptr;
 	int out_mark = 0;
+	z_stream strm;
 
 	ERR_FAIL_COND_V(p_src_size <= 0, Z_DATA_ERROR);
 
-	if (p_mode == MODE_BROTLI) {
-#ifdef BROTLI_ENABLED
-		BrotliDecoderResult ret;
-		BrotliDecoderState *state = BrotliDecoderCreateInstance(nullptr, nullptr, nullptr);
-		ERR_FAIL_COND_V(state == nullptr, Z_DATA_ERROR);
+	// This function only supports GZip and Deflate
+	int window_bits = p_mode == MODE_DEFLATE ? 15 : 15 + 16;
+	ERR_FAIL_COND_V(p_mode != MODE_DEFLATE && p_mode != MODE_GZIP, Z_ERRNO);
 
-		// Setup the stream inputs.
-		const uint8_t *next_in = p_src;
-		size_t avail_in = p_src_size;
-		uint8_t *next_out = nullptr;
-		size_t avail_out = 0;
-		size_t total_out = 0;
+	// Initialize the stream
+	strm.zalloc = Z_NULL;
+	strm.zfree = Z_NULL;
+	strm.opaque = Z_NULL;
+	strm.avail_in = 0;
+	strm.next_in = Z_NULL;
 
-		// Ensure the destination buffer is empty.
-		p_dst_vect->clear();
+	int err = inflateInit2(&strm, window_bits);
+	ERR_FAIL_COND_V(err != Z_OK, -1);
 
-		// Decompress until stream ends or end of file.
+	// Setup the stream inputs
+	strm.next_in = (Bytef *)p_src;
+	strm.avail_in = p_src_size;
+
+	// Ensure the destination buffer is empty
+	p_dst->resize(0);
+
+	// decompress until deflate stream ends or end of file
+	do {
+		// Add another chunk size to the output buffer
+		// This forces a copy of the whole buffer
+		p_dst->resize(p_dst->size() + gzip_chunk);
+		// Get pointer to the actual output buffer
+		dst = p_dst->write().ptr();
+
+		// Set the stream to the new output stream
+		// Since it was copied, we need to reset the stream to the new buffer
+		strm.next_out = &(dst[out_mark]);
+		strm.avail_out = gzip_chunk;
+
+		// run inflate() on input until output buffer is full and needs to be resized
+		// or input runs out
 		do {
-			// Add another chunk size to the output buffer.
-			// This forces a copy of the whole buffer.
-			p_dst_vect->resize(p_dst_vect->size() + gzip_chunk);
-			// Get pointer to the actual output buffer.
-			dst = p_dst_vect->ptrw();
+			ret = inflate(&strm, Z_SYNC_FLUSH);
 
-			// Set the stream to the new output stream.
-			// Since it was copied, we need to reset the stream to the new buffer.
-			next_out = &(dst[out_mark]);
-			avail_out += gzip_chunk;
-
-			ret = BrotliDecoderDecompressStream(state, &avail_in, &next_in, &avail_out, &next_out, &total_out);
-			if (ret == BROTLI_DECODER_RESULT_ERROR) {
-				WARN_PRINT(BrotliDecoderErrorString(BrotliDecoderGetErrorCode(state)));
-				BrotliDecoderDestroyInstance(state);
-				p_dst_vect->clear();
-				return Z_DATA_ERROR;
+			switch (ret) {
+				case Z_NEED_DICT:
+					ret = Z_DATA_ERROR;
+					FALLTHROUGH;
+				case Z_DATA_ERROR:
+				case Z_MEM_ERROR:
+				case Z_STREAM_ERROR:
+				case Z_BUF_ERROR:
+					if (strm.msg) {
+						WARN_PRINT(strm.msg);
+					}
+					(void)inflateEnd(&strm);
+					p_dst->resize(0);
+					return ret;
 			}
+		} while (strm.avail_out > 0 && strm.avail_in > 0);
 
-			out_mark += gzip_chunk - avail_out;
+		out_mark += gzip_chunk;
 
-			// Enforce max output size.
-			if (p_max_dst_size > -1 && total_out > (uint64_t)p_max_dst_size) {
-				BrotliDecoderDestroyInstance(state);
-				p_dst_vect->clear();
-				return Z_BUF_ERROR;
-			}
-		} while (ret != BROTLI_DECODER_RESULT_SUCCESS);
-
-		// If all done successfully, resize the output if it's larger than the actual output.
-		if ((unsigned long)p_dst_vect->size() > total_out) {
-			p_dst_vect->resize(total_out);
+		// Encorce max output size
+		if (p_max_dst_size > -1 && strm.total_out > (uint64_t)p_max_dst_size) {
+			(void)inflateEnd(&strm);
+			p_dst->resize(0);
+			return Z_BUF_ERROR;
 		}
+	} while (ret != Z_STREAM_END);
 
-		// Clean up and return.
-		BrotliDecoderDestroyInstance(state);
-		return Z_OK;
-#else
-		ERR_FAIL_V_MSG(Z_ERRNO, "Godot was compiled without brotli support.");
-#endif
-	} else {
-		// This function only supports GZip and Deflate.
-		ERR_FAIL_COND_V(p_mode != MODE_DEFLATE && p_mode != MODE_GZIP, Z_ERRNO);
-
-		int ret;
-		z_stream strm;
-		int window_bits = p_mode == MODE_DEFLATE ? 15 : 15 + 16;
-
-		// Initialize the stream.
-		strm.zalloc = Z_NULL;
-		strm.zfree = Z_NULL;
-		strm.opaque = Z_NULL;
-		strm.avail_in = 0;
-		strm.next_in = Z_NULL;
-
-		int err = inflateInit2(&strm, window_bits);
-		ERR_FAIL_COND_V(err != Z_OK, -1);
-
-		// Setup the stream inputs.
-		strm.next_in = (Bytef *)p_src;
-		strm.avail_in = p_src_size;
-
-		// Ensure the destination buffer is empty.
-		p_dst_vect->clear();
-
-		// Decompress until deflate stream ends or end of file.
-		do {
-			// Add another chunk size to the output buffer.
-			// This forces a copy of the whole buffer.
-			p_dst_vect->resize(p_dst_vect->size() + gzip_chunk);
-			// Get pointer to the actual output buffer.
-			dst = p_dst_vect->ptrw();
-
-			// Set the stream to the new output stream.
-			// Since it was copied, we need to reset the stream to the new buffer.
-			strm.next_out = &(dst[out_mark]);
-			strm.avail_out = gzip_chunk;
-
-			// Run inflate() on input until output buffer is full and needs to be resized or input runs out.
-			do {
-				ret = inflate(&strm, Z_SYNC_FLUSH);
-
-				switch (ret) {
-					case Z_NEED_DICT:
-						ret = Z_DATA_ERROR;
-						[[fallthrough]];
-					case Z_DATA_ERROR:
-					case Z_MEM_ERROR:
-					case Z_STREAM_ERROR:
-					case Z_BUF_ERROR:
-						if (strm.msg) {
-							WARN_PRINT(strm.msg);
-						}
-						(void)inflateEnd(&strm);
-						p_dst_vect->clear();
-						return ret;
-				}
-			} while (strm.avail_out > 0 && strm.avail_in > 0);
-
-			out_mark += gzip_chunk;
-
-			// Enforce max output size.
-			if (p_max_dst_size > -1 && strm.total_out > (uint64_t)p_max_dst_size) {
-				(void)inflateEnd(&strm);
-				p_dst_vect->clear();
-				return Z_BUF_ERROR;
-			}
-		} while (ret != Z_STREAM_END);
-
-		// If all done successfully, resize the output if it's larger than the actual output.
-		if ((unsigned long)p_dst_vect->size() > strm.total_out) {
-			p_dst_vect->resize(strm.total_out);
-		}
-
-		// Clean up and return.
-		(void)inflateEnd(&strm);
-		return Z_OK;
+	// If all done successfully, resize the output if it's larger than the actual output
+	if (ret == Z_STREAM_END && (unsigned long)p_dst->size() > strm.total_out) {
+		p_dst->resize(strm.total_out);
 	}
+
+	// clean up and return
+	(void)inflateEnd(&strm);
+	return ret == Z_STREAM_END ? Z_OK : Z_DATA_ERROR;
 }
 
 int Compression::zlib_level = Z_DEFAULT_COMPRESSION;

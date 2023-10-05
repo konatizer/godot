@@ -4,7 +4,7 @@
  *
  *   FreeType Cache Manager (body).
  *
- * Copyright (C) 2000-2023 by
+ * Copyright (C) 2000-2022 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -383,7 +383,6 @@
     manager->library      = library;
     manager->memory       = memory;
     manager->max_weight   = max_bytes;
-    manager->cur_weight   = 0;
 
     manager->request_face = requester;
     manager->request_data = req_data;
@@ -426,7 +425,7 @@
     memory = manager->memory;
 
     /* now discard all caches */
-    for ( idx = manager->num_caches; idx-- > 0; )
+    for (idx = manager->num_caches; idx-- > 0; )
     {
       FTC_Cache  cache = manager->caches[idx];
 
@@ -489,8 +488,8 @@
         FTC_Cache  cache = manager->caches[node->cache_index];
 
 
-        if ( node->cache_index >= manager->num_caches )
-          FT_TRACE0(( "FTC_Manager_Check: invalid node (cache index = %hu\n",
+        if ( (FT_UInt)node->cache_index >= manager->num_caches )
+          FT_TRACE0(( "FTC_Manager_Check: invalid node (cache index = %ld\n",
                       node->cache_index ));
         else
           weight += cache->clazz.node_weight( node, cache );
@@ -520,7 +519,7 @@
 
       if ( count != manager->num_nodes )
         FT_TRACE0(( "FTC_Manager_Check:"
-                    " invalid cache node count %u instead of %u\n",
+                    " invalid cache node count %d instead of %d\n",
                     manager->num_nodes, count ));
     }
   }
@@ -537,7 +536,7 @@
   FT_LOCAL_DEF( void )
   FTC_Manager_Compress( FTC_Manager  manager )
   {
-    FTC_Node   node, prev, first;
+    FTC_Node   node, first;
 
 
     if ( !manager )
@@ -548,7 +547,7 @@
 #ifdef FT_DEBUG_ERROR
     FTC_Manager_Check( manager );
 
-    FT_TRACE0(( "compressing, weight = %ld, max = %ld, nodes = %u\n",
+    FT_TRACE0(( "compressing, weight = %ld, max = %ld, nodes = %d\n",
                 manager->cur_weight, manager->max_weight,
                 manager->num_nodes ));
 #endif
@@ -557,16 +556,20 @@
       return;
 
     /* go to last node -- it's a circular list */
-    prev = FTC_NODE_PREV( first );
+    node = FTC_NODE_PREV( first );
     do
     {
-      node = prev;
-      prev = FTC_NODE_PREV( node );
+      FTC_Node  prev;
+
+
+      prev = ( node == first ) ? NULL : FTC_NODE_PREV( node );
 
       if ( node->ref_count <= 0 )
         ftc_node_destroy( node, manager );
 
-    } while ( node != first && manager->cur_weight > manager->max_weight );
+      node = prev;
+
+    } while ( node && manager->cur_weight > manager->max_weight );
   }
 
 
@@ -629,20 +632,20 @@
                       FT_UInt      count )
   {
     FTC_Node  first = manager->nodes_list;
-    FTC_Node  prev, node;
-    FT_UInt   result = 0;
+    FTC_Node  node;
+    FT_UInt   result;
 
 
     /* try to remove `count' nodes from the list */
-    if ( !first || !count )
-      return result;
+    if ( !first )  /* empty list! */
+      return 0;
 
-    /* go to last node -- it's a circular list */
-    prev = FTC_NODE_PREV( first );
-    do
+    /* go to last node - it's a circular list */
+    node = FTC_NODE_PREV(first);
+    for ( result = 0; result < count; )
     {
-      node = prev;
-      prev = FTC_NODE_PREV( node );
+      FTC_Node  prev = FTC_NODE_PREV( node );
+
 
       /* don't touch locked nodes */
       if ( node->ref_count <= 0 )
@@ -650,9 +653,13 @@
         ftc_node_destroy( node, manager );
         result++;
       }
-    } while ( node != first && result < count );
 
-    return result;
+      if ( node == first )
+        break;
+
+      node = prev;
+    }
+    return  result;
   }
 
 
@@ -686,9 +693,9 @@
   FTC_Node_Unref( FTC_Node     node,
                   FTC_Manager  manager )
   {
-    if ( node                                    &&
-         manager                                 &&
-         node->cache_index < manager->num_caches )
+    if ( node                                             &&
+         manager                                          &&
+         (FT_UInt)node->cache_index < manager->num_caches )
       node->ref_count--;
   }
 

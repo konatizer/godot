@@ -629,7 +629,9 @@ namespace embree
     if (geometry == null)
       throw_RTCError(RTC_ERROR_INVALID_OPERATION,"invalid geometry");
     
-    setModified ();
+    if (geometry->isEnabled()) {
+      setModified ();
+    }
     accels_deleteGeometry(unsigned(geomID));
     id_pool.deallocate((unsigned)geomID);
     geometries[geomID] = null;

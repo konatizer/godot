@@ -1,39 +1,41 @@
-/**************************************************************************/
-/*  pool_allocator.cpp                                                    */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  pool_allocator.cpp                                                   */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "pool_allocator.h"
 
-#include "core/error/error_macros.h"
+#include "core/error_macros.h"
 #include "core/os/memory.h"
 #include "core/os/os.h"
-#include "core/string/print_string.h"
+#include "core/print_string.h"
+
+#include <assert.h>
 
 #define COMPACT_CHUNK(m_entry, m_to_pos)                      \
 	do {                                                      \
@@ -133,7 +135,7 @@ void PoolAllocator::compact_up(int p_from) {
 	for (int i = entry_count - 1; i >= p_from; i--) {
 		Entry &entry = entry_array[entry_indices[i]];
 
-		/* determine hole size for next entry */
+		/* determine hole size to nextious entry */
 
 		int hole_size = next_entry_end_pos - (entry.pos + aligned(entry.len));
 
@@ -147,7 +149,7 @@ void PoolAllocator::compact_up(int p_from) {
 	}
 }
 
-bool PoolAllocator::find_entry_index(EntryIndicesPos *p_map_pos, const Entry *p_entry) {
+bool PoolAllocator::find_entry_index(EntryIndicesPos *p_map_pos, Entry *p_entry) {
 	EntryArrayPos entry_pos = entry_max;
 
 	for (int i = 0; i < entry_count; i++) {
@@ -167,6 +169,11 @@ bool PoolAllocator::find_entry_index(EntryIndicesPos *p_map_pos, const Entry *p_
 
 PoolAllocator::ID PoolAllocator::alloc(int p_size) {
 	ERR_FAIL_COND_V(p_size < 1, POOL_ALLOCATOR_INVALID_ID);
+#ifdef DEBUG_ENABLED
+	if (p_size > free_mem) {
+		OS::get_singleton()->debug_break();
+	}
+#endif
 	ERR_FAIL_COND_V(p_size > free_mem, POOL_ALLOCATOR_INVALID_ID);
 
 	mt_lock();
@@ -333,7 +340,7 @@ Error PoolAllocator::resize(ID p_mem, int p_new_size) {
 	if (uint32_t(_free + aligned(e->len)) < alloc_size) {
 		mt_unlock();
 		ERR_FAIL_V(ERR_OUT_OF_MEMORY);
-	}
+	};
 
 	EntryIndicesPos entry_indices_pos;
 
@@ -350,7 +357,7 @@ Error PoolAllocator::resize(ID p_mem, int p_new_size) {
 		next_pos = pool_size; // - static_area_size;
 	} else {
 		next_pos = entry_array[entry_indices[entry_indices_pos + 1]].pos;
-	}
+	};
 
 	if ((next_pos - e->pos) > alloc_size) {
 		free_mem += aligned(e->len);
@@ -417,7 +424,7 @@ bool PoolAllocator::is_locked(ID p_mem) const {
 	}
 
 	mt_lock();
-	const Entry *e = const_cast<PoolAllocator *>(this)->get_entry(p_mem);
+	const Entry *e = ((PoolAllocator *)(this))->get_entry(p_mem);
 	if (!e) {
 		mt_unlock();
 		ERR_PRINT("!e");
@@ -475,6 +482,7 @@ void *PoolAllocator::get(ID p_mem) {
 		ERR_FAIL_COND_V(!e, nullptr);
 	}
 	if (e->lock == 0) {
+		//assert(0);
 		mt_unlock();
 		ERR_PRINT("e->lock == 0");
 		return nullptr;
@@ -491,7 +499,6 @@ void *PoolAllocator::get(ID p_mem) {
 
 	return ptr;
 }
-
 void PoolAllocator::unlock(ID p_mem) {
 	if (!needs_locking) {
 		return;
@@ -555,8 +562,8 @@ PoolAllocator::PoolAllocator(void *p_mem, int p_size, int p_align, bool p_needs_
 			mem8 += p_align - (ofs % p_align);
 			p_size -= dif;
 			p_mem = (void *)mem8;
-		}
-	}
+		};
+	};
 
 	create_pool(p_mem, p_size, p_max_entries);
 	needs_locking = p_needs_locking;

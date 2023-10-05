@@ -1,43 +1,38 @@
-/**************************************************************************/
-/*  input_map.h                                                           */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  input_map.h                                                          */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef INPUT_MAP_H
 #define INPUT_MAP_H
 
-#include "core/input/input_event.h"
-#include "core/object/class_db.h"
-#include "core/object/object.h"
-#include "core/templates/hash_map.h"
-
-template <typename T>
-class TypedArray;
+#include "core/object.h"
+#include "core/os/input_event.h"
 
 class InputMap : public Object {
 	GDCLASS(InputMap, Object);
@@ -57,14 +52,12 @@ public:
 private:
 	static InputMap *singleton;
 
-	mutable HashMap<StringName, Action> input_map;
-	HashMap<String, List<Ref<InputEvent>>> default_builtin_cache;
-	HashMap<String, List<Ref<InputEvent>>> default_builtin_with_overrides_cache;
+	mutable Map<StringName, Action> input_map;
 
-	List<Ref<InputEvent>>::Element *_find_event(Action &p_action, const Ref<InputEvent> &p_event, bool p_exact_match = false, bool *r_pressed = nullptr, float *r_strength = nullptr, float *r_raw_strength = nullptr) const;
+	List<Ref<InputEvent>>::Element *_find_event(Action &p_action, const Ref<InputEvent> &p_event, bool p_exact_match = false, bool *p_pressed = nullptr, float *p_strength = nullptr, float *p_raw_strength = nullptr) const;
 
-	TypedArray<InputEvent> _action_get_events(const StringName &p_action);
-	TypedArray<StringName> _get_actions();
+	Array _get_action_list(const StringName &p_action);
+	Array _get_actions();
 
 protected:
 	static void _bind_methods();
@@ -84,23 +77,17 @@ public:
 	void action_erase_event(const StringName &p_action, const Ref<InputEvent> &p_event);
 	void action_erase_events(const StringName &p_action);
 
-	const List<Ref<InputEvent>> *action_get_events(const StringName &p_action);
+	const List<Ref<InputEvent>> *get_action_list(const StringName &p_action);
 	bool event_is_action(const Ref<InputEvent> &p_event, const StringName &p_action, bool p_exact_match = false) const;
-	bool event_get_action_status(const Ref<InputEvent> &p_event, const StringName &p_action, bool p_exact_match = false, bool *r_pressed = nullptr, float *r_strength = nullptr, float *r_raw_strength = nullptr) const;
+	bool event_get_action_status(const Ref<InputEvent> &p_event, const StringName &p_action, bool p_exact_match = false, bool *p_pressed = nullptr, float *p_strength = nullptr, float *p_raw_strength = nullptr) const;
 
-	const HashMap<StringName, Action> &get_action_map() const;
-	void load_from_project_settings();
+	const Map<StringName, Action> &get_action_map() const;
+	void load_from_globals();
 	void load_default();
 
 	String suggest_actions(const StringName &p_action) const;
 
-	String get_builtin_display_name(const String &p_name) const;
-	// Use an Ordered Map so insertion order is preserved. We want the elements to be 'grouped' somewhat.
-	const HashMap<String, List<Ref<InputEvent>>> &get_builtins();
-	const HashMap<String, List<Ref<InputEvent>>> &get_builtins_with_feature_overrides_applied();
-
 	InputMap();
-	~InputMap();
 };
 
 #endif // INPUT_MAP_H

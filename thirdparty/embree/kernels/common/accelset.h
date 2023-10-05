@@ -14,14 +14,21 @@ namespace embree
   struct IntersectFunctionNArguments;
   struct OccludedFunctionNArguments;
   
+  typedef void (*ReportIntersectionFunc) (IntersectFunctionNArguments* args, const RTCFilterFunctionNArguments* filter_args);
+  typedef void (*ReportOcclusionFunc) (OccludedFunctionNArguments* args, const RTCFilterFunctionNArguments* filter_args);
+  
   struct IntersectFunctionNArguments : public RTCIntersectFunctionNArguments
   {
+    IntersectContext* internal_context;
     Geometry* geometry;
+    ReportIntersectionFunc report;
   };
 
   struct OccludedFunctionNArguments : public RTCOccludedFunctionNArguments
   {
+    IntersectContext* internal_context;
     Geometry* geometry;
+    ReportOcclusionFunc report;
   };
 
   /*! Base class for set of acceleration structures. */
@@ -138,7 +145,7 @@ namespace embree
   public:
 
       /*! Intersects a single ray with the scene. */
-      __forceinline void intersect (RayHit& ray, unsigned int geomID, unsigned int primID, IntersectContext* context) 
+      __forceinline void intersect (RayHit& ray, unsigned int geomID, unsigned int primID, IntersectContext* context, ReportIntersectionFunc report) 
       {
         assert(primID < size());
         assert(intersectorN.intersect);
@@ -152,13 +159,15 @@ namespace embree
         args.N = 1;
         args.geomID = geomID;
         args.primID = primID;
+        args.internal_context = context;
         args.geometry = this;
+        args.report = report;
         
         intersectorN.intersect(&args);
       }
 
       /*! Tests if single ray is occluded by the scene. */
-      __forceinline void occluded (Ray& ray, unsigned int geomID, unsigned int primID, IntersectContext* context)
+      __forceinline void occluded (Ray& ray, unsigned int geomID, unsigned int primID, IntersectContext* context, ReportOcclusionFunc report)
       {
         assert(primID < size());
         assert(intersectorN.occluded);
@@ -172,14 +181,16 @@ namespace embree
         args.N = 1;
         args.geomID = geomID;
         args.primID = primID;
+        args.internal_context = context;
         args.geometry = this;
+        args.report = report;
         
         intersectorN.occluded(&args);
       }
    
       /*! Intersects a packet of K rays with the scene. */
       template<int K>
-        __forceinline void intersect (const vbool<K>& valid, RayHitK<K>& ray, unsigned int geomID, unsigned int primID, IntersectContext* context) 
+        __forceinline void intersect (const vbool<K>& valid, RayHitK<K>& ray, unsigned int geomID, unsigned int primID, IntersectContext* context, ReportIntersectionFunc report) 
       {
         assert(primID < size());
         assert(intersectorN.intersect);
@@ -193,14 +204,16 @@ namespace embree
         args.N = K;
         args.geomID = geomID;
         args.primID = primID;
+        args.internal_context = context;
         args.geometry = this;
+        args.report = report;
          
         intersectorN.intersect(&args);
       }
 
       /*! Tests if a packet of K rays is occluded by the scene. */
       template<int K>
-        __forceinline void occluded (const vbool<K>& valid, RayK<K>& ray, unsigned int geomID, unsigned int primID, IntersectContext* context)
+        __forceinline void occluded (const vbool<K>& valid, RayK<K>& ray, unsigned int geomID, unsigned int primID, IntersectContext* context, ReportOcclusionFunc report)
       {
         assert(primID < size());
         assert(intersectorN.occluded);
@@ -214,7 +227,9 @@ namespace embree
         args.N = K;
         args.geomID = geomID;
         args.primID = primID;
+        args.internal_context = context;
         args.geometry = this;
+        args.report = report;
         
         intersectorN.occluded(&args);
       }

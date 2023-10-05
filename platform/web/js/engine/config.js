@@ -127,7 +127,7 @@ const InternalConfig = function (initConfig) { // eslint-disable-line no-unused-
 		 * @ignore
 		 * @type {Array.<string>}
 		 */
-		gdextensionLibs: [],
+		gdnativeLibs: [],
 		/**
 		 * @ignore
 		 * @type {Array.<string>}
@@ -257,7 +257,7 @@ const InternalConfig = function (initConfig) { // eslint-disable-line no-unused-
 		this.experimentalVK = parse('experimentalVK', this.experimentalVK);
 		this.focusCanvas = parse('focusCanvas', this.focusCanvas);
 		this.serviceWorker = parse('serviceWorker', this.serviceWorker);
-		this.gdextensionLibs = parse('gdextensionLibs', this.gdextensionLibs);
+		this.gdnativeLibs = parse('gdnativeLibs', this.gdnativeLibs);
 		this.fileSizes = parse('fileSizes', this.fileSizes);
 		this.args = parse('args', this.args);
 		this.onExecute = parse('onExecute', this.onExecute);
@@ -275,7 +275,7 @@ const InternalConfig = function (initConfig) { // eslint-disable-line no-unused-
 			'print': this.onPrint,
 			'printErr': this.onPrintError,
 			'thisProgram': this.executable,
-			'noExitRuntime': false,
+			'noExitRuntime': true,
 			'dynamicLibraries': [`${loadPath}.side.wasm`],
 			'instantiateWasm': function (imports, onSuccess) {
 				function done(result) {
@@ -317,8 +317,7 @@ const InternalConfig = function (initConfig) { // eslint-disable-line no-unused-
 		if (!(this.canvas instanceof HTMLCanvasElement)) {
 			const nodes = document.getElementsByTagName('canvas');
 			if (nodes.length && nodes[0] instanceof HTMLCanvasElement) {
-				const first = nodes[0];
-				this.canvas = /** @type {!HTMLCanvasElement} */ (first);
+				this.canvas = nodes[0];
 			}
 			if (!this.canvas) {
 				throw new Error('No canvas found in page');

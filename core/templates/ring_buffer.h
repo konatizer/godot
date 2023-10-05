@@ -1,43 +1,43 @@
-/**************************************************************************/
-/*  ring_buffer.h                                                         */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  ring_buffer.h                                                        */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef RING_BUFFER_H
 #define RING_BUFFER_H
 
-#include "core/templates/vector.h"
+#include "core/vector.h"
 
 template <typename T>
 class RingBuffer {
 	Vector<T> data;
-	int read_pos = 0;
-	int write_pos = 0;
+	int read_pos;
+	int write_pos;
 	int size_mask;
 
 	inline int inc(int &p_var, int p_size) const {
@@ -45,13 +45,13 @@ class RingBuffer {
 		p_var += p_size;
 		p_var = p_var & size_mask;
 		return ret;
-	}
+	};
 
 public:
 	T read() {
 		ERR_FAIL_COND_V(space_left() < 1, T());
 		return data.ptr()[inc(read_pos, 1)];
-	}
+	};
 
 	int read(T *p_buf, int p_size, bool p_advance = true) {
 		int left = data_left();
@@ -66,15 +66,15 @@ public:
 			const T *read = data.ptr();
 			for (int i = 0; i < total; i++) {
 				p_buf[dst++] = read[pos + i];
-			}
+			};
 			to_read -= total;
 			pos = 0;
-		}
+		};
 		if (p_advance) {
 			inc(read_pos, p_size);
-		}
+		};
 		return p_size;
-	}
+	};
 
 	int copy(T *p_buf, int p_offset, int p_size) const {
 		int left = data_left();
@@ -95,12 +95,12 @@ public:
 			int total = end - pos;
 			for (int i = 0; i < total; i++) {
 				p_buf[dst++] = data[pos + i];
-			}
+			};
 			to_read -= total;
 			pos = 0;
-		}
+		};
 		return p_size;
-	}
+	};
 
 	int find(const T &t, int p_offset, int p_max_size) const {
 		int left = data_left();
@@ -122,7 +122,7 @@ public:
 				if (data[pos + i] == t) {
 					return i + (p_max_size - to_read);
 				}
-			}
+			};
 			to_read -= total;
 			pos = 0;
 		}
@@ -133,7 +133,7 @@ public:
 		p_n = MIN(p_n, data_left());
 		inc(read_pos, p_n);
 		return p_n;
-	}
+	};
 
 	inline int decrease_write(int p_n) {
 		p_n = MIN(p_n, data_left());
@@ -145,7 +145,7 @@ public:
 		ERR_FAIL_COND_V(space_left() < 1, FAILED);
 		data.write[inc(write_pos, 1)] = p_v;
 		return OK;
-	}
+	};
 
 	int write(const T *p_buf, int p_size) {
 		int left = space_left();
@@ -161,32 +161,32 @@ public:
 
 			for (int i = 0; i < total; i++) {
 				data.write[pos + i] = p_buf[src++];
-			}
+			};
 			to_write -= total;
 			pos = 0;
-		}
+		};
 
 		inc(write_pos, p_size);
 		return p_size;
-	}
+	};
 
 	inline int space_left() const {
 		int left = read_pos - write_pos;
 		if (left < 0) {
 			return size() + left - 1;
-		}
+		};
 		if (left == 0) {
 			return size() - 1;
-		}
+		};
 		return left - 1;
-	}
+	};
 	inline int data_left() const {
 		return size() - space_left() - 1;
-	}
+	};
 
 	inline int size() const {
 		return data.size();
-	}
+	};
 
 	inline void clear() {
 		read_pos = 0;
@@ -201,20 +201,22 @@ public:
 		if (old_size < new_size && read_pos > write_pos) {
 			for (int i = 0; i < write_pos; i++) {
 				data.write[(old_size + i) & mask] = data[i];
-			}
+			};
 			write_pos = (old_size + write_pos) & mask;
 		} else {
 			read_pos = read_pos & mask;
 			write_pos = write_pos & mask;
-		}
+		};
 
 		size_mask = mask;
-	}
+	};
 
 	RingBuffer<T>(int p_power = 0) {
+		read_pos = 0;
+		write_pos = 0;
 		resize(p_power);
-	}
-	~RingBuffer<T>() {}
+	};
+	~RingBuffer<T>(){};
 };
 
 #endif // RING_BUFFER_H

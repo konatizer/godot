@@ -1,170 +1,113 @@
-/**************************************************************************/
-/*  world_environment.cpp                                                 */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  world_environment.cpp                                                */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "world_environment.h"
-
-#include "scene/3d/node_3d.h"
-#include "scene/main/window.h"
+#include "scene/main/viewport.h"
 
 void WorldEnvironment::_notification(int p_what) {
-	switch (p_what) {
-		case Node3D::NOTIFICATION_ENTER_WORLD:
-		case Node3D::NOTIFICATION_ENTER_TREE: {
-			if (environment.is_valid()) {
-				add_to_group("_world_environment_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()));
-				_update_current_environment();
+	if (p_what == Spatial::NOTIFICATION_ENTER_WORLD || p_what == Spatial::NOTIFICATION_ENTER_TREE) {
+		if (environment.is_valid()) {
+			if (get_viewport()->find_world()->get_environment().is_valid()) {
+				WARN_PRINT("World already has an environment (Another WorldEnvironment?), overriding.");
 			}
+			get_viewport()->find_world()->set_environment(environment);
+			add_to_group("_world_environment_" + itos(get_viewport()->find_world()->get_scenario().get_id()));
+		}
 
-			if (camera_attributes.is_valid()) {
-				add_to_group("_world_camera_attributes_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()));
-				_update_current_camera_attributes();
-			}
-		} break;
-
-		case Node3D::NOTIFICATION_EXIT_WORLD:
-		case Node3D::NOTIFICATION_EXIT_TREE: {
-			if (environment.is_valid()) {
-				remove_from_group("_world_environment_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()));
-				_update_current_environment();
-			}
-
-			if (camera_attributes.is_valid()) {
-				remove_from_group("_world_camera_attributes_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()));
-				_update_current_camera_attributes();
-			}
-		} break;
+	} else if (p_what == Spatial::NOTIFICATION_EXIT_WORLD || p_what == Spatial::NOTIFICATION_EXIT_TREE) {
+		if (environment.is_valid() && get_viewport()->find_world()->get_environment() == environment) {
+			get_viewport()->find_world()->set_environment(Ref<Environment>());
+			remove_from_group("_world_environment_" + itos(get_viewport()->find_world()->get_scenario().get_id()));
+		}
 	}
-}
-
-void WorldEnvironment::_update_current_environment() {
-	WorldEnvironment *first = Object::cast_to<WorldEnvironment>(get_tree()->get_first_node_in_group("_world_environment_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id())));
-
-	if (first) {
-		get_viewport()->find_world_3d()->set_environment(first->environment);
-	} else {
-		get_viewport()->find_world_3d()->set_environment(Ref<Environment>());
-	}
-	get_tree()->call_group_flags(SceneTree::GROUP_CALL_DEFERRED, "_world_environment_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()), "update_configuration_warnings");
-}
-
-void WorldEnvironment::_update_current_camera_attributes() {
-	WorldEnvironment *first = Object::cast_to<WorldEnvironment>(get_tree()->get_first_node_in_group("_world_camera_attributes_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id())));
-	if (first) {
-		get_viewport()->find_world_3d()->set_camera_attributes(first->camera_attributes);
-	} else {
-		get_viewport()->find_world_3d()->set_camera_attributes(Ref<CameraAttributes>());
-	}
-
-	get_tree()->call_group_flags(SceneTree::GROUP_CALL_DEFERRED, "_world_camera_attributes_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()), "update_configuration_warnings");
 }
 
 void WorldEnvironment::set_environment(const Ref<Environment> &p_environment) {
-	if (environment == p_environment) {
-		return;
-	}
-	if (is_inside_tree() && environment.is_valid()) {
-		remove_from_group("_world_environment_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()));
+	if (is_inside_tree() && environment.is_valid() && get_viewport()->find_world()->get_environment() == environment) {
+		get_viewport()->find_world()->set_environment(Ref<Environment>());
+		remove_from_group("_world_environment_" + itos(get_viewport()->find_world()->get_scenario().get_id()));
+		//clean up
 	}
 
 	environment = p_environment;
-
 	if (is_inside_tree() && environment.is_valid()) {
-		add_to_group("_world_environment_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()));
+		if (get_viewport()->find_world()->get_environment().is_valid()) {
+			WARN_PRINT("World already has an environment (Another WorldEnvironment?), overriding.");
+		}
+		get_viewport()->find_world()->set_environment(environment);
+		add_to_group("_world_environment_" + itos(get_viewport()->find_world()->get_scenario().get_id()));
 	}
 
-	if (is_inside_tree()) {
-		_update_current_environment();
-	} else {
-		update_configuration_warnings();
-	}
+	update_configuration_warning();
 }
 
 Ref<Environment> WorldEnvironment::get_environment() const {
 	return environment;
 }
 
-void WorldEnvironment::set_camera_attributes(const Ref<CameraAttributes> &p_camera_attributes) {
-	if (camera_attributes == p_camera_attributes) {
-		return;
+String WorldEnvironment::get_configuration_warning() const {
+	String warning = Node::get_configuration_warning();
+	if (!environment.is_valid()) {
+		if (warning != String()) {
+			warning += "\n\n";
+		}
+		warning += TTR("WorldEnvironment requires its \"Environment\" property to contain an Environment to have a visible effect.");
+		return warning;
 	}
 
-	if (is_inside_tree() && camera_attributes.is_valid() && get_viewport()->find_world_3d()->get_camera_attributes() == camera_attributes) {
-		remove_from_group("_world_camera_attributes_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()));
+	if (/*!is_visible_in_tree() ||*/ !is_inside_tree()) {
+		return String();
 	}
 
-	camera_attributes = p_camera_attributes;
-	if (is_inside_tree() && camera_attributes.is_valid()) {
-		add_to_group("_world_camera_attributes_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()));
+	List<Node *> nodes;
+	get_tree()->get_nodes_in_group("_world_environment_" + itos(get_viewport()->find_world()->get_scenario().get_id()), &nodes);
+
+	if (nodes.size() > 1) {
+		if (warning != String()) {
+			warning += "\n\n";
+		}
+		warning += TTR("Only one WorldEnvironment is allowed per scene (or set of instanced scenes).");
 	}
 
-	if (is_inside_tree()) {
-		_update_current_camera_attributes();
-	} else {
-		update_configuration_warnings();
-	}
-}
+	// Commenting this warning for now, I think it makes no sense. If anyone can figure out what its supposed to do, feedback welcome. Else it should be deprecated.
+	//if (environment.is_valid() && get_viewport() && !get_viewport()->get_camera() && environment->get_background() != Environment::BG_CANVAS) {
+	//	return TTR("This WorldEnvironment is ignored. Either add a Camera (for 3D scenes) or set this environment's Background Mode to Canvas (for 2D scenes).");
+	//}
 
-Ref<CameraAttributes> WorldEnvironment::get_camera_attributes() const {
-	return camera_attributes;
-}
-
-PackedStringArray WorldEnvironment::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
-
-	if (!environment.is_valid() && !camera_attributes.is_valid()) {
-		warnings.push_back(RTR("To have any visible effect, WorldEnvironment requires its \"Environment\" property to contain an Environment, its \"Camera Attributes\" property to contain a CameraAttributes resource, or both."));
-	}
-
-	if (!is_inside_tree()) {
-		return warnings;
-	}
-
-	if (environment.is_valid() && get_viewport()->find_world_3d()->get_environment() != environment) {
-		warnings.push_back(("Only the first Environment has an effect in a scene (or set of instantiated scenes)."));
-	}
-
-	if (camera_attributes.is_valid() && get_viewport()->find_world_3d()->get_camera_attributes() != camera_attributes) {
-		warnings.push_back(RTR("Only one WorldEnvironment is allowed per scene (or set of instantiated scenes)."));
-	}
-
-	return warnings;
+	return warning;
 }
 
 void WorldEnvironment::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_environment", "env"), &WorldEnvironment::set_environment);
 	ClassDB::bind_method(D_METHOD("get_environment"), &WorldEnvironment::get_environment);
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "environment", PROPERTY_HINT_RESOURCE_TYPE, "Environment"), "set_environment", "get_environment");
-
-	ClassDB::bind_method(D_METHOD("set_camera_attributes", "camera_attributes"), &WorldEnvironment::set_camera_attributes);
-	ClassDB::bind_method(D_METHOD("get_camera_attributes"), &WorldEnvironment::get_camera_attributes);
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "camera_attributes", PROPERTY_HINT_RESOURCE_TYPE, "CameraAttributesPractical,CameraAttributesPhysical"), "set_camera_attributes", "get_camera_attributes");
 }
 
 WorldEnvironment::WorldEnvironment() {

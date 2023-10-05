@@ -24,13 +24,13 @@ namespace embree
     __forceinline operator bool( ) const { return true; }
   };
 
-  const constexpr TrueTy True = TrueTy();
+  extern MAYBE_UNUSED TrueTy True;
 
   struct FalseTy {
     __forceinline operator bool( ) const { return false; }
   };
 
-  const constexpr FalseTy False = FalseTy();
+  extern MAYBE_UNUSED FalseTy False;
   
   struct ZeroTy
   {
@@ -48,7 +48,7 @@ namespace embree
     __forceinline operator unsigned char     ( ) const { return 0; }
   }; 
 
-  const constexpr ZeroTy zero = ZeroTy();
+  extern MAYBE_UNUSED ZeroTy zero;
 
   struct OneTy
   {
@@ -66,7 +66,7 @@ namespace embree
     __forceinline operator unsigned char     ( ) const { return 1; }
   };
 
-  const constexpr OneTy one = OneTy();
+  extern MAYBE_UNUSED OneTy one;
 
   struct NegInfTy
   {
@@ -85,7 +85,7 @@ namespace embree
 
   };
 
-  const constexpr NegInfTy neg_inf = NegInfTy();
+  extern MAYBE_UNUSED NegInfTy neg_inf;
 
   struct PosInfTy
   {
@@ -103,8 +103,8 @@ namespace embree
     __forceinline operator unsigned char     ( ) const { return std::numeric_limits<unsigned char>::max(); }
   };
 
-  const constexpr PosInfTy     inf = PosInfTy();
-  const constexpr PosInfTy pos_inf = PosInfTy();
+  extern MAYBE_UNUSED PosInfTy inf;
+  extern MAYBE_UNUSED PosInfTy pos_inf;
 
   struct NaNTy
   {
@@ -112,15 +112,15 @@ namespace embree
     __forceinline operator float ( ) const { return std::numeric_limits<float>::quiet_NaN(); }
   };
 
-  const constexpr NaNTy nan = NaNTy();
+  extern MAYBE_UNUSED NaNTy nan;
 
   struct UlpTy
   {
     __forceinline operator double( ) const { return std::numeric_limits<double>::epsilon(); }
     __forceinline operator float ( ) const { return std::numeric_limits<float>::epsilon(); }
   };
-  
-  const constexpr UlpTy ulp = UlpTy();
+
+  extern MAYBE_UNUSED UlpTy ulp;
 
   struct PiTy
   {
@@ -128,7 +128,7 @@ namespace embree
     __forceinline operator float ( ) const { return float(M_PI); }
   };
 
-  const constexpr PiTy pi = PiTy();
+  extern MAYBE_UNUSED PiTy pi;
 
   struct OneOverPiTy
   {
@@ -136,7 +136,7 @@ namespace embree
     __forceinline operator float ( ) const { return float(M_1_PI); }
   };
 
-  const constexpr OneOverPiTy one_over_pi = OneOverPiTy();
+  extern MAYBE_UNUSED OneOverPiTy one_over_pi;
 
   struct TwoPiTy
   {
@@ -144,7 +144,7 @@ namespace embree
     __forceinline operator float ( ) const { return float(2.0*M_PI); }
   };
 
-  const constexpr TwoPiTy two_pi = TwoPiTy();
+  extern MAYBE_UNUSED TwoPiTy two_pi;
 
   struct OneOverTwoPiTy
   {
@@ -152,7 +152,7 @@ namespace embree
     __forceinline operator float ( ) const { return float(0.5*M_1_PI); }
   };
 
-  const constexpr OneOverTwoPiTy one_over_two_pi = OneOverTwoPiTy();
+  extern MAYBE_UNUSED OneOverTwoPiTy one_over_two_pi;
 
   struct FourPiTy
   {
@@ -160,7 +160,7 @@ namespace embree
     __forceinline operator float ( ) const { return float(4.0*M_PI); }
   };
 
-  const constexpr FourPiTy four_pi = FourPiTy();
+  extern MAYBE_UNUSED FourPiTy four_pi;
 
   struct OneOverFourPiTy
   {
@@ -168,42 +168,30 @@ namespace embree
     __forceinline operator float ( ) const { return float(0.25*M_1_PI); }
   };
 
-  const constexpr OneOverFourPiTy one_over_four_pi = OneOverFourPiTy();
+  extern MAYBE_UNUSED OneOverFourPiTy one_over_four_pi;
 
   struct StepTy {
-    __forceinline operator          double   ( ) const { return 0; }
-    __forceinline operator          float    ( ) const { return 0; }
-    __forceinline operator          long long( ) const { return 0; }
-    __forceinline operator unsigned long long( ) const { return 0; }
-    __forceinline operator          long     ( ) const { return 0; }
-    __forceinline operator unsigned long     ( ) const { return 0; }
-    __forceinline operator          int      ( ) const { return 0; }
-    __forceinline operator unsigned int      ( ) const { return 0; }
-    __forceinline operator          short    ( ) const { return 0; }
-    __forceinline operator unsigned short    ( ) const { return 0; }
-    __forceinline operator          char     ( ) const { return 0; }
-    __forceinline operator unsigned char     ( ) const { return 0; }
   };
 
-  const constexpr StepTy step = StepTy();
+  extern MAYBE_UNUSED StepTy step;
 
   struct ReverseStepTy {
   };
 
-  const constexpr ReverseStepTy reverse_step = ReverseStepTy();
+  extern MAYBE_UNUSED ReverseStepTy reverse_step;
 
   struct EmptyTy {
   };
 
-  const constexpr EmptyTy empty = EmptyTy();
+  extern MAYBE_UNUSED EmptyTy empty;
 
   struct FullTy {
   };
 
-  const constexpr FullTy full = FullTy();
+  extern MAYBE_UNUSED FullTy full;
 
   struct UndefinedTy {
   };
 
-  const constexpr UndefinedTy undefined = UndefinedTy();
+  extern MAYBE_UNUSED UndefinedTy undefined;
 }

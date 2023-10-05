@@ -1,81 +1,86 @@
-/**************************************************************************/
-/*  godot_shape_2d.cpp                                                    */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  shape_2d_sw.cpp                                                      */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
-#include "godot_shape_2d.h"
+#include "shape_2d_sw.h"
 
-#include "core/math/geometry_2d.h"
-#include "core/templates/sort_array.h"
+#include "core/math/geometry.h"
+#include "core/sort_array.h"
 
-void GodotShape2D::configure(const Rect2 &p_aabb) {
+void Shape2DSW::configure(const Rect2 &p_aabb) {
 	aabb = p_aabb;
 	configured = true;
-	for (const KeyValue<GodotShapeOwner2D *, int> &E : owners) {
-		GodotShapeOwner2D *co = const_cast<GodotShapeOwner2D *>(E.key);
+	for (Map<ShapeOwner2DSW *, int>::Element *E = owners.front(); E; E = E->next()) {
+		ShapeOwner2DSW *co = (ShapeOwner2DSW *)E->key();
 		co->_shape_changed();
 	}
 }
 
-Vector2 GodotShape2D::get_support(const Vector2 &p_normal) const {
+Vector2 Shape2DSW::get_support(const Vector2 &p_normal) const {
 	Vector2 res[2];
 	int amnt;
 	get_supports(p_normal, res, amnt);
 	return res[0];
 }
 
-void GodotShape2D::add_owner(GodotShapeOwner2D *p_owner) {
-	HashMap<GodotShapeOwner2D *, int>::Iterator E = owners.find(p_owner);
+void Shape2DSW::add_owner(ShapeOwner2DSW *p_owner) {
+	Map<ShapeOwner2DSW *, int>::Element *E = owners.find(p_owner);
 	if (E) {
-		E->value++;
+		E->get()++;
 	} else {
 		owners[p_owner] = 1;
 	}
 }
 
-void GodotShape2D::remove_owner(GodotShapeOwner2D *p_owner) {
-	HashMap<GodotShapeOwner2D *, int>::Iterator E = owners.find(p_owner);
+void Shape2DSW::remove_owner(ShapeOwner2DSW *p_owner) {
+	Map<ShapeOwner2DSW *, int>::Element *E = owners.find(p_owner);
 	ERR_FAIL_COND(!E);
-	E->value--;
-	if (E->value == 0) {
-		owners.remove(E);
+	E->get()--;
+	if (E->get() == 0) {
+		owners.erase(E);
 	}
 }
 
-bool GodotShape2D::is_owner(GodotShapeOwner2D *p_owner) const {
+bool Shape2DSW::is_owner(ShapeOwner2DSW *p_owner) const {
 	return owners.has(p_owner);
 }
 
-const HashMap<GodotShapeOwner2D *, int> &GodotShape2D::get_owners() const {
+const Map<ShapeOwner2DSW *, int> &Shape2DSW::get_owners() const {
 	return owners;
 }
 
-GodotShape2D::~GodotShape2D() {
+Shape2DSW::Shape2DSW() {
+	custom_bias = 0;
+	configured = false;
+}
+
+Shape2DSW::~Shape2DSW() {
 	ERR_FAIL_COND(owners.size());
 }
 
@@ -83,15 +88,15 @@ GodotShape2D::~GodotShape2D() {
 /*********************************************************/
 /*********************************************************/
 
-void GodotWorldBoundaryShape2D::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
+void LineShape2DSW::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
 	r_amount = 0;
 }
 
-bool GodotWorldBoundaryShape2D::contains_point(const Vector2 &p_point) const {
+bool LineShape2DSW::contains_point(const Vector2 &p_point) const {
 	return normal.dot(p_point) < d;
 }
 
-bool GodotWorldBoundaryShape2D::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
+bool LineShape2DSW::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
 	Vector2 segment = p_begin - p_end;
 	real_t den = normal.dot(segment);
 
@@ -113,11 +118,11 @@ bool GodotWorldBoundaryShape2D::intersect_segment(const Vector2 &p_begin, const 
 	return true;
 }
 
-real_t GodotWorldBoundaryShape2D::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
+real_t LineShape2DSW::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
 	return 0;
 }
 
-void GodotWorldBoundaryShape2D::set_data(const Variant &p_data) {
+void LineShape2DSW::set_data(const Variant &p_data) {
 	ERR_FAIL_COND(p_data.get_type() != Variant::ARRAY);
 	Array arr = p_data;
 	ERR_FAIL_COND(arr.size() != 2);
@@ -126,7 +131,7 @@ void GodotWorldBoundaryShape2D::set_data(const Variant &p_data) {
 	configure(Rect2(Vector2(-1e4, -1e4), Vector2(1e4 * 2, 1e4 * 2)));
 }
 
-Variant GodotWorldBoundaryShape2D::get_data() const {
+Variant LineShape2DSW::get_data() const {
 	Array arr;
 	arr.resize(2);
 	arr[0] = normal;
@@ -138,7 +143,7 @@ Variant GodotWorldBoundaryShape2D::get_data() const {
 /*********************************************************/
 /*********************************************************/
 
-void GodotSeparationRayShape2D::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
+void RayShape2DSW::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
 	r_amount = 1;
 
 	if (p_normal.y > 0) {
@@ -148,29 +153,29 @@ void GodotSeparationRayShape2D::get_supports(const Vector2 &p_normal, Vector2 *r
 	}
 }
 
-bool GodotSeparationRayShape2D::contains_point(const Vector2 &p_point) const {
+bool RayShape2DSW::contains_point(const Vector2 &p_point) const {
 	return false;
 }
 
-bool GodotSeparationRayShape2D::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
+bool RayShape2DSW::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
 	return false; //rays can't be intersected
 }
 
-real_t GodotSeparationRayShape2D::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
+real_t RayShape2DSW::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
 	return 0; //rays are mass-less
 }
 
-void GodotSeparationRayShape2D::set_data(const Variant &p_data) {
+void RayShape2DSW::set_data(const Variant &p_data) {
 	Dictionary d = p_data;
 	length = d["length"];
-	slide_on_slope = d["slide_on_slope"];
+	slips_on_slope = d["slips_on_slope"];
 	configure(Rect2(0, 0, 0.001, length));
 }
 
-Variant GodotSeparationRayShape2D::get_data() const {
+Variant RayShape2DSW::get_data() const {
 	Dictionary d;
 	d["length"] = length;
-	d["slide_on_slope"] = slide_on_slope;
+	d["slips_on_slope"] = slips_on_slope;
 	return d;
 }
 
@@ -178,8 +183,8 @@ Variant GodotSeparationRayShape2D::get_data() const {
 /*********************************************************/
 /*********************************************************/
 
-void GodotSegmentShape2D::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
-	if (Math::abs(p_normal.dot(n)) > segment_is_valid_support_threshold) {
+void SegmentShape2DSW::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
+	if (Math::abs(p_normal.dot(n)) > _SEGMENT_IS_VALID_SUPPORT_THRESHOLD) {
 		r_supports[0] = a;
 		r_supports[1] = b;
 		r_amount = 2;
@@ -195,12 +200,12 @@ void GodotSegmentShape2D::get_supports(const Vector2 &p_normal, Vector2 *r_suppo
 	r_amount = 1;
 }
 
-bool GodotSegmentShape2D::contains_point(const Vector2 &p_point) const {
+bool SegmentShape2DSW::contains_point(const Vector2 &p_point) const {
 	return false;
 }
 
-bool GodotSegmentShape2D::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
-	if (!Geometry2D::segment_intersects_segment(p_begin, p_end, a, b, &r_point)) {
+bool SegmentShape2DSW::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
+	if (!Geometry::segment_intersects_segment_2d(p_begin, p_end, a, b, &r_point)) {
 		return false;
 	}
 
@@ -213,31 +218,31 @@ bool GodotSegmentShape2D::intersect_segment(const Vector2 &p_begin, const Vector
 	return true;
 }
 
-real_t GodotSegmentShape2D::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
+real_t SegmentShape2DSW::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
 	return p_mass * ((a * p_scale).distance_squared_to(b * p_scale)) / 12;
 }
 
-void GodotSegmentShape2D::set_data(const Variant &p_data) {
+void SegmentShape2DSW::set_data(const Variant &p_data) {
 	ERR_FAIL_COND(p_data.get_type() != Variant::RECT2);
 
 	Rect2 r = p_data;
 	a = r.position;
 	b = r.size;
-	n = (b - a).orthogonal();
+	n = (b - a).tangent();
 
-	Rect2 aabb_new;
-	aabb_new.position = a;
-	aabb_new.expand_to(b);
-	if (aabb_new.size.x == 0) {
-		aabb_new.size.x = 0.001;
+	Rect2 aabb;
+	aabb.position = a;
+	aabb.expand_to(b);
+	if (aabb.size.x == 0) {
+		aabb.size.x = 0.001;
 	}
-	if (aabb_new.size.y == 0) {
-		aabb_new.size.y = 0.001;
+	if (aabb.size.y == 0) {
+		aabb.size.y = 0.001;
 	}
-	configure(aabb_new);
+	configure(aabb);
 }
 
-Variant GodotSegmentShape2D::get_data() const {
+Variant SegmentShape2DSW::get_data() const {
 	Rect2 r;
 	r.position = a;
 	r.size = b;
@@ -248,16 +253,16 @@ Variant GodotSegmentShape2D::get_data() const {
 /*********************************************************/
 /*********************************************************/
 
-void GodotCircleShape2D::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
+void CircleShape2DSW::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
 	r_amount = 1;
 	*r_supports = p_normal * radius;
 }
 
-bool GodotCircleShape2D::contains_point(const Vector2 &p_point) const {
+bool CircleShape2DSW::contains_point(const Vector2 &p_point) const {
 	return p_point.length_squared() < radius * radius;
 }
 
-bool GodotCircleShape2D::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
+bool CircleShape2DSW::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
 	Vector2 line_vec = p_end - p_begin;
 
 	real_t a, b, c;
@@ -283,19 +288,19 @@ bool GodotCircleShape2D::intersect_segment(const Vector2 &p_begin, const Vector2
 	return true;
 }
 
-real_t GodotCircleShape2D::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
+real_t CircleShape2DSW::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
 	real_t a = radius * p_scale.x;
 	real_t b = radius * p_scale.y;
 	return p_mass * (a * a + b * b) / 4;
 }
 
-void GodotCircleShape2D::set_data(const Variant &p_data) {
+void CircleShape2DSW::set_data(const Variant &p_data) {
 	ERR_FAIL_COND(!p_data.is_num());
 	radius = p_data;
 	configure(Rect2(-radius, -radius, radius * 2, radius * 2));
 }
 
-Variant GodotCircleShape2D::get_data() const {
+Variant CircleShape2DSW::get_data() const {
 	return radius;
 }
 
@@ -303,12 +308,12 @@ Variant GodotCircleShape2D::get_data() const {
 /*********************************************************/
 /*********************************************************/
 
-void GodotRectangleShape2D::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
+void RectangleShape2DSW::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
 	for (int i = 0; i < 2; i++) {
 		Vector2 ag;
 		ag[i] = 1.0;
 		real_t dp = ag.dot(p_normal);
-		if (Math::abs(dp) <= segment_is_valid_support_threshold) {
+		if (Math::abs(dp) < _SEGMENT_IS_VALID_SUPPORT_THRESHOLD) {
 			continue;
 		}
 
@@ -333,31 +338,31 @@ void GodotRectangleShape2D::get_supports(const Vector2 &p_normal, Vector2 *r_sup
 			(p_normal.y < 0) ? -half_extents.y : half_extents.y);
 }
 
-bool GodotRectangleShape2D::contains_point(const Vector2 &p_point) const {
-	real_t x = p_point.x;
-	real_t y = p_point.y;
-	real_t edge_x = half_extents.x;
-	real_t edge_y = half_extents.y;
+bool RectangleShape2DSW::contains_point(const Vector2 &p_point) const {
+	float x = p_point.x;
+	float y = p_point.y;
+	float edge_x = half_extents.x;
+	float edge_y = half_extents.y;
 	return (x >= -edge_x) && (x < edge_x) && (y >= -edge_y) && (y < edge_y);
 }
 
-bool GodotRectangleShape2D::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
+bool RectangleShape2DSW::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
 	return get_aabb().intersects_segment(p_begin, p_end, &r_point, &r_normal);
 }
 
-real_t GodotRectangleShape2D::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
+real_t RectangleShape2DSW::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
 	Vector2 he2 = half_extents * 2 * p_scale;
 	return p_mass * he2.dot(he2) / 12.0;
 }
 
-void GodotRectangleShape2D::set_data(const Variant &p_data) {
+void RectangleShape2DSW::set_data(const Variant &p_data) {
 	ERR_FAIL_COND(p_data.get_type() != Variant::VECTOR2);
 
 	half_extents = p_data;
 	configure(Rect2(-half_extents, half_extents * 2.0));
 }
 
-Variant GodotRectangleShape2D::get_data() const {
+Variant RectangleShape2DSW::get_data() const {
 	return half_extents;
 }
 
@@ -365,12 +370,12 @@ Variant GodotRectangleShape2D::get_data() const {
 /*********************************************************/
 /*********************************************************/
 
-void GodotCapsuleShape2D::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
+void CapsuleShape2DSW::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
 	Vector2 n = p_normal;
 
-	real_t h = height * 0.5 - radius; // half-height of the rectangle part
+	real_t d = n.y;
 
-	if (h > 0 && Math::abs(n.x) > segment_is_valid_support_threshold) {
+	if (Math::abs(d) < (1.0 - _SEGMENT_IS_VALID_SUPPORT_THRESHOLD)) {
 		// make it flat
 		n.y = 0.0;
 		n.normalize();
@@ -378,21 +383,24 @@ void GodotCapsuleShape2D::get_supports(const Vector2 &p_normal, Vector2 *r_suppo
 
 		r_amount = 2;
 		r_supports[0] = n;
-		r_supports[0].y += h;
+		r_supports[0].y += height * 0.5;
 		r_supports[1] = n;
-		r_supports[1].y -= h;
+		r_supports[1].y -= height * 0.5;
+
 	} else {
+		real_t h = (d > 0) ? height : -height;
+
 		n *= radius;
-		n.y += (n.y > 0) ? h : -h;
+		n.y += h * 0.5;
 		r_amount = 1;
 		*r_supports = n;
 	}
 }
 
-bool GodotCapsuleShape2D::contains_point(const Vector2 &p_point) const {
+bool CapsuleShape2DSW::contains_point(const Vector2 &p_point) const {
 	Vector2 p = p_point;
 	p.y = Math::abs(p.y);
-	p.y -= height * 0.5 - radius;
+	p.y -= height * 0.5;
 	if (p.y < 0) {
 		p.y = 0;
 	}
@@ -400,7 +408,7 @@ bool GodotCapsuleShape2D::contains_point(const Vector2 &p_point) const {
 	return p.length_squared() < radius * radius;
 }
 
-bool GodotCapsuleShape2D::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
+bool CapsuleShape2DSW::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
 	real_t d = 1e10;
 	Vector2 n = (p_end - p_begin).normalized();
 	bool collided = false;
@@ -409,7 +417,7 @@ bool GodotCapsuleShape2D::intersect_segment(const Vector2 &p_begin, const Vector
 	for (int i = 0; i < 2; i++) {
 		Vector2 begin = p_begin;
 		Vector2 end = p_end;
-		real_t ofs = (i == 0) ? -height * 0.5 + radius : height * 0.5 - radius;
+		real_t ofs = (i == 0) ? -height * 0.5 : height * 0.5;
 		begin.y += ofs;
 		end.y += ofs;
 
@@ -446,7 +454,7 @@ bool GodotCapsuleShape2D::intersect_segment(const Vector2 &p_begin, const Vector
 	}
 
 	Vector2 rpos, rnorm;
-	if (Rect2(Point2(-radius, -height * 0.5 + radius), Size2(radius * 2.0, height - radius * 2)).intersects_segment(p_begin, p_end, &rpos, &rnorm)) {
+	if (Rect2(Point2(-radius, -height * 0.5), Size2(radius * 2.0, height)).intersects_segment(p_begin, p_end, &rpos, &rnorm)) {
 		real_t pd = n.dot(rpos);
 		if (pd < d) {
 			r_point = rpos;
@@ -460,12 +468,12 @@ bool GodotCapsuleShape2D::intersect_segment(const Vector2 &p_begin, const Vector
 	return collided; //todo
 }
 
-real_t GodotCapsuleShape2D::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
-	Vector2 he2 = Vector2(radius * 2, height) * p_scale;
+real_t CapsuleShape2DSW::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
+	Vector2 he2 = Vector2(radius * 2, height + radius * 2) * p_scale;
 	return p_mass * he2.dot(he2) / 12.0;
 }
 
-void GodotCapsuleShape2D::set_data(const Variant &p_data) {
+void CapsuleShape2DSW::set_data(const Variant &p_data) {
 	ERR_FAIL_COND(p_data.get_type() != Variant::ARRAY && p_data.get_type() != Variant::VECTOR2);
 
 	if (p_data.get_type() == Variant::ARRAY) {
@@ -479,11 +487,11 @@ void GodotCapsuleShape2D::set_data(const Variant &p_data) {
 		height = p.y;
 	}
 
-	Point2 he(radius, height * 0.5);
+	Point2 he(radius, height * 0.5 + radius);
 	configure(Rect2(-he, he * 2));
 }
 
-Variant GodotCapsuleShape2D::get_data() const {
+Variant CapsuleShape2DSW::get_data() const {
 	return Point2(height, radius);
 }
 
@@ -491,7 +499,7 @@ Variant GodotCapsuleShape2D::get_data() const {
 /*********************************************************/
 /*********************************************************/
 
-void GodotConvexPolygonShape2D::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
+void ConvexPolygonShape2DSW::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
 	int support_idx = -1;
 	real_t d = -1e10;
 	r_amount = 0;
@@ -505,7 +513,7 @@ void GodotConvexPolygonShape2D::get_supports(const Vector2 &p_normal, Vector2 *r
 		}
 
 		//test segment
-		if (points[i].normal.dot(p_normal) > segment_is_valid_support_threshold) {
+		if (points[i].normal.dot(p_normal) > _SEGMENT_IS_VALID_SUPPORT_THRESHOLD) {
 			r_amount = 2;
 			r_supports[0] = points[i].pos;
 			r_supports[1] = points[(i + 1) % point_count].pos;
@@ -519,7 +527,7 @@ void GodotConvexPolygonShape2D::get_supports(const Vector2 &p_normal, Vector2 *r
 	r_supports[0] = points[support_idx].pos;
 }
 
-bool GodotConvexPolygonShape2D::contains_point(const Vector2 &p_point) const {
+bool ConvexPolygonShape2DSW::contains_point(const Vector2 &p_point) const {
 	bool out = false;
 	bool in = false;
 
@@ -535,15 +543,21 @@ bool GodotConvexPolygonShape2D::contains_point(const Vector2 &p_point) const {
 	return in != out;
 }
 
-bool GodotConvexPolygonShape2D::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
+bool ConvexPolygonShape2DSW::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
 	Vector2 n = (p_end - p_begin).normalized();
 	real_t d = 1e10;
 	bool inters = false;
 
 	for (int i = 0; i < point_count; i++) {
+		//hmm.. no can do..
+		/*
+		if (d.dot(points[i].normal)>=0)
+			continue;
+		*/
+
 		Vector2 res;
 
-		if (!Geometry2D::segment_intersects_segment(p_begin, p_end, points[i].pos, points[(i + 1) % point_count].pos, &res)) {
+		if (!Geometry::segment_intersects_segment_2d(p_begin, p_end, points[i].pos, points[(i + 1) % point_count].pos, &res)) {
 			continue;
 		}
 
@@ -556,26 +570,29 @@ bool GodotConvexPolygonShape2D::intersect_segment(const Vector2 &p_begin, const 
 		}
 	}
 
-	return inters;
-}
-
-real_t GodotConvexPolygonShape2D::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
-	ERR_FAIL_COND_V_MSG(point_count == 0, 0, "Convex polygon shape has no points.");
-	Rect2 aabb_new;
-	aabb_new.position = points[0].pos * p_scale;
-	for (int i = 0; i < point_count; i++) {
-		aabb_new.expand_to(points[i].pos * p_scale);
+	if (inters) {
+		if (n.dot(r_normal) > 0) {
+			r_normal = -r_normal;
+		}
 	}
 
-	return p_mass * aabb_new.size.dot(aabb_new.size) / 12.0;
+	//return get_aabb().intersects_segment(p_begin,p_end,&r_point,&r_normal);
+	return inters; //todo
 }
 
-void GodotConvexPolygonShape2D::set_data(const Variant &p_data) {
-#ifdef REAL_T_IS_DOUBLE
-	ERR_FAIL_COND(p_data.get_type() != Variant::PACKED_VECTOR2_ARRAY && p_data.get_type() != Variant::PACKED_FLOAT64_ARRAY);
-#else
-	ERR_FAIL_COND(p_data.get_type() != Variant::PACKED_VECTOR2_ARRAY && p_data.get_type() != Variant::PACKED_FLOAT32_ARRAY);
-#endif
+real_t ConvexPolygonShape2DSW::get_moment_of_inertia(real_t p_mass, const Size2 &p_scale) const {
+	ERR_FAIL_COND_V_MSG(point_count == 0, 0, "Convex polygon shape has no points.");
+	Rect2 aabb;
+	aabb.position = points[0].pos * p_scale;
+	for (int i = 0; i < point_count; i++) {
+		aabb.expand_to(points[i].pos * p_scale);
+	}
+
+	return p_mass * aabb.size.dot(aabb.size) / 12.0;
+}
+
+void ConvexPolygonShape2DSW::set_data(const Variant &p_data) {
+	ERR_FAIL_COND(p_data.get_type() != Variant::POOL_VECTOR2_ARRAY && p_data.get_type() != Variant::POOL_REAL_ARRAY);
 
 	if (points) {
 		memdelete_arr(points);
@@ -583,12 +600,12 @@ void GodotConvexPolygonShape2D::set_data(const Variant &p_data) {
 	points = nullptr;
 	point_count = 0;
 
-	if (p_data.get_type() == Variant::PACKED_VECTOR2_ARRAY) {
-		Vector<Vector2> arr = p_data;
+	if (p_data.get_type() == Variant::POOL_VECTOR2_ARRAY) {
+		PoolVector<Vector2> arr = p_data;
 		ERR_FAIL_COND(arr.size() == 0);
 		point_count = arr.size();
 		points = memnew_arr(Point, point_count);
-		const Vector2 *r = arr.ptr();
+		PoolVector<Vector2>::Read r = arr.read();
 
 		for (int i = 0; i < point_count; i++) {
 			points[i].pos = r[i];
@@ -597,15 +614,15 @@ void GodotConvexPolygonShape2D::set_data(const Variant &p_data) {
 		for (int i = 0; i < point_count; i++) {
 			Vector2 p = points[i].pos;
 			Vector2 pn = points[(i + 1) % point_count].pos;
-			points[i].normal = (pn - p).orthogonal().normalized();
+			points[i].normal = (pn - p).tangent().normalized();
 		}
 	} else {
-		Vector<real_t> dvr = p_data;
+		PoolVector<real_t> dvr = p_data;
 		point_count = dvr.size() / 4;
 		ERR_FAIL_COND(point_count == 0);
 
 		points = memnew_arr(Point, point_count);
-		const real_t *r = dvr.ptr();
+		PoolVector<real_t>::Read r = dvr.read();
 
 		for (int i = 0; i < point_count; i++) {
 			int idx = i << 2;
@@ -617,17 +634,17 @@ void GodotConvexPolygonShape2D::set_data(const Variant &p_data) {
 	}
 
 	ERR_FAIL_COND(point_count == 0);
-	Rect2 aabb_new;
-	aabb_new.position = points[0].pos;
+	Rect2 aabb;
+	aabb.position = points[0].pos;
 	for (int i = 1; i < point_count; i++) {
-		aabb_new.expand_to(points[i].pos);
+		aabb.expand_to(points[i].pos);
 	}
 
-	configure(aabb_new);
+	configure(aabb);
 }
 
-Variant GodotConvexPolygonShape2D::get_data() const {
-	Vector<Vector2> dvr;
+Variant ConvexPolygonShape2DSW::get_data() const {
+	PoolVector<Vector2> dvr;
 
 	dvr.resize(point_count);
 
@@ -638,7 +655,12 @@ Variant GodotConvexPolygonShape2D::get_data() const {
 	return dvr;
 }
 
-GodotConvexPolygonShape2D::~GodotConvexPolygonShape2D() {
+ConvexPolygonShape2DSW::ConvexPolygonShape2DSW() {
+	points = nullptr;
+	point_count = 0;
+}
+
+ConvexPolygonShape2DSW::~ConvexPolygonShape2DSW() {
 	if (points) {
 		memdelete_arr(points);
 	}
@@ -646,7 +668,7 @@ GodotConvexPolygonShape2D::~GodotConvexPolygonShape2D() {
 
 //////////////////////////////////////////////////
 
-void GodotConcavePolygonShape2D::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
+void ConcavePolygonShape2DSW::get_supports(const Vector2 &p_normal, Vector2 *r_supports, int &r_amount) const {
 	real_t d = -1e10;
 	int idx = -1;
 	for (int i = 0; i < points.size(); i++) {
@@ -662,11 +684,11 @@ void GodotConcavePolygonShape2D::get_supports(const Vector2 &p_normal, Vector2 *
 	*r_supports = points[idx];
 }
 
-bool GodotConcavePolygonShape2D::contains_point(const Vector2 &p_point) const {
+bool ConcavePolygonShape2DSW::contains_point(const Vector2 &p_point) const {
 	return false; //sorry
 }
 
-bool GodotConcavePolygonShape2D::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
+bool ConcavePolygonShape2DSW::intersect_segment(const Vector2 &p_begin, const Vector2 &p_end, Vector2 &r_point, Vector2 &r_normal) const {
 	if (segments.size() == 0 || points.size() == 0) {
 		return false;
 	}
@@ -702,29 +724,29 @@ bool GodotConcavePolygonShape2D::intersect_segment(const Vector2 &p_begin, const
 	stack[0] = 0;
 	while (true) {
 		uint32_t node = stack[level] & NODE_IDX_MASK;
-		const BVH &bvh2 = bvhptr[node];
+		const BVH &bvh = bvhptr[node];
 		bool done = false;
 
 		switch (stack[level] >> VISITED_BIT_SHIFT) {
 			case TEST_AABB_BIT: {
-				bool valid = bvh2.aabb.intersects_segment(p_begin, p_end);
+				bool valid = bvh.aabb.intersects_segment(p_begin, p_end);
 				if (!valid) {
 					stack[level] = (VISIT_DONE_BIT << VISITED_BIT_SHIFT) | node;
 
 				} else {
-					if (bvh2.left < 0) {
-						const Segment &s = segmentptr[bvh2.right];
+					if (bvh.left < 0) {
+						const Segment &s = segmentptr[bvh.right];
 						Vector2 a = pointptr[s.points[0]];
 						Vector2 b = pointptr[s.points[1]];
 
 						Vector2 res;
 
-						if (Geometry2D::segment_intersects_segment(p_begin, p_end, a, b, &res)) {
+						if (Geometry::segment_intersects_segment_2d(p_begin, p_end, a, b, &res)) {
 							real_t nd = n.dot(res);
 							if (nd < d) {
 								d = nd;
 								r_point = res;
-								r_normal = (b - a).orthogonal().normalized();
+								r_normal = (b - a).tangent().normalized();
 								inters = true;
 							}
 						}
@@ -739,13 +761,13 @@ bool GodotConcavePolygonShape2D::intersect_segment(const Vector2 &p_begin, const
 				continue;
 			case VISIT_LEFT_BIT: {
 				stack[level] = (VISIT_RIGHT_BIT << VISITED_BIT_SHIFT) | node;
-				stack[level + 1] = bvh2.left | TEST_AABB_BIT;
+				stack[level + 1] = bvh.left | TEST_AABB_BIT;
 				level++;
 			}
 				continue;
 			case VISIT_RIGHT_BIT: {
 				stack[level] = (VISIT_DONE_BIT << VISITED_BIT_SHIFT) | node;
-				stack[level + 1] = bvh2.right | TEST_AABB_BIT;
+				stack[level + 1] = bvh.right | TEST_AABB_BIT;
 				level++;
 			}
 				continue;
@@ -774,7 +796,7 @@ bool GodotConcavePolygonShape2D::intersect_segment(const Vector2 &p_begin, const
 	return inters;
 }
 
-int GodotConcavePolygonShape2D::_generate_bvh(BVH *p_bvh, int p_len, int p_depth) {
+int ConcavePolygonShape2DSW::_generate_bvh(BVH *p_bvh, int p_len, int p_depth) {
 	if (p_len == 1) {
 		bvh_depth = MAX(p_depth, bvh_depth);
 		bvh.push_back(*p_bvh);
@@ -812,17 +834,13 @@ int GodotConcavePolygonShape2D::_generate_bvh(BVH *p_bvh, int p_len, int p_depth
 	return node_idx;
 }
 
-void GodotConcavePolygonShape2D::set_data(const Variant &p_data) {
-#ifdef REAL_T_IS_DOUBLE
-	ERR_FAIL_COND(p_data.get_type() != Variant::PACKED_VECTOR2_ARRAY && p_data.get_type() != Variant::PACKED_FLOAT64_ARRAY);
-#else
-	ERR_FAIL_COND(p_data.get_type() != Variant::PACKED_VECTOR2_ARRAY && p_data.get_type() != Variant::PACKED_FLOAT32_ARRAY);
-#endif
+void ConcavePolygonShape2DSW::set_data(const Variant &p_data) {
+	ERR_FAIL_COND(p_data.get_type() != Variant::POOL_VECTOR2_ARRAY && p_data.get_type() != Variant::POOL_REAL_ARRAY);
 
-	Rect2 aabb_new;
+	Rect2 aabb;
 
-	if (p_data.get_type() == Variant::PACKED_VECTOR2_ARRAY) {
-		Vector<Vector2> p2arr = p_data;
+	if (p_data.get_type() == Variant::POOL_VECTOR2_ARRAY) {
+		PoolVector<Vector2> p2arr = p_data;
 		int len = p2arr.size();
 		ERR_FAIL_COND(len % 2);
 
@@ -832,13 +850,13 @@ void GodotConcavePolygonShape2D::set_data(const Variant &p_data) {
 		bvh_depth = 1;
 
 		if (len == 0) {
-			configure(aabb_new);
+			configure(aabb);
 			return;
 		}
 
-		const Vector2 *arr = p2arr.ptr();
+		PoolVector<Vector2>::Read arr = p2arr.read();
 
-		HashMap<Point2, int> pointmap;
+		Map<Point2, int> pointmap;
 		for (int i = 0; i < len; i += 2) {
 			Point2 p1 = arr[i];
 			Point2 p2 = arr[i + 1];
@@ -865,10 +883,10 @@ void GodotConcavePolygonShape2D::set_data(const Variant &p_data) {
 		}
 
 		points.resize(pointmap.size());
-		aabb_new.position = pointmap.begin()->key;
-		for (const KeyValue<Point2, int> &E : pointmap) {
-			aabb_new.expand_to(E.key);
-			points.write[E.value] = E.key;
+		aabb.position = pointmap.front()->key();
+		for (Map<Point2, int>::Element *E = pointmap.front(); E; E = E->next()) {
+			aabb.expand_to(E->key());
+			points.write[E->get()] = E->key();
 		}
 
 		Vector<BVH> main_vbh;
@@ -886,23 +904,24 @@ void GodotConcavePolygonShape2D::set_data(const Variant &p_data) {
 		//dictionary with arrays
 	}
 
-	configure(aabb_new);
+	configure(aabb);
 }
-
-Variant GodotConcavePolygonShape2D::get_data() const {
-	Vector<Vector2> rsegments;
+Variant ConcavePolygonShape2DSW::get_data() const {
+	PoolVector<Vector2> rsegments;
 	int len = segments.size();
 	rsegments.resize(len * 2);
-	Vector2 *w = rsegments.ptrw();
+	PoolVector<Vector2>::Write w = rsegments.write();
 	for (int i = 0; i < len; i++) {
 		w[(i << 1) + 0] = points[segments[i].points[0]];
 		w[(i << 1) + 1] = points[segments[i].points[1]];
 	}
 
+	w.release();
+
 	return rsegments;
 }
 
-void GodotConcavePolygonShape2D::cull(const Rect2 &p_local_aabb, QueryCallback p_callback, void *p_userdata) const {
+void ConcavePolygonShape2DSW::cull(const Rect2 &p_local_aabb, QueryCallback p_callback, void *p_userdata) const {
 	uint32_t *stack = (uint32_t *)alloca(sizeof(int) * bvh_depth);
 
 	enum {
@@ -934,21 +953,21 @@ void GodotConcavePolygonShape2D::cull(const Rect2 &p_local_aabb, QueryCallback p
 	stack[0] = 0;
 	while (true) {
 		uint32_t node = stack[level] & NODE_IDX_MASK;
-		const BVH &bvh2 = bvhptr[node];
+		const BVH &bvh = bvhptr[node];
 
 		switch (stack[level] >> VISITED_BIT_SHIFT) {
 			case TEST_AABB_BIT: {
-				bool valid = p_local_aabb.intersects(bvh2.aabb);
+				bool valid = p_local_aabb.intersects(bvh.aabb);
 				if (!valid) {
 					stack[level] = (VISIT_DONE_BIT << VISITED_BIT_SHIFT) | node;
 
 				} else {
-					if (bvh2.left < 0) {
-						const Segment &s = segmentptr[bvh2.right];
+					if (bvh.left < 0) {
+						const Segment &s = segmentptr[bvh.right];
 						Vector2 a = pointptr[s.points[0]];
 						Vector2 b = pointptr[s.points[1]];
 
-						GodotSegmentShape2D ss(a, b, (b - a).orthogonal().normalized());
+						SegmentShape2DSW ss(a, b, (b - a).tangent().normalized());
 
 						if (p_callback(p_userdata, &ss)) {
 							return;
@@ -963,13 +982,13 @@ void GodotConcavePolygonShape2D::cull(const Rect2 &p_local_aabb, QueryCallback p
 				continue;
 			case VISIT_LEFT_BIT: {
 				stack[level] = (VISIT_RIGHT_BIT << VISITED_BIT_SHIFT) | node;
-				stack[level + 1] = bvh2.left | TEST_AABB_BIT;
+				stack[level + 1] = bvh.left | TEST_AABB_BIT;
 				level++;
 			}
 				continue;
 			case VISIT_RIGHT_BIT: {
 				stack[level] = (VISIT_DONE_BIT << VISITED_BIT_SHIFT) | node;
-				stack[level + 1] = bvh2.right | TEST_AABB_BIT;
+				stack[level + 1] = bvh.right | TEST_AABB_BIT;
 				level++;
 			}
 				continue;
