@@ -1,61 +1,89 @@
+using GodotTools.Core;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using Godot;
 using GodotTools.BuildLogger;
+using GodotTools.Internals;
 using GodotTools.Utils;
+using Directory = System.IO.Directory;
 
 namespace GodotTools.Build
 {
     public static class BuildSystem
     {
-        private static Process LaunchBuild(BuildInfo buildInfo, Action<string> stdOutHandler,
-            Action<string> stdErrHandler)
+        private static string MonoWindowsBinDir
         {
-            string dotnetPath = DotNetFinder.FindDotNetExe();
+            get
+            {
+                string monoWinBinDir = Path.Combine(Internal.MonoWindowsInstallRoot, "bin");
 
-            if (dotnetPath == null)
-                throw new FileNotFoundException("Cannot find the dotnet executable.");
+                if (!Directory.Exists(monoWinBinDir))
+                    throw new FileNotFoundException("Cannot find the Windows Mono install bin directory.");
 
-            var editorSettings = EditorInterface.Singleton.GetEditorSettings();
+                return monoWinBinDir;
+            }
+        }
 
-            var startInfo = new ProcessStartInfo(dotnetPath);
+        private static Godot.EditorSettings EditorSettings =>
+            GodotSharpEditor.Instance.GetEditorInterface().GetEditorSettings();
 
-            BuildArguments(buildInfo, startInfo.ArgumentList, editorSettings);
+        private static bool UsingMonoMsBuildOnWindows
+        {
+            get
+            {
+                if (OS.IsWindows)
+                {
+                    return (BuildTool)EditorSettings.GetSetting("mono/builds/build_tool")
+                           == BuildTool.MsBuildMono;
+                }
 
-            string launchMessage = startInfo.GetCommandLineDisplay(new StringBuilder("Running: ")).ToString();
+                return false;
+            }
+        }
+
+        private static Process LaunchBuild(BuildInfo buildInfo, Action<string> stdOutHandler, Action<string> stdErrHandler)
+        {
+            (string msbuildPath, BuildTool buildTool) = MsBuildFinder.FindMsBuild();
+
+            if (msbuildPath == null)
+                throw new FileNotFoundException("Cannot find the MSBuild executable.");
+
+            string compilerArgs = BuildArguments(buildTool, buildInfo);
+
+            var startInfo = new ProcessStartInfo(msbuildPath, compilerArgs);
+
+            string launchMessage = $"Running: \"{startInfo.FileName}\" {startInfo.Arguments}";
             stdOutHandler?.Invoke(launchMessage);
-            if (Godot.OS.IsStdOutVerbose())
+            if (Godot.OS.IsStdoutVerbose())
                 Console.WriteLine(launchMessage);
 
             startInfo.RedirectStandardOutput = true;
             startInfo.RedirectStandardError = true;
             startInfo.UseShellExecute = false;
             startInfo.CreateNoWindow = true;
-            startInfo.EnvironmentVariables["DOTNET_CLI_UI_LANGUAGE"]
-                = ((string)editorSettings.GetSetting("interface/editor/editor_language")).Replace('_', '-');
 
-            if (OperatingSystem.IsWindows())
+            if (UsingMonoMsBuildOnWindows)
             {
-                startInfo.StandardOutputEncoding = Encoding.UTF8;
-                startInfo.StandardErrorEncoding = Encoding.UTF8;
+                // These environment variables are required for Mono's MSBuild to find the compilers.
+                // We use the batch files in Mono's bin directory to make sure the compilers are executed with mono.
+                string monoWinBinDir = MonoWindowsBinDir;
+                startInfo.EnvironmentVariables.Add("CscToolExe", Path.Combine(monoWinBinDir, "csc.bat"));
+                startInfo.EnvironmentVariables.Add("VbcToolExe", Path.Combine(monoWinBinDir, "vbc.bat"));
+                startInfo.EnvironmentVariables.Add("FscToolExe", Path.Combine(monoWinBinDir, "fsharpc.bat"));
             }
 
             // Needed when running from Developer Command Prompt for VS
             RemovePlatformVariable(startInfo.EnvironmentVariables);
 
-            var process = new Process { StartInfo = startInfo };
+            var process = new Process {StartInfo = startInfo};
 
             if (stdOutHandler != null)
-                process.OutputDataReceived += (_, e) => stdOutHandler.Invoke(e.Data);
+                process.OutputDataReceived += (s, e) => stdOutHandler.Invoke(e.Data);
             if (stdErrHandler != null)
-                process.ErrorDataReceived += (_, e) => stdErrHandler.Invoke(e.Data);
+                process.ErrorDataReceived += (s, e) => stdErrHandler.Invoke(e.Data);
 
             process.Start();
 
@@ -75,8 +103,7 @@ namespace GodotTools.Build
             }
         }
 
-        public static async Task<int> BuildAsync(BuildInfo buildInfo, Action<string> stdOutHandler,
-            Action<string> stdErrHandler)
+        public static async Task<int> BuildAsync(BuildInfo buildInfo, Action<string> stdOutHandler, Action<string> stdErrHandler)
         {
             using (var process = LaunchBuild(buildInfo, stdOutHandler, stdErrHandler))
             {
@@ -86,196 +113,28 @@ namespace GodotTools.Build
             }
         }
 
-        private static Process LaunchPublish(BuildInfo buildInfo, Action<string> stdOutHandler,
-            Action<string> stdErrHandler)
+        private static string BuildArguments(BuildTool buildTool, BuildInfo buildInfo)
         {
-            string dotnetPath = DotNetFinder.FindDotNetExe();
+            string arguments = string.Empty;
 
-            if (dotnetPath == null)
-                throw new FileNotFoundException("Cannot find the dotnet executable.");
+            if (buildTool == BuildTool.DotnetCli)
+                arguments += "msbuild"; // `dotnet msbuild` command
 
-            var editorSettings = EditorInterface.Singleton.GetEditorSettings();
+            arguments += $@" ""{buildInfo.Solution}""";
 
-            var startInfo = new ProcessStartInfo(dotnetPath);
+            if (buildInfo.Restore)
+                arguments += " /restore";
 
-            BuildPublishArguments(buildInfo, startInfo.ArgumentList, editorSettings);
+            arguments += $@" /t:{string.Join(",", buildInfo.Targets)} " +
+                         $@"""/p:{"Configuration=" + buildInfo.Configuration}"" /v:normal " +
+                         $@"""/l:{typeof(GodotBuildLogger).FullName},{GodotBuildLogger.AssemblyPath};{buildInfo.LogsDirPath}""";
 
-            string launchMessage = startInfo.GetCommandLineDisplay(new StringBuilder("Running: ")).ToString();
-            stdOutHandler?.Invoke(launchMessage);
-            if (Godot.OS.IsStdOutVerbose())
-                Console.WriteLine(launchMessage);
-
-            startInfo.RedirectStandardOutput = true;
-            startInfo.RedirectStandardError = true;
-            startInfo.UseShellExecute = false;
-            startInfo.EnvironmentVariables["DOTNET_CLI_UI_LANGUAGE"]
-                = ((string)editorSettings.GetSetting("interface/editor/editor_language")).Replace('_', '-');
-
-            if (OperatingSystem.IsWindows())
+            foreach (string customProperty in buildInfo.CustomProperties)
             {
-                startInfo.StandardOutputEncoding = Encoding.UTF8;
-                startInfo.StandardErrorEncoding = Encoding.UTF8;
+                arguments += " /p:" + customProperty;
             }
 
-            // Needed when running from Developer Command Prompt for VS
-            RemovePlatformVariable(startInfo.EnvironmentVariables);
-
-            var process = new Process { StartInfo = startInfo };
-
-            if (stdOutHandler != null)
-                process.OutputDataReceived += (_, e) => stdOutHandler.Invoke(e.Data);
-            if (stdErrHandler != null)
-                process.ErrorDataReceived += (_, e) => stdErrHandler.Invoke(e.Data);
-
-            process.Start();
-
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            return process;
-        }
-
-        public static int Publish(BuildInfo buildInfo, Action<string> stdOutHandler, Action<string> stdErrHandler)
-        {
-            using (var process = LaunchPublish(buildInfo, stdOutHandler, stdErrHandler))
-            {
-                process.WaitForExit();
-
-                return process.ExitCode;
-            }
-        }
-
-        private static void BuildArguments(BuildInfo buildInfo, Collection<string> arguments,
-            EditorSettings editorSettings)
-        {
-            // `dotnet clean` / `dotnet build` commands
-            arguments.Add(buildInfo.OnlyClean ? "clean" : "build");
-
-            // C# Project
-            arguments.Add(buildInfo.Project);
-
-            // `dotnet clean` doesn't recognize these options
-            if (!buildInfo.OnlyClean)
-            {
-                // Restore
-                // `dotnet build` restores by default, unless requested not to
-                if (!buildInfo.Restore)
-                    arguments.Add("--no-restore");
-
-                // Incremental or rebuild
-                if (buildInfo.Rebuild)
-                    arguments.Add("--no-incremental");
-            }
-
-            // Configuration
-            arguments.Add("-c");
-            arguments.Add(buildInfo.Configuration);
-
-            // Verbosity
-            AddVerbosityArguments(buildInfo, arguments, editorSettings);
-
-            // Logger
-            AddLoggerArgument(buildInfo, arguments);
-
-            // Binary log
-            AddBinaryLogArgument(buildInfo, arguments, editorSettings);
-
-            // Custom properties
-            foreach (var customProperty in buildInfo.CustomProperties)
-            {
-                arguments.Add("-p:" + (string)customProperty);
-            }
-        }
-
-        private static void BuildPublishArguments(BuildInfo buildInfo, Collection<string> arguments,
-            EditorSettings editorSettings)
-        {
-            arguments.Add("publish"); // `dotnet publish` command
-
-            // C# Project
-            arguments.Add(buildInfo.Project);
-
-            // Restore
-            // `dotnet publish` restores by default, unless requested not to
-            if (!buildInfo.Restore)
-                arguments.Add("--no-restore");
-
-            // Incremental or rebuild
-            // TODO: Not supported in `dotnet publish` (https://github.com/dotnet/sdk/issues/11099)
-            // if (buildInfo.Rebuild)
-            //     arguments.Add("--no-incremental");
-
-            // Configuration
-            arguments.Add("-c");
-            arguments.Add(buildInfo.Configuration);
-
-            // Runtime Identifier
-            arguments.Add("-r");
-            arguments.Add(buildInfo.RuntimeIdentifier!);
-
-            // Self-published
-            arguments.Add("--self-contained");
-            arguments.Add("true");
-
-            // Verbosity
-            AddVerbosityArguments(buildInfo, arguments, editorSettings);
-
-            // Logger
-            AddLoggerArgument(buildInfo, arguments);
-
-            // Binary log
-            AddBinaryLogArgument(buildInfo, arguments, editorSettings);
-
-            // Custom properties
-            foreach (var customProperty in buildInfo.CustomProperties)
-            {
-                arguments.Add("-p:" + (string)customProperty);
-            }
-
-            // Publish output directory
-            if (buildInfo.PublishOutputDir != null)
-            {
-                arguments.Add("-o");
-                arguments.Add(buildInfo.PublishOutputDir);
-            }
-        }
-
-        private static void AddVerbosityArguments(BuildInfo buildInfo, Collection<string> arguments,
-            EditorSettings editorSettings)
-        {
-            var verbosityLevel =
-                editorSettings.GetSetting(GodotSharpEditor.Settings.VerbosityLevel).As<VerbosityLevelId>();
-            arguments.Add("-v");
-            arguments.Add(verbosityLevel switch
-            {
-                VerbosityLevelId.Quiet => "quiet",
-                VerbosityLevelId.Minimal => "minimal",
-                VerbosityLevelId.Detailed => "detailed",
-                VerbosityLevelId.Diagnostic => "diagnostic",
-                _ => "normal",
-            });
-
-            if ((bool)editorSettings.GetSetting(GodotSharpEditor.Settings.NoConsoleLogging))
-                arguments.Add("-noconlog");
-        }
-
-        private static void AddLoggerArgument(BuildInfo buildInfo, Collection<string> arguments)
-        {
-            string buildLoggerPath = Path.Combine(Internals.GodotSharpDirs.DataEditorToolsDir,
-                "GodotTools.BuildLogger.dll");
-
-            arguments.Add(
-                $"-l:{typeof(GodotBuildLogger).FullName},{buildLoggerPath};{buildInfo.LogsDirPath}");
-        }
-
-        private static void AddBinaryLogArgument(BuildInfo buildInfo, Collection<string> arguments,
-            EditorSettings editorSettings)
-        {
-            if (!(bool)editorSettings.GetSetting(GodotSharpEditor.Settings.CreateBinaryLog))
-                return;
-
-            arguments.Add($"-bl:{Path.Combine(buildInfo.LogsDirPath, "msbuild.binlog")}");
-            arguments.Add("-ds:False"); // Honestly never understood why -bl also switches -ds on.
+            return arguments;
         }
 
         private static void RemovePlatformVariable(StringDictionary environmentVariables)
@@ -286,7 +145,7 @@ namespace GodotTools.Build
 
             foreach (string env in environmentVariables.Keys)
             {
-                if (env.ToUpperInvariant() == "PLATFORM")
+                if (env.ToUpper() == "PLATFORM")
                     platformEnvironmentVariables.Add(env);
             }
 

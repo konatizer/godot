@@ -1,58 +1,53 @@
-/**************************************************************************/
-/*  grid_map_editor_plugin.h                                              */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  grid_map_editor_plugin.h                                             */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef GRID_MAP_EDITOR_PLUGIN_H
 #define GRID_MAP_EDITOR_PLUGIN_H
 
-#ifdef TOOLS_ENABLED
-
-#include "../grid_map.h"
-
+#include "editor/editor_node.h"
 #include "editor/editor_plugin.h"
-#include "scene/gui/box_container.h"
-#include "scene/gui/item_list.h"
-#include "scene/gui/slider.h"
-#include "scene/gui/spin_box.h"
+#include "editor/pane_drag.h"
+#include "grid_map.h"
 
-class ConfirmationDialog;
-class MenuButton;
-class Node3DEditorPlugin;
+class SpatialEditorPlugin;
 
 class GridMapEditor : public VBoxContainer {
 	GDCLASS(GridMapEditor, VBoxContainer);
 
 	enum {
+
 		GRID_CURSOR_SIZE = 50
 	};
 
 	enum InputAction {
+
 		INPUT_NONE,
 		INPUT_PAINT,
 		INPUT_ERASE,
@@ -61,41 +56,51 @@ class GridMapEditor : public VBoxContainer {
 		INPUT_PASTE,
 	};
 
+	enum ClipMode {
+
+		CLIP_DISABLED,
+		CLIP_ABOVE,
+		CLIP_BELOW
+	};
+
 	enum DisplayMode {
 		DISPLAY_THUMBNAIL,
 		DISPLAY_LIST
 	};
 
-	InputAction input_action = INPUT_NONE;
-	Panel *panel = nullptr;
-	MenuButton *options = nullptr;
-	SpinBox *floor = nullptr;
-	double accumulated_floor_delta = 0.0;
-	Button *mode_thumbnail = nullptr;
-	Button *mode_list = nullptr;
-	LineEdit *search_box = nullptr;
-	HSlider *size_slider = nullptr;
-	HBoxContainer *spatial_editor_hb = nullptr;
-	ConfirmationDialog *settings_dialog = nullptr;
-	VBoxContainer *settings_vbc = nullptr;
-	SpinBox *settings_pick_distance = nullptr;
-	Label *spin_box_label = nullptr;
+	UndoRedo *undo_redo;
+	InputAction input_action;
+	Panel *panel;
+	MenuButton *options;
+	SpinBox *floor;
+	double accumulated_floor_delta;
+	ToolButton *mode_thumbnail;
+	ToolButton *mode_list;
+	LineEdit *search_box;
+	HSlider *size_slider;
+	HBoxContainer *spatial_editor_hb;
+	ConfirmationDialog *settings_dialog;
+	VBoxContainer *settings_vbc;
+	SpinBox *settings_pick_distance;
+	Label *spin_box_label;
 
 	struct SetItem {
-		Vector3i position;
-		int new_value = 0;
-		int new_orientation = 0;
-		int old_value = 0;
-		int old_orientation = 0;
+		Vector3 pos;
+		int new_value;
+		int new_orientation;
+		int old_value;
+		int old_orientation;
 	};
 
 	List<SetItem> set_items;
 
-	GridMap *node = nullptr;
-	Ref<MeshLibrary> mesh_library = nullptr;
+	GridMap *node;
+	MeshLibrary *last_mesh_library;
+	ClipMode clip_mode;
 
-	Transform3D grid_xform;
-	Transform3D edit_grid_xform;
+	bool lock_view;
+	Transform grid_xform;
+	Transform edit_grid_xform;
 	Vector3::Axis edit_axis;
 	int edit_floor[3];
 	Vector3 grid_ofs;
@@ -111,27 +116,27 @@ class GridMapEditor : public VBoxContainer {
 	RID paste_instance;
 
 	struct ClipboardItem {
-		int cell_item = 0;
+		int cell_item;
 		Vector3 grid_offset;
-		int orientation = 0;
+		int orientation;
 		RID instance;
 	};
 
 	List<ClipboardItem> clipboard_items;
 
-	Ref<StandardMaterial3D> indicator_mat;
-	Ref<StandardMaterial3D> inner_mat;
-	Ref<StandardMaterial3D> outer_mat;
-	Ref<StandardMaterial3D> selection_floor_mat;
+	Ref<SpatialMaterial> indicator_mat;
+	Ref<SpatialMaterial> inner_mat;
+	Ref<SpatialMaterial> outer_mat;
+	Ref<SpatialMaterial> selection_floor_mat;
 
-	bool updating = false;
+	bool updating;
 
 	struct Selection {
 		Vector3 click;
 		Vector3 current;
 		Vector3 begin;
 		Vector3 end;
-		bool active = false;
+		bool active;
 	} selection;
 	Selection last_selection;
 
@@ -140,23 +145,27 @@ class GridMapEditor : public VBoxContainer {
 		Vector3 current;
 		Vector3 begin;
 		Vector3 end;
-		int orientation = 0;
+		int orientation;
 	};
 	PasteIndicator paste_indicator;
 
-	bool cursor_visible = false;
-	Transform3D cursor_transform;
+	bool cursor_visible;
+	Transform cursor_transform;
 
 	Vector3 cursor_origin;
 
-	int display_mode = DISPLAY_THUMBNAIL;
-	int selected_palette = -1;
-	int cursor_rot = 0;
+	int display_mode;
+	int selected_palette;
+	int cursor_rot;
 
 	enum Menu {
+
 		MENU_OPTION_NEXT_LEVEL,
 		MENU_OPTION_PREV_LEVEL,
 		MENU_OPTION_LOCK_VIEW,
+		MENU_OPTION_CLIP_DISABLED,
+		MENU_OPTION_CLIP_ABOVE,
+		MENU_OPTION_CLIP_BELOW,
 		MENU_OPTION_X_AXIS,
 		MENU_OPTION_Y_AXIS,
 		MENU_OPTION_Z_AXIS,
@@ -176,27 +185,28 @@ class GridMapEditor : public VBoxContainer {
 
 	};
 
-	Node3DEditorPlugin *spatial_editor = nullptr;
+	SpatialEditorPlugin *spatial_editor;
 
 	struct AreaDisplay {
 		RID mesh;
 		RID instance;
 	};
 
-	ItemList *mesh_library_palette = nullptr;
-	Label *info_message = nullptr;
+	ItemList *mesh_library_palette;
+	Label *info_message;
+
+	EditorNode *editor;
 
 	void update_grid(); // Change which and where the grid is displayed
 	void _draw_grids(const Vector3 &cell_size);
 	void _configure();
 	void _menu_option(int);
 	void update_palette();
-	void _update_mesh_library();
 	void _set_display_mode(int p_mode);
 	void _item_selected_cbk(int idx);
 	void _update_cursor_transform();
 	void _update_cursor_instance();
-	void _update_theme();
+	void _update_clip();
 
 	void _text_changed(const String &p_text);
 	void _sbox_input(const Ref<InputEvent> &p_ie);
@@ -218,42 +228,43 @@ class GridMapEditor : public VBoxContainer {
 	void _delete_selection();
 	void _fill_selection();
 
-	bool do_input_action(Camera3D *p_camera, const Point2 &p_point, bool p_click);
+	bool do_input_action(Camera *p_camera, const Point2 &p_point, bool p_click);
 
 	friend class GridMapEditorPlugin;
 
 protected:
 	void _notification(int p_what);
+	void _node_removed(Node *p_node);
 	static void _bind_methods();
 
 public:
-	EditorPlugin::AfterGUIInput forward_spatial_input_event(Camera3D *p_camera, const Ref<InputEvent> &p_event);
+	bool forward_spatial_input_event(Camera *p_camera, const Ref<InputEvent> &p_event);
 
 	void edit(GridMap *p_gridmap);
-	GridMapEditor();
+	GridMapEditor() {}
+	GridMapEditor(EditorNode *p_editor);
 	~GridMapEditor();
 };
 
 class GridMapEditorPlugin : public EditorPlugin {
 	GDCLASS(GridMapEditorPlugin, EditorPlugin);
 
-	GridMapEditor *grid_map_editor = nullptr;
+	GridMapEditor *grid_map_editor;
+	EditorNode *editor;
 
 protected:
 	void _notification(int p_what);
 
 public:
-	virtual EditorPlugin::AfterGUIInput forward_3d_gui_input(Camera3D *p_camera, const Ref<InputEvent> &p_event) override { return grid_map_editor->forward_spatial_input_event(p_camera, p_event); }
-	virtual String get_name() const override { return "GridMap"; }
-	bool has_main_screen() const override { return false; }
-	virtual void edit(Object *p_object) override;
-	virtual bool handles(Object *p_object) const override;
-	virtual void make_visible(bool p_visible) override;
+	virtual bool forward_spatial_gui_input(Camera *p_camera, const Ref<InputEvent> &p_event) { return grid_map_editor->forward_spatial_input_event(p_camera, p_event); }
+	virtual String get_name() const { return "GridMap"; }
+	bool has_main_screen() const { return false; }
+	virtual void edit(Object *p_object);
+	virtual bool handles(Object *p_object) const;
+	virtual void make_visible(bool p_visible);
 
-	GridMapEditorPlugin();
+	GridMapEditorPlugin(EditorNode *p_node);
 	~GridMapEditorPlugin();
 };
-
-#endif // TOOLS_ENABLED
 
 #endif // GRID_MAP_EDITOR_PLUGIN_H

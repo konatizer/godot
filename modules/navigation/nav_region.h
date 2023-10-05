@@ -1,49 +1,54 @@
-/**************************************************************************/
-/*  nav_region.h                                                          */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  nav_region.h                                                         */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef NAV_REGION_H
 #define NAV_REGION_H
 
-#include "nav_base.h"
+#include "scene/3d/navigation.h"
+
+#include "nav_rid.h"
 #include "nav_utils.h"
 
-#include "scene/resources/navigation_mesh.h"
+#include <vector>
 
-class NavRegion : public NavBase {
+class NavMap;
+class NavRegion;
+
+class NavRegion : public NavRid {
 	NavMap *map = nullptr;
-	Transform3D transform;
+	Transform transform;
 	Ref<NavigationMesh> mesh;
+	uint32_t navigation_layers = 1;
+	float enter_cost = 0.0;
+	float travel_cost = 1.0;
 	Vector<gd::Edge::Connection> connections;
-	bool enabled = true;
-
-	bool use_edge_connections = true;
 
 	bool polygons_dirty = true;
 
@@ -51,29 +56,26 @@ class NavRegion : public NavBase {
 	LocalVector<gd::Polygon> polygons;
 
 public:
-	NavRegion() {
-		type = NavigationUtilities::PathSegmentType::PATH_SEGMENT_TYPE_REGION;
-	}
-
 	void scratch_polygons() {
 		polygons_dirty = true;
 	}
-
-	void set_enabled(bool p_enabled);
-	bool get_enabled() const { return enabled; }
 
 	void set_map(NavMap *p_map);
 	NavMap *get_map() const {
 		return map;
 	}
 
-	void set_use_edge_connections(bool p_enabled);
-	bool get_use_edge_connections() const {
-		return use_edge_connections;
-	}
+	void set_enter_cost(float p_enter_cost) { enter_cost = MAX(p_enter_cost, 0.0); }
+	float get_enter_cost() const { return enter_cost; }
 
-	void set_transform(Transform3D transform);
-	const Transform3D &get_transform() const {
+	void set_travel_cost(float p_travel_cost) { travel_cost = MAX(p_travel_cost, 0.0); }
+	float get_travel_cost() const { return travel_cost; }
+
+	void set_navigation_layers(uint32_t p_navigation_layers);
+	uint32_t get_navigation_layers() const;
+
+	void set_transform(Transform transform);
+	const Transform &get_transform() const {
 		return transform;
 	}
 
@@ -94,6 +96,9 @@ public:
 	}
 
 	bool sync();
+
+	NavRegion();
+	~NavRegion();
 
 private:
 	void update_polygons();

@@ -1,39 +1,39 @@
-/**************************************************************************/
-/*  godot_lsp.h                                                           */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  lsp.hpp                                                              */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef GODOT_LSP_H
 #define GODOT_LSP_H
 
-#include "core/doc_data.h"
-#include "core/object/class_db.h"
-#include "core/templates/list.h"
+#include "core/class_db.h"
+#include "core/list.h"
+#include "editor/doc/doc_data.h"
 
 namespace lsp {
 
@@ -261,7 +261,7 @@ struct WorkspaceEdit {
 	/**
 	 * Holds changes to existing resources.
 	 */
-	HashMap<String, Vector<TextEdit>> changes;
+	Map<String, Vector<TextEdit>> changes;
 
 	_FORCE_INLINE_ void add_edit(const String &uri, const TextEdit &edit) {
 		if (changes.has(uri)) {
@@ -277,15 +277,15 @@ struct WorkspaceEdit {
 		Dictionary dict;
 
 		Dictionary out_changes;
-		for (const KeyValue<String, Vector<TextEdit>> &E : changes) {
+		for (Map<String, Vector<TextEdit>>::Element *E = changes.front(); E; E = E->next()) {
 			Array edits;
-			for (int i = 0; i < E.value.size(); ++i) {
+			for (int i = 0; i < E->get().size(); ++i) {
 				Dictionary text_edit;
-				text_edit["range"] = E.value[i].range.to_json();
-				text_edit["newText"] = E.value[i].newText;
+				text_edit["range"] = E->get()[i].range.to_json();
+				text_edit["newText"] = E->get()[i].newText;
 				edits.push_back(text_edit);
 			}
-			out_changes[E.key] = edits;
+			out_changes[E->key()] = edits;
 		}
 		dict["changes"] = out_changes;
 
@@ -293,6 +293,16 @@ struct WorkspaceEdit {
 	}
 
 	_FORCE_INLINE_ void add_change(const String &uri, const int &line, const int &start_character, const int &end_character, const String &new_text) {
+		if (Map<String, Vector<TextEdit>>::Element *E = changes.find(uri)) {
+			Vector<TextEdit> edit_list = E->value();
+			for (int i = 0; i < edit_list.size(); ++i) {
+				TextEdit edit = edit_list[i];
+				if (edit.range.start.character == start_character) {
+					return;
+				}
+			}
+		}
+
 		TextEdit new_edit;
 		new_edit.newText = new_text;
 		new_edit.range.start.line = line;
@@ -300,8 +310,8 @@ struct WorkspaceEdit {
 		new_edit.range.end.line = line;
 		new_edit.range.end.character = end_character;
 
-		if (HashMap<String, Vector<TextEdit>>::Iterator E = changes.find(uri)) {
-			E->value.push_back(new_edit);
+		if (Map<String, Vector<TextEdit>>::Element *E = changes.find(uri)) {
+			E->value().push_back(new_edit);
 		} else {
 			Vector<TextEdit> edit_list;
 			edit_list.push_back(new_edit);
@@ -536,7 +546,7 @@ struct TextDocumentSyncOptions {
 	 * If present will save wait until requests are sent to the server. If omitted the request should not be
 	 * sent.
 	 */
-	bool willSaveWaitUntil = true;
+	bool willSaveWaitUntil = false;
 
 	/**
 	 * If present save notifications are sent to the server. If omitted the notification should not be
@@ -603,7 +613,7 @@ struct TextDocumentItem {
 	 * The version number of this document (it will increase after each
 	 * change, including undo/redo).
 	 */
-	int version = 0;
+	int version;
 
 	/**
 	 * The content of the opened text document.
@@ -640,7 +650,7 @@ struct TextDocumentContentChangeEvent {
 	/**
 	 * The length of the range that got replaced.
 	 */
-	int rangeLength = 0;
+	int rangeLength;
 
 	/**
 	 * The new text of the range/document.
@@ -692,7 +702,7 @@ struct DiagnosticRelatedInformation {
 
 	Dictionary to_json() const {
 		Dictionary dict;
-		dict["location"] = location.to_json();
+		dict["location"] = location.to_json(),
 		dict["message"] = message;
 		return dict;
 	}
@@ -712,12 +722,12 @@ struct Diagnostic {
 	 * The diagnostic's severity. Can be omitted. If omitted it is up to the
 	 * client to interpret diagnostics as error, warning, info or hint.
 	 */
-	int severity = 0;
+	int severity;
 
 	/**
 	 * The diagnostic's code, which might appear in the user interface.
 	 */
-	int code = 0;
+	int code;
 
 	/**
 	 * A human-readable string describing the source of this
@@ -743,7 +753,7 @@ struct Diagnostic {
 		dict["severity"] = severity;
 		dict["message"] = message;
 		dict["source"] = source;
-		if (!relatedInformation.is_empty()) {
+		if (!relatedInformation.empty()) {
 			Array arr;
 			arr.resize(relatedInformation.size());
 			for (int i = 0; i < relatedInformation.size(); i++) {
@@ -822,7 +832,7 @@ struct MarkupContent {
 
 // Use namespace instead of enumeration to follow the LSP specifications
 // lsp::EnumName::EnumValue is OK but lsp::EnumValue is not
-// And here C++ compilers are unhappy with our enumeration name like Color, File, RefCounted etc.
+// And here C++ compilers are unhappy with our enumeration name like Color, File, Reference etc.
 /**
  * The kind of a completion entry.
  */
@@ -844,7 +854,7 @@ static const int Keyword = 14;
 static const int Snippet = 15;
 static const int Color = 16;
 static const int File = 17;
-static const int RefCounted = 18;
+static const int Reference = 18;
 static const int Folder = 19;
 static const int EnumMember = 20;
 static const int Constant = 21;
@@ -889,7 +899,7 @@ struct CompletionItem {
 	 * an icon is chosen by the editor. The standardized set
 	 * of available values is defined in `CompletionItemKind`.
 	 */
-	int kind = 0;
+	int kind;
 
 	/**
 	 * A human-readable string with additional information
@@ -947,7 +957,7 @@ struct CompletionItem {
 	 * The format of the insert text. The format applies to both the `insertText` property
 	 * and the `newText` property of a provided `textEdit`.
 	 */
-	int insertTextFormat = 0;
+	int insertTextFormat;
 
 	/**
 	 * An edit which is applied to a document when selecting this completion. When an edit is provided the value of
@@ -1005,9 +1015,7 @@ struct CompletionItem {
 			if (commitCharacters.size()) {
 				dict["commitCharacters"] = commitCharacters;
 			}
-			if (!command.command.is_empty()) {
-				dict["command"] = command.to_json();
-			}
+			dict["command"] = command.to_json();
 		}
 		return dict;
 	}
@@ -1061,7 +1069,7 @@ struct CompletionList {
 	 * This list it not complete. Further typing should result in recomputing
 	 * this list.
 	 */
-	bool isIncomplete = false;
+	bool isIncomplete;
 
 	/**
 	 * The completion items.
@@ -1249,7 +1257,7 @@ struct DocumentSymbol {
 
 	void symbol_tree_as_list(const String &p_uri, Vector<DocumentedSymbolInformation> &r_list, const String &p_container = "", bool p_join_name = false) const {
 		DocumentedSymbolInformation si;
-		if (p_join_name && !p_container.is_empty()) {
+		if (p_join_name && !p_container.empty()) {
 			si.name = p_container + ">" + name;
 		} else {
 			si.name = name;
@@ -1566,7 +1574,7 @@ struct SignatureHelp {
 	/**
 	 * The active signature. If omitted or the value lies outside the
 	 * range of `signatures` the value defaults to zero or is ignored if
-	 * `signatures.length === 0`. Whenever possible implementers should
+	 * `signatures.length === 0`. Whenever possible implementors should
 	 * make an active decision about the active signature and shouldn't
 	 * rely on a default value.
 	 * In future version of the protocol this property might become
@@ -1932,7 +1940,7 @@ static String marked_documentation(const String &p_bbcode) {
 			line = "\t" + line.substr(code_block_indent, line.length());
 		}
 
-		if (in_code_block && line.contains("[/codeblock]")) {
+		if (in_code_block && line.find("[/codeblock]") != -1) {
 			line = "\n";
 			in_code_block = false;
 		}
@@ -1965,6 +1973,7 @@ static String marked_documentation(const String &p_bbcode) {
 	}
 	return markdown;
 }
+
 } // namespace lsp
 
-#endif // GODOT_LSP_H
+#endif

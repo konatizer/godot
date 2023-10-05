@@ -1,158 +1,127 @@
-/**************************************************************************/
-/*  wsl_peer.h                                                            */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  wsl_peer.h                                                           */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef WSL_PEER_H
 #define WSL_PEER_H
 
-#ifndef WEB_ENABLED
+#ifndef JAVASCRIPT_ENABLED
 
-#include "packet_buffer.h"
-#include "websocket_peer.h"
-
-#include "core/crypto/crypto_core.h"
-#include "core/error/error_list.h"
+#include "core/error_list.h"
 #include "core/io/packet_peer.h"
 #include "core/io/stream_peer_tcp.h"
-#include "core/templates/ring_buffer.h"
-
-#include <wslay/wslay.h>
+#include "core/ring_buffer.h"
+#include "packet_buffer.h"
+#include "websocket_peer.h"
+#include "wslay/wslay.h"
 
 #define WSL_MAX_HEADER_SIZE 4096
 
 class WSLPeer : public WebSocketPeer {
-private:
-	static CryptoCore::RandomGenerator *_static_rng;
-	static WebSocketPeer *_create() { return memnew(WSLPeer); }
-
-	// Callbacks.
-	static ssize_t _wsl_recv_callback(wslay_event_context_ptr ctx, uint8_t *data, size_t len, int flags, void *user_data);
-	static ssize_t _wsl_send_callback(wslay_event_context_ptr ctx, const uint8_t *data, size_t len, int flags, void *user_data);
-	static int _wsl_genmask_callback(wslay_event_context_ptr ctx, uint8_t *buf, size_t len, void *user_data);
-	static void _wsl_msg_recv_callback(wslay_event_context_ptr ctx, const struct wslay_event_on_msg_recv_arg *arg, void *user_data);
-
-	static wslay_event_callbacks _wsl_callbacks;
-
-	// Helpers
-	static String _compute_key_response(String p_key);
-	static String _generate_key();
-
-	// Client IP resolver.
-	class Resolver {
-		Array ip_candidates;
-		IP::ResolverID resolver_id = IP::RESOLVER_INVALID_ID;
-		int port = 0;
-
-	public:
-		bool has_more_candidates() {
-			return ip_candidates.size() > 0 || resolver_id != IP::RESOLVER_INVALID_ID;
-		}
-
-		void try_next_candidate(Ref<StreamPeerTCP> &p_tcp);
-		void start(const String &p_host, int p_port);
-		void stop();
-		Resolver() {}
-	};
-
-	Resolver resolver;
-
-	// WebSocket connection state.
-	WebSocketPeer::State ready_state = WebSocketPeer::STATE_CLOSED;
-	bool is_server = false;
-	Ref<StreamPeerTCP> tcp;
-	Ref<StreamPeer> connection;
-	wslay_event_context_ptr wsl_ctx = nullptr;
-
-	String requested_url;
-	String requested_host;
-	bool pending_request = true;
-	Ref<StreamPeerBuffer> handshake_buffer;
-	String selected_protocol;
-	String session_key;
-
-	int close_code = -1;
-	String close_reason;
-	uint8_t was_string = 0;
-
-	// WebSocket configuration.
-	bool use_tls = true;
-	Ref<TLSOptions> tls_options;
-
-	// Packet buffers.
-	Vector<uint8_t> packet_buffer;
-	// Our packet info is just a boolean (is_string), using uint8_t for it.
-	PacketBuffer<uint8_t> in_buffer;
-
-	Error _send(const uint8_t *p_buffer, int p_buffer_size, wslay_opcode p_opcode);
-
-	Error _do_server_handshake();
-	bool _parse_client_request();
-
-	void _do_client_handshake();
-	bool _verify_server_response();
-
-	void _clear();
+	GDCIIMPL(WSLPeer, WebSocketPeer);
 
 public:
-	static void initialize();
-	static void deinitialize();
+	struct PeerData {
+		bool polling;
+		bool destroy;
+		bool valid;
+		bool is_server;
+		bool closing;
+		void *obj;
+		void *peer;
+		Ref<StreamPeer> conn;
+		Ref<StreamPeerTCP> tcp;
+		int id;
+		wslay_event_context_ptr ctx;
 
-	// PacketPeer
-	virtual int get_available_packet_count() const override;
-	virtual Error get_packet(const uint8_t **r_buffer, int &r_buffer_size) override;
-	virtual Error put_packet(const uint8_t *p_buffer, int p_buffer_size) override;
-	virtual int get_max_packet_size() const override { return packet_buffer.size(); };
+		PeerData() {
+			polling = false;
+			destroy = false;
+			valid = false;
+			is_server = false;
+			id = 1;
+			ctx = nullptr;
+			obj = nullptr;
+			closing = false;
+			peer = nullptr;
+		}
+	};
 
-	// WebSocketPeer
-	virtual Error send(const uint8_t *p_buffer, int p_buffer_size, WriteMode p_mode) override;
-	virtual Error connect_to_url(const String &p_url, Ref<TLSOptions> p_options = Ref<TLSOptions>()) override;
-	virtual Error accept_stream(Ref<StreamPeer> p_stream) override;
-	virtual void close(int p_code = 1000, String p_reason = "") override;
-	virtual void poll() override;
+	static String compute_key_response(String p_key);
+	static String generate_key();
 
-	virtual State get_ready_state() const override { return ready_state; }
-	virtual int get_close_code() const override { return close_code; }
-	virtual String get_close_reason() const override { return close_reason; }
-	virtual int get_current_outbound_buffered_amount() const override;
+private:
+	static bool _wsl_poll(struct PeerData *p_data);
+	static void _wsl_destroy(struct PeerData **p_data);
 
-	virtual IPAddress get_connected_host() const override;
-	virtual uint16_t get_connected_port() const override;
-	virtual String get_selected_protocol() const override;
-	virtual String get_requested_url() const override;
+	struct PeerData *_data;
+	uint8_t _is_string;
+	// Our packet info is just a boolean (is_string), using uint8_t for it.
+	PacketBuffer<uint8_t> _in_buffer;
 
-	virtual bool was_string_packet() const override { return was_string; }
-	virtual void set_no_delay(bool p_enabled) override;
+	PoolVector<uint8_t> _packet_buffer;
+
+	WriteMode write_mode;
+
+	int _out_buf_size;
+	int _out_pkt_size;
+
+public:
+	int close_code;
+	String close_reason;
+	void poll(); // Used by client and server.
+
+	virtual int get_available_packet_count() const;
+	virtual Error get_packet(const uint8_t **r_buffer, int &r_buffer_size);
+	virtual Error put_packet(const uint8_t *p_buffer, int p_buffer_size);
+	virtual int get_max_packet_size() const { return _packet_buffer.size(); };
+	virtual int get_current_outbound_buffered_amount() const;
+
+	virtual void close_now();
+	virtual void close(int p_code = 1000, String p_reason = "");
+	virtual bool is_connected_to_host() const;
+	virtual IP_Address get_connected_host() const;
+	virtual uint16_t get_connected_port() const;
+
+	virtual WriteMode get_write_mode() const;
+	virtual void set_write_mode(WriteMode p_mode);
+	virtual bool was_string_packet() const;
+	virtual void set_no_delay(bool p_enabled);
+
+	void make_context(PeerData *p_data, unsigned int p_in_buf_size, unsigned int p_in_pkt_size, unsigned int p_out_buf_size, unsigned int p_out_pkt_size);
+	Error parse_message(const wslay_event_on_msg_recv_arg *arg);
+	void invalidate();
 
 	WSLPeer();
 	~WSLPeer();
 };
 
-#endif // WEB_ENABLED
+#endif // JAVASCRIPT_ENABLED
 
 #endif // WSL_PEER_H

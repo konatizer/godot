@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="ResourcePreloader" inherits="Node" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="ResourcePreloader" inherits="Node" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
-		A node used to preload sub-resources inside a scene.
+		Resource Preloader Node.
 	</brief_description>
 	<description>
-		This node is used to preload sub-resources inside a scene, so when the scene is loaded, all the resources are ready to use and can be retrieved from the preloader. You can add the resources using the ResourcePreloader tab when the node is selected.
+		This node is used to preload sub-resources inside a scene, so when the scene is loaded, all the resources are ready to use and can be retrieved from the preloader.
 		GDScript has a simplified [method @GDScript.preload] built-in method which can be used in most situations, leaving the use of [ResourcePreloader] for more advanced scenarios.
 	</description>
 	<tutorials>
@@ -12,46 +12,48 @@
 	<methods>
 		<method name="add_resource">
 			<return type="void" />
-			<param index="0" name="name" type="StringName" />
-			<param index="1" name="resource" type="Resource" />
+			<argument index="0" name="name" type="String" />
+			<argument index="1" name="resource" type="Resource" />
 			<description>
-				Adds a resource to the preloader with the given [param name]. If a resource with the given [param name] already exists, the new resource will be renamed to "[param name] N" where N is an incrementing number starting from 2.
+				Adds a resource to the preloader with the given [code]name[/code]. If a resource with the given [code]name[/code] already exists, the new resource will be renamed to "[code]name[/code] N" where N is an incrementing number starting from 2.
 			</description>
 		</method>
 		<method name="get_resource" qualifiers="const">
 			<return type="Resource" />
-			<param index="0" name="name" type="StringName" />
+			<argument index="0" name="name" type="String" />
 			<description>
-				Returns the resource associated to [param name].
+				Returns the resource associated to [code]name[/code].
 			</description>
 		</method>
 		<method name="get_resource_list" qualifiers="const">
-			<return type="PackedStringArray" />
+			<return type="PoolStringArray" />
 			<description>
 				Returns the list of resources inside the preloader.
 			</description>
 		</method>
 		<method name="has_resource" qualifiers="const">
 			<return type="bool" />
-			<param index="0" name="name" type="StringName" />
+			<argument index="0" name="name" type="String" />
 			<description>
-				Returns [code]true[/code] if the preloader contains a resource associated to [param name].
+				Returns [code]true[/code] if the preloader contains a resource associated to [code]name[/code].
 			</description>
 		</method>
 		<method name="remove_resource">
 			<return type="void" />
-			<param index="0" name="name" type="StringName" />
+			<argument index="0" name="name" type="String" />
 			<description>
-				Removes the resource associated to [param name] from the preloader.
+				Removes the resource associated to [code]name[/code] from the preloader.
 			</description>
 		</method>
 		<method name="rename_resource">
 			<return type="void" />
-			<param index="0" name="name" type="StringName" />
-			<param index="1" name="newname" type="StringName" />
+			<argument index="0" name="name" type="String" />
+			<argument index="1" name="newname" type="String" />
 			<description>
-				Renames a resource inside the preloader from [param name] to [param newname].
+				Renames a resource inside the preloader from [code]name[/code] to [code]newname[/code].
 			</description>
 		</method>
 	</methods>
+	<constants>
+	</constants>
 </class>

@@ -1,38 +1,37 @@
-/**************************************************************************/
-/*  camera_macos.mm                                                       */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  camera_osx.mm                                                        */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 ///@TODO this is a near duplicate of CameraIOS, we should find a way to combine those to minimize code duplication!!!!
 // If you fix something here, make sure you fix it there as well!
 
-#include "camera_macos.h"
-
+#include "camera_osx.h"
 #include "servers/camera/camera_feed.h"
 
 #import <AVFoundation/AVFoundation.h>
@@ -44,7 +43,7 @@
 	Ref<CameraFeed> feed;
 	size_t width[2];
 	size_t height[2];
-	Vector<uint8_t> img_data[2];
+	PoolVector<uint8_t> img_data[2];
 
 	AVCaptureDeviceInput *input;
 	AVCaptureVideoDataOutput *output;
@@ -108,17 +107,23 @@
 	if (input) {
 		[self removeInput:input];
 		// don't release this
-		input = nullptr;
+		input = NULL;
 	}
 
 	// free up our output
 	if (output) {
 		[self removeOutput:output];
-		[output setSampleBufferDelegate:nil queue:nullptr];
-		output = nullptr;
+		[output setSampleBufferDelegate:nil queue:NULL];
+		[output release];
+		output = NULL;
 	}
 
 	[self commitConfiguration];
+}
+
+- (void)dealloc {
+	// bye bye
+	[super dealloc];
 }
 
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
@@ -137,9 +142,9 @@
 	// get our buffers
 	unsigned char *dataY = (unsigned char *)CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0);
 	unsigned char *dataCbCr = (unsigned char *)CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 1);
-	if (dataY == nullptr) {
+	if (dataY == NULL) {
 		print_line("Couldn't access Y pixel buffer data");
-	} else if (dataCbCr == nullptr) {
+	} else if (dataCbCr == NULL) {
 		print_line("Couldn't access CbCr pixel buffer data");
 	} else {
 		Ref<Image> img[2];
@@ -155,11 +160,11 @@
 				img_data[0].resize(new_width * new_height);
 			}
 
-			uint8_t *w = img_data[0].ptrw();
-			memcpy(w, dataY, new_width * new_height);
+			PoolVector<uint8_t>::Write w = img_data[0].write();
+			memcpy(w.ptr(), dataY, new_width * new_height);
 
-			img[0].instantiate();
-			img[0]->set_data(new_width, new_height, 0, Image::FORMAT_R8, img_data[0]);
+			img[0].instance();
+			img[0]->create(new_width, new_height, 0, Image::FORMAT_R8, img_data[0]);
 		}
 
 		{
@@ -173,12 +178,12 @@
 				img_data[1].resize(2 * new_width * new_height);
 			}
 
-			uint8_t *w = img_data[1].ptrw();
-			memcpy(w, dataCbCr, 2 * new_width * new_height);
+			PoolVector<uint8_t>::Write w = img_data[1].write();
+			memcpy(w.ptr(), dataCbCr, 2 * new_width * new_height);
 
-			///TODO OpenGL doesn't support FORMAT_RG8, need to do some form of conversion
-			img[1].instantiate();
-			img[1]->set_data(new_width, new_height, 0, Image::FORMAT_RG8, img_data[1]);
+			///TODO GLES2 doesn't support FORMAT_RG8, need to do some form of conversion
+			img[1].instance();
+			img[1]->create(new_width, new_height, 0, Image::FORMAT_RG8, img_data[1]);
 		}
 
 		// set our texture...
@@ -192,9 +197,9 @@
 @end
 
 //////////////////////////////////////////////////////////////////////////
-// CameraFeedMacOS - Subclass for camera feeds in macOS
+// CameraFeedOSX - Subclass for camera feeds in OSX
 
-class CameraFeedMacOS : public CameraFeed {
+class CameraFeedOSX : public CameraFeed {
 private:
 	AVCaptureDevice *device;
 	MyCaptureSession *capture_session;
@@ -202,7 +207,8 @@ private:
 public:
 	AVCaptureDevice *get_device() const;
 
-	CameraFeedMacOS();
+	CameraFeedOSX();
+	~CameraFeedOSX();
 
 	void set_device(AVCaptureDevice *p_device);
 
@@ -210,17 +216,18 @@ public:
 	void deactivate_feed();
 };
 
-AVCaptureDevice *CameraFeedMacOS::get_device() const {
+AVCaptureDevice *CameraFeedOSX::get_device() const {
 	return device;
 };
 
-CameraFeedMacOS::CameraFeedMacOS() {
-	device = nullptr;
-	capture_session = nullptr;
+CameraFeedOSX::CameraFeedOSX() {
+	device = NULL;
+	capture_session = NULL;
 };
 
-void CameraFeedMacOS::set_device(AVCaptureDevice *p_device) {
+void CameraFeedOSX::set_device(AVCaptureDevice *p_device) {
 	device = p_device;
+	[device retain];
 
 	// get some info
 	NSString *device_name = p_device.localizedName;
@@ -233,7 +240,19 @@ void CameraFeedMacOS::set_device(AVCaptureDevice *p_device) {
 	};
 };
 
-bool CameraFeedMacOS::activate_feed() {
+CameraFeedOSX::~CameraFeedOSX() {
+	if (capture_session != NULL) {
+		[capture_session release];
+		capture_session = NULL;
+	};
+
+	if (device != NULL) {
+		[device release];
+		device = NULL;
+	};
+};
+
+bool CameraFeedOSX::activate_feed() {
 	if (capture_session) {
 		// Already recording!
 	} else {
@@ -259,11 +278,12 @@ bool CameraFeedMacOS::activate_feed() {
 	return true;
 };
 
-void CameraFeedMacOS::deactivate_feed() {
+void CameraFeedOSX::deactivate_feed() {
 	// end camera capture if we have one
 	if (capture_session) {
 		[capture_session cleanup];
-		capture_session = nullptr;
+		[capture_session release];
+		capture_session = NULL;
 	};
 };
 
@@ -272,7 +292,7 @@ void CameraFeedMacOS::deactivate_feed() {
 // when devices are connected/disconnected
 
 @interface MyDeviceNotifications : NSObject {
-	CameraMacOS *camera_server;
+	CameraOSX *camera_server;
 }
 
 @end
@@ -283,7 +303,7 @@ void CameraFeedMacOS::deactivate_feed() {
 	camera_server->update_feeds();
 }
 
-- (id)initForServer:(CameraMacOS *)p_server {
+- (id)initForServer:(CameraOSX *)p_server {
 	if (self = [super init]) {
 		camera_server = p_server;
 
@@ -297,6 +317,8 @@ void CameraFeedMacOS::deactivate_feed() {
 	// remove notifications
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:AVCaptureDeviceWasConnectedNotification object:nil];
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:AVCaptureDeviceWasDisconnectedNotification object:nil];
+
+	[super dealloc];
 }
 
 @end
@@ -304,9 +326,9 @@ void CameraFeedMacOS::deactivate_feed() {
 MyDeviceNotifications *device_notifications = nil;
 
 //////////////////////////////////////////////////////////////////////////
-// CameraMacOS - Subclass for our camera server on macOS
+// CameraOSX - Subclass for our camera server on OSX
 
-void CameraMacOS::update_feeds() {
+void CameraOSX::update_feeds() {
 #if MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
 	AVCaptureDeviceDiscoverySession *session = [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes:[NSArray arrayWithObjects:AVCaptureDeviceTypeExternalUnknown, AVCaptureDeviceTypeBuiltInWideAngleCamera, nil] mediaType:AVMediaTypeVideo position:AVCaptureDevicePositionUnspecified];
 	NSArray *devices = session.devices;
@@ -316,7 +338,7 @@ void CameraMacOS::update_feeds() {
 
 	// remove devices that are gone..
 	for (int i = feeds.size() - 1; i >= 0; i--) {
-		Ref<CameraFeedMacOS> feed = (Ref<CameraFeedMacOS>)feeds[i];
+		Ref<CameraFeedOSX> feed = (Ref<CameraFeedOSX>)feeds[i];
 
 		if (![devices containsObject:feed->get_device()]) {
 			// remove it from our array, this will also destroy it ;)
@@ -324,18 +346,19 @@ void CameraMacOS::update_feeds() {
 		};
 	};
 
+	// add new devices..
 	for (AVCaptureDevice *device in devices) {
 		bool found = false;
 		for (int i = 0; i < feeds.size() && !found; i++) {
-			Ref<CameraFeedMacOS> feed = (Ref<CameraFeedMacOS>)feeds[i];
+			Ref<CameraFeedOSX> feed = (Ref<CameraFeedOSX>)feeds[i];
 			if (feed->get_device() == device) {
 				found = true;
 			};
 		};
 
 		if (!found) {
-			Ref<CameraFeedMacOS> newfeed;
-			newfeed.instantiate();
+			Ref<CameraFeedOSX> newfeed;
+			newfeed.instance();
 			newfeed->set_device(device);
 
 			// assume display camera so inverse
@@ -347,10 +370,14 @@ void CameraMacOS::update_feeds() {
 	};
 };
 
-CameraMacOS::CameraMacOS() {
+CameraOSX::CameraOSX() {
 	// Find available cameras we have at this time
 	update_feeds();
 
 	// should only have one of these....
 	device_notifications = [[MyDeviceNotifications alloc] initForServer:this];
+};
+
+CameraOSX::~CameraOSX() {
+	[device_notifications release];
 };

@@ -1,46 +1,46 @@
-/**************************************************************************/
-/*  csg_shape.h                                                           */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  csg_shape.h                                                          */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef CSG_SHAPE_H
 #define CSG_SHAPE_H
 
+#define CSGJS_HEADER_ONLY
+
 #include "csg.h"
-
-#include "scene/3d/path_3d.h"
-#include "scene/3d/visual_instance_3d.h"
-#include "scene/resources/concave_polygon_shape_3d.h"
-
+#include "scene/3d/path.h"
+#include "scene/3d/visual_instance.h"
+#include "scene/resources/concave_polygon_shape.h"
 #include "thirdparty/misc/mikktspace.h"
 
-class CSGShape3D : public GeometryInstance3D {
-	GDCLASS(CSGShape3D, GeometryInstance3D);
+class CSGShape : public GeometryInstance {
+	GDCLASS(CSGShape, GeometryInstance);
 
 public:
 	enum Operation {
@@ -51,51 +51,48 @@ public:
 	};
 
 private:
-	Operation operation = OPERATION_UNION;
-	CSGShape3D *parent_shape = nullptr;
+	Operation operation;
+	CSGShape *parent_shape;
 
-	CSGBrush *brush = nullptr;
+	CSGBrush *brush;
 
 	AABB node_aabb;
 
-	bool dirty = false;
+	bool dirty;
 	bool last_visible = false;
-	float snap = 0.001;
+	float snap;
 
-	bool use_collision = false;
-	uint32_t collision_layer = 1;
-	uint32_t collision_mask = 1;
-	real_t collision_priority = 1.0;
-	Ref<ConcavePolygonShape3D> root_collision_shape;
+	bool use_collision;
+	uint32_t collision_layer;
+	uint32_t collision_mask;
+	Ref<ConcavePolygonShape> root_collision_shape;
 	RID root_collision_instance;
-	RID root_collision_debug_instance;
-	Transform3D debug_shape_old_transform;
 
-	bool calculate_tangents = true;
+	bool calculate_tangents;
 
 	Ref<ArrayMesh> root_mesh;
 
 	struct Vector3Hasher {
 		_ALWAYS_INLINE_ uint32_t hash(const Vector3 &p_vec3) const {
-			uint32_t h = hash_murmur3_one_float(p_vec3.x);
-			h = hash_murmur3_one_float(p_vec3.y, h);
-			h = hash_murmur3_one_float(p_vec3.z, h);
+			uint32_t h = hash_djb2_one_float(p_vec3.x);
+			h = hash_djb2_one_float(p_vec3.y, h);
+			h = hash_djb2_one_float(p_vec3.z, h);
 			return h;
 		}
 	};
 
 	struct ShapeUpdateSurface {
-		Vector<Vector3> vertices;
-		Vector<Vector3> normals;
-		Vector<Vector2> uvs;
-		Vector<real_t> tans;
+		PoolVector<Vector3> vertices;
+		PoolVector<Vector3> normals;
+		PoolVector<Vector2> uvs;
+		PoolVector<float> tans;
 		Ref<Material> material;
-		int last_added = 0;
+		int last_added;
 
-		Vector3 *verticesw = nullptr;
-		Vector3 *normalsw = nullptr;
-		Vector2 *uvsw = nullptr;
-		real_t *tansw = nullptr;
+		PoolVector<Vector3>::Write verticesw;
+		PoolVector<Vector3>::Write normalsw;
+		PoolVector<Vector2>::Write uvsw;
+		PoolVector<float>::Write tansw;
 	};
 
 	//mikktspace callbacks
@@ -109,10 +106,6 @@ private:
 
 	void _update_shape();
 	void _update_collision_faces();
-	bool _is_debug_collision_shape_visible();
-	void _update_debug_collision_shape();
-	void _clear_debug_collision_shape();
-	void _on_transform_changed();
 
 protected:
 	void _notification(int p_what);
@@ -121,20 +114,23 @@ protected:
 
 	static void _bind_methods();
 
-	friend class CSGCombiner3D;
+	friend class CSGCombiner;
 	CSGBrush *_get_brush();
 
-	void _validate_property(PropertyInfo &p_property) const;
+	virtual void _validate_property(PropertyInfo &property) const;
 
 public:
 	Array get_meshes() const;
 
+	void force_update_shape();
+
 	void set_operation(Operation p_operation);
 	Operation get_operation() const;
 
-	virtual Vector<Vector3> get_brush_faces();
+	virtual PoolVector<Vector3> get_brush_faces();
 
-	virtual AABB get_aabb() const override;
+	virtual AABB get_aabb() const;
+	virtual PoolVector<Face3> get_faces(uint32_t p_usage_flags) const;
 
 	void set_use_collision(bool p_enable);
 	bool is_using_collision() const;
@@ -145,14 +141,11 @@ public:
 	void set_collision_mask(uint32_t p_mask);
 	uint32_t get_collision_mask() const;
 
-	void set_collision_layer_value(int p_layer_number, bool p_value);
-	bool get_collision_layer_value(int p_layer_number) const;
+	void set_collision_layer_bit(int p_bit, bool p_value);
+	bool get_collision_layer_bit(int p_bit) const;
 
-	void set_collision_mask_value(int p_layer_number, bool p_value);
-	bool get_collision_mask_value(int p_layer_number) const;
-
-	void set_collision_priority(real_t p_priority);
-	real_t get_collision_priority() const;
+	void set_collision_mask_bit(int p_bit, bool p_value);
+	bool get_collision_mask_bit(int p_bit) const;
 
 	void set_snap(float p_snap);
 	float get_snap() const;
@@ -161,41 +154,41 @@ public:
 	bool is_calculating_tangents() const;
 
 	bool is_root_shape() const;
-	CSGShape3D();
-	~CSGShape3D();
+	CSGShape();
+	~CSGShape();
 };
 
-VARIANT_ENUM_CAST(CSGShape3D::Operation)
+VARIANT_ENUM_CAST(CSGShape::Operation)
 
-class CSGCombiner3D : public CSGShape3D {
-	GDCLASS(CSGCombiner3D, CSGShape3D);
+class CSGCombiner : public CSGShape {
+	GDCLASS(CSGCombiner, CSGShape);
 
 private:
-	virtual CSGBrush *_build_brush() override;
+	virtual CSGBrush *_build_brush();
 
 public:
-	CSGCombiner3D();
+	CSGCombiner();
 };
 
-class CSGPrimitive3D : public CSGShape3D {
-	GDCLASS(CSGPrimitive3D, CSGShape3D);
+class CSGPrimitive : public CSGShape {
+	GDCLASS(CSGPrimitive, CSGShape);
 
 protected:
-	bool flip_faces;
-	CSGBrush *_create_brush_from_arrays(const Vector<Vector3> &p_vertices, const Vector<Vector2> &p_uv, const Vector<bool> &p_smooth, const Vector<Ref<Material>> &p_materials);
+	bool invert_faces;
+	CSGBrush *_create_brush_from_arrays(const PoolVector<Vector3> &p_vertices, const PoolVector<Vector2> &p_uv, const PoolVector<bool> &p_smooth, const PoolVector<Ref<Material>> &p_materials);
 	static void _bind_methods();
 
 public:
-	void set_flip_faces(bool p_invert);
-	bool get_flip_faces();
+	void set_invert_faces(bool p_invert);
+	bool is_inverting_faces();
 
-	CSGPrimitive3D();
+	CSGPrimitive();
 };
 
-class CSGMesh3D : public CSGPrimitive3D {
-	GDCLASS(CSGMesh3D, CSGPrimitive3D);
+class CSGMesh : public CSGPrimitive {
+	GDCLASS(CSGMesh, CSGPrimitive);
 
-	virtual CSGBrush *_build_brush() override;
+	virtual CSGBrush *_build_brush();
 
 	Ref<Mesh> mesh;
 	Ref<Material> material;
@@ -213,9 +206,9 @@ public:
 	Ref<Material> get_material() const;
 };
 
-class CSGSphere3D : public CSGPrimitive3D {
-	GDCLASS(CSGSphere3D, CSGPrimitive3D);
-	virtual CSGBrush *_build_brush() override;
+class CSGSphere : public CSGPrimitive {
+	GDCLASS(CSGSphere, CSGPrimitive);
+	virtual CSGBrush *_build_brush();
 
 	Ref<Material> material;
 	bool smooth_faces;
@@ -242,36 +235,40 @@ public:
 	void set_smooth_faces(bool p_smooth_faces);
 	bool get_smooth_faces() const;
 
-	CSGSphere3D();
+	CSGSphere();
 };
 
-class CSGBox3D : public CSGPrimitive3D {
-	GDCLASS(CSGBox3D, CSGPrimitive3D);
-	virtual CSGBrush *_build_brush() override;
+class CSGBox : public CSGPrimitive {
+	GDCLASS(CSGBox, CSGPrimitive);
+	virtual CSGBrush *_build_brush();
 
 	Ref<Material> material;
-	Vector3 size = Vector3(1, 1, 1);
+	float width;
+	float height;
+	float depth;
 
 protected:
 	static void _bind_methods();
-#ifndef DISABLE_DEPRECATED
-	// Kept for compatibility from 3.x to 4.0.
-	bool _set(const StringName &p_name, const Variant &p_value);
-#endif
 
 public:
-	void set_size(const Vector3 &p_size);
-	Vector3 get_size() const;
+	void set_width(const float p_width);
+	float get_width() const;
+
+	void set_height(const float p_height);
+	float get_height() const;
+
+	void set_depth(const float p_depth);
+	float get_depth() const;
 
 	void set_material(const Ref<Material> &p_material);
 	Ref<Material> get_material() const;
 
-	CSGBox3D() {}
+	CSGBox();
 };
 
-class CSGCylinder3D : public CSGPrimitive3D {
-	GDCLASS(CSGCylinder3D, CSGPrimitive3D);
-	virtual CSGBrush *_build_brush() override;
+class CSGCylinder : public CSGPrimitive {
+	GDCLASS(CSGCylinder, CSGPrimitive);
+	virtual CSGBrush *_build_brush();
 
 	Ref<Material> material;
 	float radius;
@@ -302,12 +299,12 @@ public:
 	void set_material(const Ref<Material> &p_material);
 	Ref<Material> get_material() const;
 
-	CSGCylinder3D();
+	CSGCylinder();
 };
 
-class CSGTorus3D : public CSGPrimitive3D {
-	GDCLASS(CSGTorus3D, CSGPrimitive3D);
-	virtual CSGBrush *_build_brush() override;
+class CSGTorus : public CSGPrimitive {
+	GDCLASS(CSGTorus, CSGPrimitive);
+	virtual CSGBrush *_build_brush();
 
 	Ref<Material> material;
 	float inner_radius;
@@ -338,11 +335,11 @@ public:
 	void set_material(const Ref<Material> &p_material);
 	Ref<Material> get_material() const;
 
-	CSGTorus3D();
+	CSGTorus();
 };
 
-class CSGPolygon3D : public CSGPrimitive3D {
-	GDCLASS(CSGPolygon3D, CSGPrimitive3D);
+class CSGPolygon : public CSGPrimitive {
+	GDCLASS(CSGPolygon, CSGPrimitive);
 
 public:
 	enum Mode {
@@ -363,7 +360,7 @@ public:
 	};
 
 private:
-	virtual CSGBrush *_build_brush() override;
+	virtual CSGBrush *_build_brush();
 
 	Vector<Vector2> polygon;
 	Ref<Material> material;
@@ -382,7 +379,7 @@ private:
 	PathRotation path_rotation;
 	bool path_local;
 
-	Path3D *path = nullptr;
+	Path *path;
 
 	bool smooth_faces;
 	bool path_continuous_u;
@@ -397,7 +394,7 @@ private:
 
 protected:
 	static void _bind_methods();
-	void _validate_property(PropertyInfo &p_property) const;
+	virtual void _validate_property(PropertyInfo &property) const;
 	void _notification(int p_what);
 
 public:
@@ -449,11 +446,11 @@ public:
 	void set_material(const Ref<Material> &p_material);
 	Ref<Material> get_material() const;
 
-	CSGPolygon3D();
+	CSGPolygon();
 };
 
-VARIANT_ENUM_CAST(CSGPolygon3D::Mode)
-VARIANT_ENUM_CAST(CSGPolygon3D::PathRotation)
-VARIANT_ENUM_CAST(CSGPolygon3D::PathIntervalType)
+VARIANT_ENUM_CAST(CSGPolygon::Mode)
+VARIANT_ENUM_CAST(CSGPolygon::PathRotation)
+VARIANT_ENUM_CAST(CSGPolygon::PathIntervalType)
 
 #endif // CSG_SHAPE_H

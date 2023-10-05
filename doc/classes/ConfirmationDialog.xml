@@ -1,24 +1,19 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="ConfirmationDialog" inherits="AcceptDialog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="ConfirmationDialog" inherits="AcceptDialog" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
-		A dialog used for confirmation of actions.
+		Dialog for confirmation of actions.
 	</brief_description>
 	<description>
-		A dialog used for confirmation of actions. This window is similar to [AcceptDialog], but pressing its Cancel button can have a different outcome from pressing the OK button. The order of the two buttons varies depending on the host OS.
+		Dialog for confirmation of actions. This dialog inherits from [AcceptDialog], but has by default an OK and Cancel button (in host OS order).
 		To get cancel action, you can use:
-		[codeblocks]
-		[gdscript]
-		get_cancel_button().pressed.connect(self.canceled)
-		[/gdscript]
-		[csharp]
-		GetCancelButton().Pressed += Canceled;
-		[/csharp]
-		[/codeblocks]
+		[codeblock]
+		get_cancel().connect("pressed", self, "cancelled")
+		[/codeblock].
 	</description>
 	<tutorials>
 	</tutorials>
 	<methods>
-		<method name="get_cancel_button">
+		<method name="get_cancel">
 			<return type="Button" />
 			<description>
 				Returns the cancel button.
@@ -27,11 +22,9 @@
 		</method>
 	</methods>
 	<members>
-		<member name="cancel_button_text" type="String" setter="set_cancel_button_text" getter="get_cancel_button_text" default="&quot;Cancel&quot;">
-			The text displayed by the cancel button (see [method get_cancel_button]).
-		</member>
-		<member name="min_size" type="Vector2i" setter="set_min_size" getter="get_min_size" overrides="Window" default="Vector2i(200, 70)" />
-		<member name="size" type="Vector2i" setter="set_size" getter="get_size" overrides="Window" default="Vector2i(200, 100)" />
-		<member name="title" type="String" setter="set_title" getter="get_title" overrides="Window" default="&quot;Please Confirm...&quot;" />
+		<member name="rect_min_size" type="Vector2" setter="set_custom_minimum_size" getter="get_custom_minimum_size" overrides="Control" default="Vector2( 200, 70 )" />
+		<member name="window_title" type="String" setter="set_title" getter="get_title" overrides="WindowDialog" default="&quot;Please Confirm...&quot;" />
 	</members>
+	<constants>
+	</constants>
 </class>

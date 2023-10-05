@@ -1,45 +1,45 @@
-/**************************************************************************/
-/*  crypto_mbedtls.h                                                      */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  crypto_mbedtls.h                                                     */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef CRYPTO_MBEDTLS_H
 #define CRYPTO_MBEDTLS_H
 
 #include "core/crypto/crypto.h"
-#include "core/io/resource.h"
+#include "core/resource.h"
 
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/entropy.h>
 #include <mbedtls/ssl.h>
 
 class CryptoMbedTLS;
-class TLSContextMbedTLS;
+class SSLContextMbedTLS;
 class CryptoKeyMbedTLS : public CryptoKey {
 private:
 	mbedtls_pk_context pkey;
@@ -69,7 +69,7 @@ public:
 	_FORCE_INLINE_ void unlock() { locks--; }
 
 	friend class CryptoMbedTLS;
-	friend class TLSContextMbedTLS;
+	friend class SSLContextMbedTLS;
 };
 
 class X509CertificateMbedTLS : public X509Certificate {
@@ -85,8 +85,6 @@ public:
 	virtual Error load(String p_path);
 	virtual Error load_from_memory(const uint8_t *p_buffer, int p_len);
 	virtual Error save(String p_path);
-	virtual String save_to_string();
-	virtual Error load_from_string(const String &p_string_key);
 
 	X509CertificateMbedTLS() {
 		mbedtls_x509_crt_init(&cert);
@@ -100,7 +98,7 @@ public:
 	_FORCE_INLINE_ void unlock() { locks--; }
 
 	friend class CryptoMbedTLS;
-	friend class TLSContextMbedTLS;
+	friend class SSLContextMbedTLS;
 };
 
 class HMACContextMbedTLS : public HMACContext {
@@ -116,9 +114,9 @@ public:
 
 	static bool is_md_type_allowed(mbedtls_md_type_t p_md_type);
 
-	virtual Error start(HashingContext::HashType p_hash_type, PackedByteArray p_key);
-	virtual Error update(PackedByteArray p_data);
-	virtual PackedByteArray finish();
+	virtual Error start(HashingContext::HashType p_hash_type, PoolByteArray p_key);
+	virtual Error update(PoolByteArray p_data);
+	virtual PoolByteArray finish();
 
 	HMACContextMbedTLS() {}
 	~HMACContextMbedTLS();
@@ -138,7 +136,7 @@ public:
 	static void load_default_certificates(String p_path);
 	static mbedtls_md_type_t md_type_from_hashtype(HashingContext::HashType p_hash_type, int &r_size);
 
-	virtual PackedByteArray generate_random_bytes(int p_bytes);
+	virtual PoolByteArray generate_random_bytes(int p_bytes);
 	virtual Ref<CryptoKey> generate_rsa(int p_bytes);
 	virtual Ref<X509Certificate> generate_self_signed_certificate(Ref<CryptoKey> p_key, String p_issuer_name, String p_not_before, String p_not_after);
 	virtual Vector<uint8_t> sign(HashingContext::HashType p_hash_type, Vector<uint8_t> p_hash, Ref<CryptoKey> p_key);

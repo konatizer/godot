@@ -1,29 +1,27 @@
 using System;
-using System.Globalization;
 using System.IO;
 using System.Text;
 using Microsoft.Build.Construction;
 using Microsoft.Build.Evaluation;
-using GodotTools.Shared;
 
 namespace GodotTools.ProjectEditor
 {
     public static class ProjectGenerator
     {
-        public static string GodotSdkAttrValue => $"Godot.NET.Sdk/{GeneratedGodotNupkgsVersions.GodotNETSdk}";
+        public const string GodotSdkVersionToUse = "3.3.0";
+        public const string GodotSdkNameToUse = "Godot.NET.Sdk";
 
         public static ProjectRootElement GenGameProject(string name)
         {
             if (name.Length == 0)
-                throw new ArgumentException("Project name is empty.", nameof(name));
+                throw new ArgumentException("Project name is empty", nameof(name));
 
             var root = ProjectRootElement.Create(NewProjectFileOptions.None);
 
-            root.Sdk = GodotSdkAttrValue;
+            root.Sdk = $"{GodotSdkNameToUse}/{GodotSdkVersionToUse}";
 
             var mainGroup = root.AddPropertyGroup();
-            mainGroup.AddProperty("TargetFramework", "net6.0");
-            mainGroup.AddProperty("EnableDynamicLoading", "true");
+            mainGroup.AddProperty("TargetFramework", "net472");
 
             string sanitizedName = IdentifierUtils.SanitizeQualifiedIdentifier(name, allowEmptyIdentifiers: true);
 
@@ -37,7 +35,7 @@ namespace GodotTools.ProjectEditor
         public static string GenAndSaveGameProject(string dir, string name)
         {
             if (name.Length == 0)
-                throw new ArgumentException("Project name is empty.", nameof(name));
+                throw new ArgumentException("Project name is empty", nameof(name));
 
             string path = Path.Combine(dir, name + ".csproj");
 
@@ -46,7 +44,7 @@ namespace GodotTools.ProjectEditor
             // Save (without BOM)
             root.Save(path, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
-            return Guid.NewGuid().ToString().ToUpperInvariant();
+            return Guid.NewGuid().ToString().ToUpper();
         }
     }
 }

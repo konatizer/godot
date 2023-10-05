@@ -1,43 +1,43 @@
-/**************************************************************************/
-/*  ios_support.mm                                                        */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  ios_support.mm                                                       */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "ios_support.h"
 
-#if defined(IOS_ENABLED)
-
-#include "../gd_mono_marshal.h"
-
-#include "core/ustring.h"
+#if defined(IPHONE_ENABLED)
 
 #import <Foundation/Foundation.h>
 #include <os/log.h>
+
+#include "core/ustring.h"
+
+#include "../gd_mono_marshal.h"
 
 // Implemented mostly following: https://github.com/mono/mono/blob/master/sdks/ios/app/runtime.m
 
@@ -57,9 +57,9 @@ void ios_mono_log_callback(const char *log_domain, const char *log_level, const 
 }
 
 void initialize() {
-	mono_dllmap_insert(nullptr, "System.Native", nullptr, "__Internal", nullptr);
-	mono_dllmap_insert(nullptr, "System.IO.Compression.Native", nullptr, "__Internal", nullptr);
-	mono_dllmap_insert(nullptr, "System.Security.Cryptography.Native.Apple", nullptr, "__Internal", nullptr);
+	mono_dllmap_insert(NULL, "System.Native", NULL, "__Internal", NULL);
+	mono_dllmap_insert(NULL, "System.IO.Compression.Native", NULL, "__Internal", NULL);
+	mono_dllmap_insert(NULL, "System.Security.Cryptography.Native.Apple", NULL, "__Internal", NULL);
 
 #ifdef IOS_DEVICE
 	// This function is defined in an auto-generated source file
@@ -72,6 +72,7 @@ void initialize() {
 
 void cleanup() {
 }
+
 } // namespace support
 } // namespace ios
 } // namespace gdmono
@@ -85,7 +86,7 @@ void cleanup() {
 GD_PINVOKE_EXPORT const char *xamarin_get_locale_country_code() {
 	NSLocale *locale = [NSLocale currentLocale];
 	NSString *countryCode = [locale objectForKey:NSLocaleCountryCode];
-	if (countryCode == nullptr) {
+	if (countryCode == NULL) {
 		return strdup("US");
 	}
 	return strdup([countryCode UTF8String]);
@@ -94,9 +95,8 @@ GD_PINVOKE_EXPORT const char *xamarin_get_locale_country_code() {
 GD_PINVOKE_EXPORT void xamarin_log(const uint16_t *p_unicode_message) {
 	int length = 0;
 	const uint16_t *ptr = p_unicode_message;
-	while (*ptr++) {
+	while (*ptr++)
 		length += sizeof(uint16_t);
-	}
 	NSString *msg = [[NSString alloc] initWithBytes:p_unicode_message length:length encoding:NSUTF16LittleEndianStringEncoding];
 
 	os_log_info(OS_LOG_DEFAULT, "%{public}@", msg);
@@ -147,4 +147,4 @@ GD_PINVOKE_EXPORT void xamarin_start_wwan(const char *p_uri) {
 	os_log_error(OS_LOG_DEFAULT, "Not implemented: 'xamarin_start_wwan'");
 }
 
-#endif // IOS_ENABLED
+#endif // IPHONE_ENABLED

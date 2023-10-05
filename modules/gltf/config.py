@@ -1,5 +1,5 @@
 def can_build(env, platform):
-    return not env["disable_3d"]
+    return env["tools"] and not env["disable_3d"]
 
 
 def configure(env):
@@ -8,27 +8,21 @@ def configure(env):
 
 def get_doc_classes():
     return [
-        "EditorSceneFormatImporterBlend",
-        "EditorSceneFormatImporterFBX",
-        "EditorSceneFormatImporterGLTF",
+        "EditorSceneImporterGLTF",
         "GLTFAccessor",
         "GLTFAnimation",
         "GLTFBufferView",
         "GLTFCamera",
         "GLTFDocument",
-        "GLTFDocumentExtension",
-        "GLTFDocumentExtensionConvertImporterMesh",
         "GLTFLight",
         "GLTFMesh",
         "GLTFNode",
-        "GLTFPhysicsBody",
-        "GLTFPhysicsShape",
         "GLTFSkeleton",
         "GLTFSkin",
         "GLTFSpecGloss",
         "GLTFState",
         "GLTFTexture",
-        "GLTFTextureSampler",
+        "PackedSceneGLTF",
     ]
 
 

@@ -1,37 +1,36 @@
-/**************************************************************************/
-/*  texture_loader_dds.cpp                                                */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  texture_loader_dds.cpp                                               */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #include "texture_loader_dds.h"
 
-#include "core/io/file_access.h"
-#include "scene/resources/image_texture.h"
+#include "core/os/file_access.h"
 
 #define PF_FOURCC(s) ((uint32_t)(((s)[3] << 24U) | ((s)[2] << 16U) | ((s)[1] << 8U) | ((s)[0])))
 
@@ -62,18 +61,19 @@ enum DDSFormat {
 	DDS_BGR5A1,
 	DDS_BGR565,
 	DDS_BGR10A2,
+	DDS_INDEXED,
 	DDS_LUMINANCE,
 	DDS_LUMINANCE_ALPHA,
 	DDS_MAX
 };
 
 struct DDSFormatInfo {
-	const char *name = nullptr;
-	bool compressed = false;
-	bool palette = false;
-	uint32_t divisor = 0;
-	uint32_t block_size = 0;
-	Image::Format format = Image::Format::FORMAT_BPTC_RGBA;
+	const char *name;
+	bool compressed;
+	bool palette;
+	uint32_t divisor;
+	uint32_t block_size;
+	Image::Format format;
 };
 
 static const DDSFormatInfo dds_format_info[DDS_MAX] = {
@@ -94,23 +94,23 @@ static const DDSFormatInfo dds_format_info[DDS_MAX] = {
 	{ "GRAYSCALE_ALPHA", false, false, 1, 2, Image::FORMAT_LA8 }
 };
 
-Ref<Resource> ResourceFormatDDS::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
+RES ResourceFormatDDS::load(const String &p_path, const String &p_original_path, Error *r_error) {
 	if (r_error) {
 		*r_error = ERR_CANT_OPEN;
 	}
 
 	Error err;
-	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
-	if (f.is_null()) {
-		return Ref<Resource>();
+	FileAccess *f = FileAccess::open(p_path, FileAccess::READ, &err);
+	if (!f) {
+		return RES();
 	}
 
-	Ref<FileAccess> fref(f);
+	FileAccessRef fref(f);
 	if (r_error) {
 		*r_error = ERR_FILE_CORRUPT;
 	}
 
-	ERR_FAIL_COND_V_MSG(err != OK, Ref<Resource>(), "Unable to open DDS texture file '" + p_path + "'.");
+	ERR_FAIL_COND_V_MSG(err != OK, RES(), "Unable to open DDS texture file '" + p_path + "'.");
 
 	uint32_t magic = f->get_32();
 	uint32_t hsize = f->get_32();
@@ -131,7 +131,7 @@ Ref<Resource> ResourceFormatDDS::load(const String &p_path, const String &p_orig
 	// We don't check DDSD_CAPS or DDSD_PIXELFORMAT, as they're mandatory when writing,
 	// but non-mandatory when reading (as some writers don't set them)...
 	if (magic != DDS_MAGIC || hsize != 124) {
-		ERR_FAIL_V_MSG(Ref<Resource>(), "Invalid or unsupported DDS texture file '" + p_path + "'.");
+		ERR_FAIL_V_MSG(RES(), "Invalid or unsupported DDS texture file '" + p_path + "'.");
 	}
 
 	/* uint32_t format_size = */ f->get_32();
@@ -196,22 +196,22 @@ Ref<Resource> ResourceFormatDDS::load(const String &p_path, const String &p_orig
 		dds_format = DDS_BGR10A2;
 	} else if (format_flags & DDPF_RGB && !(format_flags & DDPF_ALPHAPIXELS) && format_rgb_bits == 16 && format_red_mask == 0x0000f800 && format_green_mask == 0x000007e0 && format_blue_mask == 0x0000001f) {
 		dds_format = DDS_BGR565;
-	} else if (!(format_flags & DDPF_ALPHAPIXELS) && format_rgb_bits == 8 && format_red_mask == 0xff) {
+	} else if (!(format_flags & DDPF_ALPHAPIXELS) && format_rgb_bits == 8 && format_red_mask == 0xff && format_green_mask == 0xff && format_blue_mask == 0xff) {
 		dds_format = DDS_LUMINANCE;
-	} else if ((format_flags & DDPF_ALPHAPIXELS) && format_rgb_bits == 16 && format_red_mask == 0xff && format_alpha_mask == 0xff00) {
+	} else if ((format_flags & DDPF_ALPHAPIXELS) && format_rgb_bits == 16 && format_red_mask == 0xff && format_green_mask == 0xff && format_blue_mask == 0xff && format_alpha_mask == 0xff00) {
 		dds_format = DDS_LUMINANCE_ALPHA;
 	} else if (format_flags & DDPF_INDEXED && format_rgb_bits == 8) {
 		dds_format = DDS_BGR565;
 	} else {
-		//printf("unrecognized fourcc %x format_flags: %x - rgbbits %i - red_mask %x green mask %x blue mask %x alpha mask %x\n", format_fourcc, format_flags, format_rgb_bits, format_red_mask, format_green_mask, format_blue_mask, format_alpha_mask);
-		ERR_FAIL_V_MSG(Ref<Resource>(), "Unrecognized or unsupported color layout in DDS '" + p_path + "'.");
+		printf("unrecognized fourcc %x format_flags: %x - rgbbits %i - red_mask %x green mask %x blue mask %x alpha mask %x\n", format_fourcc, format_flags, format_rgb_bits, format_red_mask, format_green_mask, format_blue_mask, format_alpha_mask);
+		ERR_FAIL_V_MSG(RES(), "Unrecognized or unsupported color layout in DDS '" + p_path + "'.");
 	}
 
 	if (!(flags & DDSD_MIPMAPCOUNT)) {
 		mipmaps = 1;
 	}
 
-	Vector<uint8_t> src_data;
+	PoolVector<uint8_t> src_data;
 
 	const DDSFormatInfo &info = dds_format_info[dds_format];
 	uint32_t w = width;
@@ -221,28 +221,28 @@ Ref<Resource> ResourceFormatDDS::load(const String &p_path, const String &p_orig
 		//compressed bc
 
 		uint32_t size = MAX(info.divisor, w) / info.divisor * MAX(info.divisor, h) / info.divisor * info.block_size;
-		ERR_FAIL_COND_V(size != pitch, Ref<Resource>());
-		ERR_FAIL_COND_V(!(flags & DDSD_LINEARSIZE), Ref<Resource>());
+		ERR_FAIL_COND_V(size != pitch, RES());
+		ERR_FAIL_COND_V(!(flags & DDSD_LINEARSIZE), RES());
 
 		for (uint32_t i = 1; i < mipmaps; i++) {
-			w = MAX(1u, w >> 1);
-			h = MAX(1u, h >> 1);
+			w = MAX(1, w >> 1);
+			h = MAX(1, h >> 1);
 			uint32_t bsize = MAX(info.divisor, w) / info.divisor * MAX(info.divisor, h) / info.divisor * info.block_size;
 			//printf("%i x %i - block: %i\n",w,h,bsize);
 			size += bsize;
 		}
 
 		src_data.resize(size);
-		uint8_t *wb = src_data.ptrw();
-		f->get_buffer(wb, size);
+		PoolVector<uint8_t>::Write wb = src_data.write();
+		f->get_buffer(wb.ptr(), size);
 
 	} else if (info.palette) {
 		//indexed
-		ERR_FAIL_COND_V(!(flags & DDSD_PITCH), Ref<Resource>());
-		ERR_FAIL_COND_V(format_rgb_bits != 8, Ref<Resource>());
+		ERR_FAIL_COND_V(!(flags & DDSD_PITCH), RES());
+		ERR_FAIL_COND_V(format_rgb_bits != 8, RES());
 
 		uint32_t size = pitch * height;
-		ERR_FAIL_COND_V(size != width * height * info.block_size, Ref<Resource>());
+		ERR_FAIL_COND_V(size != width * height * info.block_size, RES());
 
 		uint8_t palette[256 * 4];
 		f->get_buffer(palette, 256 * 4);
@@ -264,8 +264,8 @@ Ref<Resource> ResourceFormatDDS::load(const String &p_path, const String &p_orig
 		}
 
 		src_data.resize(size + 256 * colsize);
-		uint8_t *wb = src_data.ptrw();
-		f->get_buffer(wb, size);
+		PoolVector<uint8_t>::Write wb = src_data.write();
+		f->get_buffer(wb.ptr(), size);
 
 		for (int i = 0; i < 256; i++) {
 			int dst_ofs = size + i * colsize;
@@ -295,8 +295,8 @@ Ref<Resource> ResourceFormatDDS::load(const String &p_path, const String &p_orig
 		}
 
 		src_data.resize(size);
-		uint8_t *wb = src_data.ptrw();
-		f->get_buffer(wb, size);
+		PoolVector<uint8_t>::Write wb = src_data.write();
+		f->get_buffer(wb.ptr(), size);
 
 		switch (dds_format) {
 			case DDS_BGR5A1: {
@@ -373,6 +373,7 @@ Ref<Resource> ResourceFormatDDS::load(const String &p_path, const String &p_orig
 				int colcount = size/4;
 
 				for(int i=0;i<colcount;i++) {
+
 					uint8_t r = wb[i*4+1];
 					uint8_t g = wb[i*4+2];
 					uint8_t b = wb[i*4+3];
@@ -391,6 +392,7 @@ Ref<Resource> ResourceFormatDDS::load(const String &p_path, const String &p_orig
 				int colcount = size/3;
 
 				for(int i=0;i<colcount;i++) {
+
 					SWAP( wb[i*3+0],wb[i*3+2] );
 				}*/
 			} break;
@@ -409,7 +411,9 @@ Ref<Resource> ResourceFormatDDS::load(const String &p_path, const String &p_orig
 	}
 
 	Ref<Image> img = memnew(Image(width, height, mipmaps - 1, info.format, src_data));
-	Ref<ImageTexture> texture = ImageTexture::create_from_image(img);
+
+	Ref<ImageTexture> texture = memnew(ImageTexture);
+	texture->create_from_image(img);
 
 	if (r_error) {
 		*r_error = OK;
@@ -423,7 +427,7 @@ void ResourceFormatDDS::get_recognized_extensions(List<String> *p_extensions) co
 }
 
 bool ResourceFormatDDS::handles_type(const String &p_type) const {
-	return ClassDB::is_parent_class(p_type, "Texture2D");
+	return ClassDB::is_parent_class(p_type, "Texture");
 }
 
 String ResourceFormatDDS::get_resource_type(const String &p_path) const {

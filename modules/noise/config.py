@@ -4,16 +4,3 @@ def can_build(env, platform):
 
 def configure(env):
     pass
-
-
-def get_doc_classes():
-    return [
-        "FastNoiseLite",
-        "Noise",
-        "NoiseTexture2D",
-        "NoiseTexture3D",
-    ]
-
-
-def get_doc_path():
-    return "doc_classes"

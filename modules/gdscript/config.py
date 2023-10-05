@@ -1,5 +1,4 @@
 def can_build(env, platform):
-    env.module_add_dependencies("gdscript", ["jsonrpc", "websocket"], True)
     return True
 
 
@@ -11,6 +10,7 @@ def get_doc_classes():
     return [
         "@GDScript",
         "GDScript",
+        "GDScriptFunctionState",
     ]
 
 

@@ -1,31 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="PackedDataContainerRef" inherits="RefCounted" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="PackedDataContainerRef" inherits="Reference" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
-		An internal class used by [PackedDataContainer] to pack nested arrays and dictionaries.
+		Reference version of [PackedDataContainer].
 	</brief_description>
 	<description>
-		When packing nested containers using [PackedDataContainer], they are recursively packed into [PackedDataContainerRef] (only applies to [Array] and [Dictionary]). Their data can be retrieved the same way as from [PackedDataContainer].
-		[codeblock]
-		var packed = PackedDataContainer.new()
-		packed.pack([1, 2, 3, ["abc", "def"], 4, 5, 6])
-
-		for element in packed:
-		    if element is PackedDataContainerRef:
-		        for subelement in element:
-		            print("::", subelement)
-		    else:
-		        print(element)
-
-		# Prints:
-		# 1
-		# 2
-		# 3
-		# ::abc
-		# ::def
-		# 4
-		# 5
-		# 6
-		[/codeblock]
 	</description>
 	<tutorials>
 	</tutorials>
@@ -33,8 +11,9 @@
 		<method name="size" qualifiers="const">
 			<return type="int" />
 			<description>
-				Returns the size of the packed container (see [method Array.size] and [method Dictionary.size]).
 			</description>
 		</method>
 	</methods>
+	<constants>
+	</constants>
 </class>

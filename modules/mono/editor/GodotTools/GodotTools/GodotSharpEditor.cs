@@ -13,34 +13,22 @@ using GodotTools.Internals;
 using GodotTools.ProjectEditor;
 using JetBrains.Annotations;
 using static GodotTools.Internals.Globals;
-using Environment = System.Environment;
 using File = GodotTools.Utils.File;
 using OS = GodotTools.Utils.OS;
 using Path = System.IO.Path;
 
 namespace GodotTools
 {
-    public partial class GodotSharpEditor : EditorPlugin, ISerializationListener
+    public class GodotSharpEditor : EditorPlugin, ISerializationListener
     {
-        public static class Settings
-        {
-            public const string ExternalEditor = "dotnet/editor/external_editor";
-            public const string CustomExecPath = "dotnet/editor/custom_exec_path";
-            public const string CustomExecPathArgs = "dotnet/editor/custom_exec_path_args";
-            public const string VerbosityLevel = "dotnet/build/verbosity_level";
-            public const string NoConsoleLogging = "dotnet/build/no_console_logging";
-            public const string CreateBinaryLog = "dotnet/build/create_binary_log";
-        }
-
         private EditorSettings _editorSettings;
 
         private PopupMenu _menuPopup;
 
         private AcceptDialog _errorDialog;
-        private ConfirmationDialog _confirmCreateSlnDialog;
 
-        private Button _bottomPanelBtn;
-        private Button _toolBarBuildButton;
+        private ToolButton _bottomPanelBtn;
+        private ToolButton _toolBarButton;
 
         // TODO Use WeakReference once we have proper serialization.
         private WeakRef _exportPluginWeak;
@@ -51,39 +39,30 @@ namespace GodotTools
 
         public bool SkipBuildBeforePlaying { get; set; } = false;
 
-        [UsedImplicitly]
-        private bool CreateProjectSolutionIfNeeded()
-        {
-            if (!File.Exists(GodotSharpDirs.ProjectSlnPath) || !File.Exists(GodotSharpDirs.ProjectCsProjPath))
-            {
-                return CreateProjectSolution();
-            }
-
-            return true;
-        }
-
         private bool CreateProjectSolution()
         {
-            using (var pr = new EditorProgress("create_csharp_solution", "Generating solution...".TTR(), 2))
+            using (var pr = new EditorProgress("create_csharp_solution", "Generating solution...".TTR(), 3))
             {
                 pr.Step("Generating C# project...".TTR());
 
-                string csprojDir = Path.GetDirectoryName(GodotSharpDirs.ProjectCsProjPath);
-                string slnDir = Path.GetDirectoryName(GodotSharpDirs.ProjectSlnPath);
+                string resourceDir = ProjectSettings.GlobalizePath("res://");
+
+                string path = resourceDir;
                 string name = GodotSharpDirs.ProjectAssemblyName;
-                string guid = CsProjOperations.GenerateGameProject(csprojDir, name);
+
+                string guid = CsProjOperations.GenerateGameProject(path, name);
 
                 if (guid.Length > 0)
                 {
                     var solution = new DotNetSolution(name)
                     {
-                        DirectoryPath = slnDir
+                        DirectoryPath = path
                     };
 
                     var projectInfo = new DotNetSolution.ProjectInfo
                     {
                         Guid = guid,
-                        PathRelativeToSolution = Path.GetRelativePath(slnDir, GodotSharpDirs.ProjectCsProjPath),
+                        PathRelativeToSolution = name + ".csproj",
                         Configs = new List<string> { "Debug", "ExportDebug", "ExportRelease" }
                     };
 
@@ -99,10 +78,28 @@ namespace GodotTools
                         return false;
                     }
 
+                    pr.Step("Updating Godot API assemblies...".TTR());
+
+                    string debugApiAssembliesError = Internal.UpdateApiAssembliesFromPrebuilt("Debug");
+
+                    if (!string.IsNullOrEmpty(debugApiAssembliesError))
+                    {
+                        ShowErrorDialog("Failed to update the Godot API assemblies: " + debugApiAssembliesError);
+                        return false;
+                    }
+
+                    string releaseApiAssembliesError = Internal.UpdateApiAssembliesFromPrebuilt("Release");
+
+                    if (!string.IsNullOrEmpty(releaseApiAssembliesError))
+                    {
+                        ShowErrorDialog("Failed to update the Godot API assemblies: " + releaseApiAssembliesError);
+                        return false;
+                    }
+
                     pr.Step("Done".TTR());
 
                     // Here, after all calls to progress_task_step
-                    CallDeferred(nameof(_ShowDotnetFeatures));
+                    CallDeferred(nameof(_RemoveCreateSlnMenuOption));
                 }
                 else
                 {
@@ -113,42 +110,85 @@ namespace GodotTools
             }
         }
 
-        private void _ShowDotnetFeatures()
+        private void _RemoveCreateSlnMenuOption()
         {
+            _menuPopup.RemoveItem(_menuPopup.GetItemIndex((int)MenuOptions.CreateSln));
             _bottomPanelBtn.Show();
-            _toolBarBuildButton.Show();
+            _toolBarButton.Show();
         }
 
-        private void _MenuOptionPressed(long id)
+        private void _MenuOptionPressed(MenuOptions id)
         {
-            switch ((MenuOptions)id)
+            switch (id)
             {
                 case MenuOptions.CreateSln:
-                {
-                    if (File.Exists(GodotSharpDirs.ProjectSlnPath) || File.Exists(GodotSharpDirs.ProjectCsProjPath))
-                    {
-                        ShowConfirmCreateSlnDialog();
-                    }
-                    else
-                    {
-                        CreateProjectSolution();
-                    }
+                    CreateProjectSolution();
                     break;
-                }
                 default:
                     throw new ArgumentOutOfRangeException(nameof(id), id, "Invalid menu option");
             }
         }
 
-        private void BuildProjectPressed()
+        private void BuildSolutionPressed()
         {
-            if (!File.Exists(GodotSharpDirs.ProjectCsProjPath))
+            if (!File.Exists(GodotSharpDirs.ProjectSlnPath))
             {
                 if (!CreateProjectSolution())
-                    return; // Failed to create project.
+                    return; // Failed to create solution
             }
 
-            Instance.MSBuildPanel.BuildProject();
+            Instance.MSBuildPanel.BuildSolution();
+        }
+
+        private void _FileSystemDockFileMoved(string file, string newFile)
+        {
+            if (Path.GetExtension(file) == Internal.CSharpLanguageExtension)
+            {
+                ProjectUtils.RenameItemInProjectChecked(GodotSharpDirs.ProjectCsProjPath, "Compile",
+                    ProjectSettings.GlobalizePath(file), ProjectSettings.GlobalizePath(newFile));
+            }
+        }
+
+        private void _FileSystemDockFileRemoved(string file)
+        {
+            if (Path.GetExtension(file) == Internal.CSharpLanguageExtension)
+            {
+                ProjectUtils.RemoveItemFromProjectChecked(GodotSharpDirs.ProjectCsProjPath, "Compile",
+                    ProjectSettings.GlobalizePath(file));
+            }
+        }
+
+        private void _FileSystemDockFolderMoved(string oldFolder, string newFolder)
+        {
+            if (File.Exists(GodotSharpDirs.ProjectCsProjPath))
+            {
+                ProjectUtils.RenameItemsToNewFolderInProjectChecked(GodotSharpDirs.ProjectCsProjPath, "Compile",
+                    ProjectSettings.GlobalizePath(oldFolder), ProjectSettings.GlobalizePath(newFolder));
+            }
+        }
+
+        private void _FileSystemDockFolderRemoved(string oldFolder)
+        {
+            if (File.Exists(GodotSharpDirs.ProjectCsProjPath))
+            {
+                ProjectUtils.RemoveItemsInFolderFromProjectChecked(GodotSharpDirs.ProjectCsProjPath, "Compile",
+                    ProjectSettings.GlobalizePath(oldFolder));
+            }
+        }
+
+        public override void _Ready()
+        {
+            base._Ready();
+
+            MSBuildPanel.BuildOutputView.Connect(
+                nameof(BuildOutputView.BuildStateChanged), this, nameof(BuildStateChanged));
+
+            var fileSystemDock = GetEditorInterface().GetFileSystemDock();
+
+            fileSystemDock.Connect("files_moved", this, nameof(_FileSystemDockFileMoved));
+            fileSystemDock.Connect("file_removed", this, nameof(_FileSystemDockFileRemoved));
+            fileSystemDock.Connect("folder_moved", this, nameof(_FileSystemDockFolderMoved));
+            fileSystemDock.Connect("folder_removed", this, nameof(_FileSystemDockFolderRemoved));
         }
 
         private enum MenuOptions
@@ -158,16 +198,9 @@ namespace GodotTools
 
         public void ShowErrorDialog(string message, string title = "Error")
         {
-            _errorDialog.Title = title;
+            _errorDialog.WindowTitle = title;
             _errorDialog.DialogText = message;
-            _errorDialog.PopupCentered();
-        }
-
-        public void ShowConfirmCreateSlnDialog()
-        {
-            _confirmCreateSlnDialog.Title = "C# solution already exists. This will override the existing C# project file, any manual changes will be lost.".TTR();
-            _confirmCreateSlnDialog.DialogText = "Create C# solution".TTR();
-            _confirmCreateSlnDialog.PopupCentered();
+            _errorDialog.PopupCenteredMinsize();
         }
 
         private static string _vsCodePath = string.Empty;
@@ -180,73 +213,13 @@ namespace GodotTools
         [UsedImplicitly]
         public Error OpenInExternalEditor(Script script, int line, int col)
         {
-            var editorId = _editorSettings.GetSetting(Settings.ExternalEditor).As<ExternalEditorId>();
+            var editorId = (ExternalEditorId)_editorSettings.GetSetting("mono/editor/external_editor");
 
             switch (editorId)
             {
                 case ExternalEditorId.None:
                     // Not an error. Tells the caller to fallback to the global external editor settings or the built-in editor.
                     return Error.Unavailable;
-                case ExternalEditorId.CustomEditor:
-                {
-                    string file = ProjectSettings.GlobalizePath(script.ResourcePath);
-                    var execCommand = _editorSettings.GetSetting(Settings.CustomExecPath).As<string>();
-                    var execArgs = _editorSettings.GetSetting(Settings.CustomExecPathArgs).As<string>();
-                    var args = new List<string>();
-                    var from = 0;
-                    var numChars = 0;
-                    var insideQuotes = false;
-                    var hasFileFlag = false;
-
-                    execArgs = execArgs.ReplaceN("{line}", line.ToString());
-                    execArgs = execArgs.ReplaceN("{col}", col.ToString());
-                    execArgs = execArgs.StripEdges(true, true);
-                    execArgs = execArgs.Replace("\\\\", "\\");
-
-                    for (int i = 0; i < execArgs.Length; ++i)
-                    {
-                        if ((execArgs[i] == '"' && (i == 0 || execArgs[i - 1] != '\\')) && i != execArgs.Length - 1)
-                        {
-                            if (!insideQuotes)
-                            {
-                                from++;
-                            }
-                            insideQuotes = !insideQuotes;
-                        }
-                        else if ((execArgs[i] == ' ' && !insideQuotes) || i == execArgs.Length - 1)
-                        {
-                            if (i == execArgs.Length - 1 && !insideQuotes)
-                            {
-                                numChars++;
-                            }
-
-                            var arg = execArgs.Substr(from, numChars);
-                            if (arg.Contains("{file}"))
-                            {
-                                hasFileFlag = true;
-                            }
-
-                            arg = arg.ReplaceN("{file}", file);
-                            args.Add(arg);
-
-                            from = i + 1;
-                            numChars = 0;
-                        }
-                        else
-                        {
-                            numChars++;
-                        }
-                    }
-
-                    if (!hasFileFlag)
-                    {
-                        args.Add(file);
-                    }
-
-                    OS.RunProcess(execCommand, args);
-
-                    break;
-                }
                 case ExternalEditorId.VisualStudio:
                 {
                     string scriptPath = ProjectSettings.GlobalizePath(script.ResourcePath);
@@ -261,16 +234,14 @@ namespace GodotTools
 
                     try
                     {
-                        if (Godot.OS.IsStdOutVerbose())
-                            Console.WriteLine(
-                                $"Running: \"{command}\" {string.Join(" ", args.Select(a => $"\"{a}\""))}");
+                        if (Godot.OS.IsStdoutVerbose())
+                            Console.WriteLine($"Running: \"{command}\" {string.Join(" ", args.Select(a => $"\"{a}\""))}");
 
                         OS.RunProcess(command, args);
                     }
                     catch (Exception e)
                     {
-                        GD.PushError(
-                            $"Error when trying to run code editor: VisualStudio. Exception message: '{e.Message}'");
+                        GD.PushError($"Error when trying to run code editor: VisualStudio. Exception message: '{e.Message}'");
                     }
 
                     break;
@@ -280,7 +251,7 @@ namespace GodotTools
                 case ExternalEditorId.Rider:
                 {
                     string scriptPath = ProjectSettings.GlobalizePath(script.ResourcePath);
-                    RiderPathManager.OpenFile(GodotSharpDirs.ProjectSlnPath, scriptPath, line + 1, col);
+                    RiderPathManager.OpenFile(GodotSharpDirs.ProjectSlnPath, scriptPath, line);
                     return Error.Ok;
                 }
                 case ExternalEditorId.MonoDevelop:
@@ -308,16 +279,16 @@ namespace GodotTools
 
                     var args = new List<string>();
 
-                    bool macOSAppBundleInstalled = false;
+                    bool osxAppBundleInstalled = false;
 
-                    if (OS.IsMacOS)
+                    if (OS.IsOSX)
                     {
                         // The package path is '/Applications/Visual Studio Code.app'
                         const string vscodeBundleId = "com.microsoft.VSCode";
 
-                        macOSAppBundleInstalled = Internal.IsMacOSAppBundleInstalled(vscodeBundleId);
+                        osxAppBundleInstalled = Internal.IsOsxAppBundleInstalled(vscodeBundleId);
 
-                        if (macOSAppBundleInstalled)
+                        if (osxAppBundleInstalled)
                         {
                             args.Add("-b");
                             args.Add(vscodeBundleId);
@@ -333,14 +304,15 @@ namespace GodotTools
                         }
                     }
 
-                    args.Add(Path.GetDirectoryName(GodotSharpDirs.ProjectSlnPath));
+                    string resourcePath = ProjectSettings.GlobalizePath("res://");
+                    args.Add(resourcePath);
 
                     string scriptPath = ProjectSettings.GlobalizePath(script.ResourcePath);
 
                     if (line >= 0)
                     {
                         args.Add("-g");
-                        args.Add($"{scriptPath}:{line + 1}:{col + 1}");
+                        args.Add($"{scriptPath}:{line}:{col}");
                     }
                     else
                     {
@@ -349,15 +321,15 @@ namespace GodotTools
 
                     string command;
 
-                    if (OS.IsMacOS)
+                    if (OS.IsOSX)
                     {
-                        if (!macOSAppBundleInstalled && string.IsNullOrEmpty(_vsCodePath))
+                        if (!osxAppBundleInstalled && string.IsNullOrEmpty(_vsCodePath))
                         {
                             GD.PushError("Cannot find code editor: VSCode");
                             return Error.FileNotFound;
                         }
 
-                        command = macOSAppBundleInstalled ? "/usr/bin/open" : _vsCodePath;
+                        command = osxAppBundleInstalled ? "/usr/bin/open" : _vsCodePath;
                     }
                     else
                     {
@@ -391,10 +363,11 @@ namespace GodotTools
         [UsedImplicitly]
         public bool OverridesExternalEditor()
         {
-            return _editorSettings.GetSetting(Settings.ExternalEditor).As<ExternalEditorId>() != ExternalEditorId.None;
+            return (ExternalEditorId)_editorSettings.GetSetting("mono/editor/external_editor") !=
+                   ExternalEditorId.None;
         }
 
-        public override bool _Build()
+        public override bool Build()
         {
             return BuildManager.EditorBuildCallback();
         }
@@ -407,7 +380,7 @@ namespace GodotTools
                 DotNetSolution.MigrateFromOldConfigNames(GodotSharpDirs.ProjectSlnPath);
 
                 var msbuildProject = ProjectUtils.Open(GodotSharpDirs.ProjectCsProjPath)
-                                     ?? throw new InvalidOperationException("Cannot open C# project.");
+                                     ?? throw new Exception("Cannot open C# project");
 
                 // NOTE: The order in which changes are made to the project is important
 
@@ -436,101 +409,61 @@ namespace GodotTools
                 _bottomPanelBtn.Icon = MSBuildPanel.BuildOutputView.BuildStateIcon;
         }
 
-        public override void _EnablePlugin()
+        public override void EnablePlugin()
         {
-            base._EnablePlugin();
-
-            ProjectSettings.SettingsChanged += GodotSharpDirs.DetermineProjectLocation;
+            base.EnablePlugin();
 
             if (Instance != null)
                 throw new InvalidOperationException();
             Instance = this;
 
-            var dotNetSdkSearchVersion = Environment.Version;
+            var editorInterface = GetEditorInterface();
+            var editorBaseControl = editorInterface.GetBaseControl();
 
-            // First we try to find the .NET Sdk ourselves to make sure we get the
-            // correct version first (`RegisterDefaults` always picks the latest).
-            if (DotNetFinder.TryFindDotNetSdk(dotNetSdkSearchVersion, out var sdkVersion, out string sdkPath))
-            {
-                if (Godot.OS.IsStdOutVerbose())
-                    Console.WriteLine($"Found .NET Sdk version '{sdkVersion}': {sdkPath}");
-
-                ProjectUtils.MSBuildLocatorRegisterMSBuildPath(sdkPath);
-            }
-            else
-            {
-                try
-                {
-                    ProjectUtils.MSBuildLocatorRegisterDefaults(out sdkVersion, out sdkPath);
-                    if (Godot.OS.IsStdOutVerbose())
-                        Console.WriteLine($"Found .NET Sdk version '{sdkVersion}': {sdkPath}");
-                }
-                catch (InvalidOperationException e)
-                {
-                    if (Godot.OS.IsStdOutVerbose())
-                        GD.PrintErr(e.ToString());
-                    GD.PushError($".NET Sdk not found. The required version is '{dotNetSdkSearchVersion}'.");
-                }
-            }
-
-            var editorBaseControl = EditorInterface.Singleton.GetBaseControl();
-
-            _editorSettings = EditorInterface.Singleton.GetEditorSettings();
+            _editorSettings = editorInterface.GetEditorSettings();
 
             _errorDialog = new AcceptDialog();
             editorBaseControl.AddChild(_errorDialog);
 
-            _confirmCreateSlnDialog = new ConfirmationDialog();
-            _confirmCreateSlnDialog.Confirmed += () => CreateProjectSolution();
-            editorBaseControl.AddChild(_confirmCreateSlnDialog);
-
             MSBuildPanel = new MSBuildPanel();
-            MSBuildPanel.Ready += () =>
-                MSBuildPanel.BuildOutputView.BuildStateChanged += BuildStateChanged;
             _bottomPanelBtn = AddControlToBottomPanel(MSBuildPanel, "MSBuild".TTR());
 
             AddChild(new HotReloadAssemblyWatcher { Name = "HotReloadAssemblyWatcher" });
 
             _menuPopup = new PopupMenu();
             _menuPopup.Hide();
+            _menuPopup.SetAsToplevel(true);
 
             AddToolSubmenuItem("C#", _menuPopup);
 
-            _toolBarBuildButton = new Button
+            var buildSolutionShortcut = (ShortCut)EditorShortcut("mono/build_solution");
+
+            _toolBarButton = new ToolButton
             {
-                Flat = true,
-                Icon = editorBaseControl.GetThemeIcon("BuildCSharp", "EditorIcons"),
+                Text = "Build",
+                HintTooltip = "Build Solution".TTR(),
                 FocusMode = Control.FocusModeEnum.None,
-                Shortcut = EditorDefShortcut("mono/build_solution", "Build Project".TTR(), (Key)KeyModifierMask.MaskAlt | Key.B),
-                ShortcutInTooltip = true,
+                Shortcut = buildSolutionShortcut,
+                ShortcutInTooltip = true
             };
-            EditorShortcutOverride("mono/build_solution", "macos", (Key)KeyModifierMask.MaskMeta | (Key)KeyModifierMask.MaskCtrl | Key.B);
+            _toolBarButton.Connect("pressed", this, nameof(BuildSolutionPressed));
+            AddControlToContainer(CustomControlContainer.Toolbar, _toolBarButton);
 
-            _toolBarBuildButton.Pressed += BuildProjectPressed;
-            Internal.EditorPlugin_AddControlToEditorRunBar(_toolBarBuildButton);
-            // Move Build button so it appears to the left of the Play button.
-            _toolBarBuildButton.GetParent().MoveChild(_toolBarBuildButton, 0);
-
-            if (File.Exists(GodotSharpDirs.ProjectCsProjPath))
+            if (File.Exists(GodotSharpDirs.ProjectSlnPath) && File.Exists(GodotSharpDirs.ProjectCsProjPath))
             {
                 ApplyNecessaryChangesToSolution();
             }
             else
             {
                 _bottomPanelBtn.Hide();
-                _toolBarBuildButton.Hide();
+                _toolBarButton.Hide();
+                _menuPopup.AddItem("Create C# solution".TTR(), (int)MenuOptions.CreateSln);
             }
-            _menuPopup.AddItem("Create C# solution".TTR(), (int)MenuOptions.CreateSln);
 
-            _menuPopup.IdPressed += _MenuOptionPressed;
+            _menuPopup.Connect("id_pressed", this, nameof(_MenuOptionPressed));
 
             // External editor settings
-            EditorDef(Settings.ExternalEditor, Variant.From(ExternalEditorId.None));
-            EditorDef(Settings.CustomExecPath, "");
-            EditorDef(Settings.CustomExecPathArgs, "");
-            EditorDef(Settings.VerbosityLevel, Variant.From(VerbosityLevelId.Normal));
-            EditorDef(Settings.NoConsoleLogging, false);
-            EditorDef(Settings.CreateBinaryLog, false);
+            EditorDef("mono/editor/external_editor", ExternalEditorId.None);
 
             string settingsHintStr = "Disabled";
 
@@ -539,62 +472,34 @@ namespace GodotTools
                 settingsHintStr += $",Visual Studio:{(int)ExternalEditorId.VisualStudio}" +
                                    $",MonoDevelop:{(int)ExternalEditorId.MonoDevelop}" +
                                    $",Visual Studio Code:{(int)ExternalEditorId.VsCode}" +
-                                   $",JetBrains Rider and Fleet:{(int)ExternalEditorId.Rider}" +
-                                   $",Custom:{(int)ExternalEditorId.CustomEditor}";
+                                   $",JetBrains Rider:{(int)ExternalEditorId.Rider}";
             }
-            else if (OS.IsMacOS)
+            else if (OS.IsOSX)
             {
                 settingsHintStr += $",Visual Studio:{(int)ExternalEditorId.VisualStudioForMac}" +
                                    $",MonoDevelop:{(int)ExternalEditorId.MonoDevelop}" +
                                    $",Visual Studio Code:{(int)ExternalEditorId.VsCode}" +
-                                   $",JetBrains Rider and Fleet:{(int)ExternalEditorId.Rider}" +
-                                   $",Custom:{(int)ExternalEditorId.CustomEditor}";
+                                   $",JetBrains Rider:{(int)ExternalEditorId.Rider}";
             }
             else if (OS.IsUnixLike)
             {
                 settingsHintStr += $",MonoDevelop:{(int)ExternalEditorId.MonoDevelop}" +
                                    $",Visual Studio Code:{(int)ExternalEditorId.VsCode}" +
-                                   $",JetBrains Rider and Fleet:{(int)ExternalEditorId.Rider}" +
-                                   $",Custom:{(int)ExternalEditorId.CustomEditor}";
+                                   $",JetBrains Rider:{(int)ExternalEditorId.Rider}";
             }
 
             _editorSettings.AddPropertyInfo(new Godot.Collections.Dictionary
             {
-                ["type"] = (int)Variant.Type.Int,
-                ["name"] = Settings.ExternalEditor,
-                ["hint"] = (int)PropertyHint.Enum,
+                ["type"] = Variant.Type.Int,
+                ["name"] = "mono/editor/external_editor",
+                ["hint"] = PropertyHint.Enum,
                 ["hint_string"] = settingsHintStr
             });
-
-            _editorSettings.AddPropertyInfo(new Godot.Collections.Dictionary
-            {
-                ["type"] = (int)Variant.Type.String,
-                ["name"] = Settings.CustomExecPath,
-                ["hint"] = (int)PropertyHint.GlobalFile,
-            });
-
-            _editorSettings.AddPropertyInfo(new Godot.Collections.Dictionary
-            {
-                ["type"] = (int)Variant.Type.String,
-                ["name"] = Settings.CustomExecPathArgs,
-            });
-            _editorSettings.SetInitialValue(Settings.CustomExecPathArgs, "{file}", false);
-
-            var verbosityLevels = Enum.GetValues<VerbosityLevelId>().Select(level => $"{Enum.GetName(level)}:{(int)level}");
-            _editorSettings.AddPropertyInfo(new Godot.Collections.Dictionary
-            {
-                ["type"] = (int)Variant.Type.Int,
-                ["name"] = Settings.VerbosityLevel,
-                ["hint"] = (int)PropertyHint.Enum,
-                ["hint_string"] = string.Join(",", verbosityLevels),
-            });
-
-            OnSettingsChanged();
-            _editorSettings.SettingsChanged += OnSettingsChanged;
 
             // Export plugin
             var exportPlugin = new ExportPlugin();
             AddExportPlugin(exportPlugin);
+            exportPlugin.RegisterExportSettings();
             _exportPluginWeak = WeakRef(exportPlugin);
 
             BuildManager.Initialize();
@@ -604,43 +509,22 @@ namespace GodotTools
             AddChild(GodotIdeManager);
         }
 
-        public override void _DisablePlugin()
-        {
-            base._DisablePlugin();
-
-            _editorSettings.SettingsChanged -= OnSettingsChanged;
-        }
-
-        private void OnSettingsChanged()
-        {
-            // We want to force NoConsoleLogging to true when the VerbosityLevel is at Detailed or above.
-            // At that point, there's so much info logged that it doesn't make sense to display it in
-            // the tiny editor window, and it'd make the editor hang or crash anyway.
-            var verbosityLevel = _editorSettings.GetSetting(Settings.VerbosityLevel).As<VerbosityLevelId>();
-            var hideConsoleLog = (bool)_editorSettings.GetSetting(Settings.NoConsoleLogging);
-            if (verbosityLevel >= VerbosityLevelId.Detailed && !hideConsoleLog)
-                _editorSettings.SetSetting(Settings.NoConsoleLogging, Variant.From(true));
-        }
-
         protected override void Dispose(bool disposing)
         {
-            if (disposing)
+            base.Dispose(disposing);
+
+            if (_exportPluginWeak != null)
             {
-                if (IsInstanceValid(_exportPluginWeak))
-                {
-                    // We need to dispose our export plugin before the editor destroys EditorSettings.
-                    // Otherwise, if the GC disposes it at a later time, EditorExportPlatformAndroid
-                    // will be freed after EditorSettings already was, and its device polling thread
-                    // will try to access the EditorSettings singleton, resulting in null dereferencing.
-                    (_exportPluginWeak.GetRef().AsGodotObject() as ExportPlugin)?.Dispose();
+                // We need to dispose our export plugin before the editor destroys EditorSettings.
+                // Otherwise, if the GC disposes it at a later time, EditorExportPlatformAndroid
+                // will be freed after EditorSettings already was, and its device polling thread
+                // will try to access the EditorSettings singleton, resulting in null dereferencing.
+                (_exportPluginWeak.GetRef() as ExportPlugin)?.Dispose();
 
-                    _exportPluginWeak.Dispose();
-                }
-
-                GodotIdeManager?.Dispose();
+                _exportPluginWeak.Dispose();
             }
 
-            base.Dispose(disposing);
+            GodotIdeManager?.Dispose();
         }
 
         public void OnBeforeSerialize()
@@ -657,10 +541,8 @@ namespace GodotTools
         public static GodotSharpEditor Instance { get; private set; }
 
         [UsedImplicitly]
-        private static IntPtr InternalCreateInstance(IntPtr unmanagedCallbacks, int unmanagedCallbacksSize)
+        private GodotSharpEditor()
         {
-            Internal.Initialize(unmanagedCallbacks, unmanagedCallbacksSize);
-            return new GodotSharpEditor().NativeInstance;
         }
     }
 }

@@ -1,89 +1,75 @@
-/**************************************************************************/
-/*  mono_gc_handle.h                                                      */
-/**************************************************************************/
-/*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                        */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                              */
-/*                                                                        */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                        */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
+/*************************************************************************/
+/*  mono_gc_handle.h                                                     */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #ifndef MONO_GC_HANDLE_H
 #define MONO_GC_HANDLE_H
 
-#include "core/object/ref_counted.h"
+#include <mono/jit/jit.h>
 
-namespace gdmono {
+#include "core/reference.h"
 
-enum class GCHandleType : char {
-	NIL,
-	STRONG_HANDLE,
-	WEAK_HANDLE
-};
-}
+class MonoGCHandle : public Reference {
+	GDCLASS(MonoGCHandle, Reference);
 
-extern "C" {
-struct GCHandleIntPtr {
-	void *value;
+	bool released;
+	bool weak;
+	uint32_t handle;
 
-	_FORCE_INLINE_ bool operator==(const GCHandleIntPtr &p_other) { return value == p_other.value; }
-	_FORCE_INLINE_ bool operator!=(const GCHandleIntPtr &p_other) { return value != p_other.value; }
+public:
+	enum HandleType {
+		STRONG_HANDLE,
+		WEAK_HANDLE
+	};
 
-	GCHandleIntPtr() = delete;
-};
-}
+	static uint32_t new_strong_handle(MonoObject *p_object);
+	static uint32_t new_strong_handle_pinned(MonoObject *p_object);
+	static uint32_t new_weak_handle(MonoObject *p_object);
+	static void free_handle(uint32_t p_gchandle);
 
-static_assert(sizeof(GCHandleIntPtr) == sizeof(void *));
+	static Ref<MonoGCHandle> create_strong(MonoObject *p_object);
+	static Ref<MonoGCHandle> create_weak(MonoObject *p_object);
 
-// Manual release of the GC handle must be done when using this struct
-struct MonoGCHandleData {
-	GCHandleIntPtr handle = { nullptr };
-	gdmono::GCHandleType type = gdmono::GCHandleType::NIL;
+	_FORCE_INLINE_ bool is_released() { return released; }
+	_FORCE_INLINE_ bool is_weak() { return weak; }
 
-	_FORCE_INLINE_ bool is_released() const { return !handle.value; }
-	_FORCE_INLINE_ bool is_weak() const { return type == gdmono::GCHandleType::WEAK_HANDLE; }
-	_FORCE_INLINE_ GCHandleIntPtr get_intptr() const { return handle; }
+	_FORCE_INLINE_ MonoObject *get_target() const { return released ? NULL : mono_gchandle_get_target(handle); }
 
+	_FORCE_INLINE_ void set_handle(uint32_t p_handle, HandleType p_handle_type) {
+		released = false;
+		weak = p_handle_type == WEAK_HANDLE;
+		handle = p_handle;
+	}
 	void release();
 
-	static void free_gchandle(GCHandleIntPtr p_gchandle);
-
-	void operator=(const MonoGCHandleData &p_other) {
-#ifdef DEBUG_ENABLED
-		CRASH_COND(!is_released());
-#endif
-		handle = p_other.handle;
-		type = p_other.type;
-	}
-
-	MonoGCHandleData(const MonoGCHandleData &) = default;
-
-	MonoGCHandleData() {}
-
-	MonoGCHandleData(GCHandleIntPtr p_handle, gdmono::GCHandleType p_type) :
-			handle(p_handle),
-			type(p_type) {
-	}
+	MonoGCHandle(uint32_t p_handle, HandleType p_handle_type);
+	~MonoGCHandle();
 };
 
 #endif // MONO_GC_HANDLE_H

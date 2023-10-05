@@ -1,5 +1,6 @@
+<<<<<<<< HEAD:modules/openxr/extensions/openxr_ml2_controller_extension.h
 /**************************************************************************/
-/*  lightmap_denoiser.h                                                   */
+/*  openxr_ml2_controller_extension.h                                     */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,10 +29,45 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
+#ifndef OPENXR_ML2_CONTROLLER_EXTENSION_H
+#define OPENXR_ML2_CONTROLLER_EXTENSION_H
+
+#include "openxr_extension_wrapper.h"
+========
+/*************************************************************************/
+/*  lightmap_denoiser.h                                                  */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
+
 #ifndef LIGHTMAP_DENOISER_H
 #define LIGHTMAP_DENOISER_H
 
-#include "core/object/class_db.h"
+#include "core/class_db.h"
 #include "scene/3d/lightmapper.h"
 
 struct OIDNDeviceImpl;
@@ -41,11 +77,26 @@ class LightmapDenoiserOIDN : public LightmapDenoiser {
 
 protected:
 	void *device = nullptr;
+>>>>>>>> 6fed1ffa313c6760fa88b368ae580378daaef0f0:modules/denoise/lightmap_denoiser.h
 
+class OpenXRML2ControllerExtension : public OpenXRExtensionWrapper {
 public:
+<<<<<<<< HEAD:modules/openxr/extensions/openxr_ml2_controller_extension.h
+	virtual HashMap<String, bool *> get_requested_extensions() override;
+
+	bool is_available();
+
+	virtual void on_register_metadata() override;
+
+private:
+	bool available = false;
+};
+
+#endif // OPENXR_ML2_CONTROLLER_EXTENSION_H
+========
 	static LightmapDenoiser *create_oidn_denoiser();
 
-	Ref<Image> denoise_image(const Ref<Image> &p_image) override;
+	Ref<Image> denoise_image(const Ref<Image> &p_image);
 
 	static void make_default_denoiser();
 
@@ -54,3 +105,4 @@ public:
 };
 
 #endif // LIGHTMAP_DENOISER_H
+>>>>>>>> 6fed1ffa313c6760fa88b368ae580378daaef0f0:modules/denoise/lightmap_denoiser.h

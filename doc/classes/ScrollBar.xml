@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="ScrollBar" inherits="Range" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="ScrollBar" inherits="Range" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
-		Abstract base class for scrollbars.
+		Base class for scroll bars.
 	</brief_description>
 	<description>
-		Abstract base class for scrollbars, typically used to navigate through content that extends beyond the visible area of a control. Scrollbars are [Range]-based controls.
+		Scrollbars are a [Range]-based [Control], that display a draggable area (the size of the page). Horizontal ([HScrollBar]) and Vertical ([VScrollBar]) versions are available.
 	</description>
 	<tutorials>
 	</tutorials>
+	<methods>
+	</methods>
 	<members>
 		<member name="custom_step" type="float" setter="set_custom_step" getter="get_custom_step" default="-1.0">
 			Overrides the step used when clicking increment and decrement buttons or when using arrow keys when the [ScrollBar] is focused.
 		</member>
+		<member name="size_flags_vertical" type="int" setter="set_v_size_flags" getter="get_v_size_flags" overrides="Control" default="0" />
 		<member name="step" type="float" setter="set_step" getter="get_step" overrides="Range" default="0.0" />
 	</members>
 	<signals>
@@ -21,4 +24,6 @@
 			</description>
 		</signal>
 	</signals>
+	<constants>
+	</constants>
 </class>

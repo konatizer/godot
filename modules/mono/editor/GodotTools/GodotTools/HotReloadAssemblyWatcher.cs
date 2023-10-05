@@ -1,17 +1,16 @@
 using Godot;
 using GodotTools.Internals;
-using JetBrains.Annotations;
 using static GodotTools.Internals.Globals;
 
 namespace GodotTools
 {
-    public partial class HotReloadAssemblyWatcher : Node
+    public class HotReloadAssemblyWatcher : Node
     {
         private Timer _watchTimer;
 
         public override void _Notification(int what)
         {
-            if (what == Node.NotificationWMWindowFocusIn)
+            if (what == MainLoop.NotificationWmFocusIn)
             {
                 RestartTimer();
 
@@ -26,7 +25,6 @@ namespace GodotTools
                 Internal.ReloadAssemblies(softReload: false);
         }
 
-        [UsedImplicitly]
         public void RestartTimer()
         {
             _watchTimer.Stop();
@@ -40,9 +38,9 @@ namespace GodotTools
             _watchTimer = new Timer
             {
                 OneShot = false,
-                WaitTime = 0.5f
+                WaitTime = (float)EditorDef("mono/assembly_watch_interval_sec", 0.5)
             };
-            _watchTimer.Timeout += TimerTimeout;
+            _watchTimer.Connect("timeout", this, nameof(TimerTimeout));
             AddChild(_watchTimer);
             _watchTimer.Start();
         }
